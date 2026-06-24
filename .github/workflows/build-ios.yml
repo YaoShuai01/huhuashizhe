@@ -1,0 +1,71 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch:  # 手动触发
+  push:
+    branches: [main, master]
+    paths:
+      - 'ios/**'
+      - 'lib/**'
+      - 'pubspec.yaml'
+
+jobs:
+  build-ios:
+    name: Build iOS IPA
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.3'
+          channel: 'stable'
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Install CocoaPods dependencies
+        run: cd ios && pod install --repo-update
+
+      - name: Build iOS (no codesign)
+        run: |
+          flutter build ios --release \
+            --no-codesign \
+            --obfuscate \
+            --split-debug-info=build/ios-flutter-info
+
+      - name: Archive and export IPA
+        run: |
+          # 创建导出目录
+          mkdir -p build/ipa/Payload
+          # 复制 .app 到 Payload
+          cp -r build/ios/iphoneos/Runner.app build/ipa/Payload/
+          # 打包为 .zip 然后重命名为 .ipa
+          cd build/ipa
+          zip -r -q ../护花使者.ipa Payload
+          cd ..
+          echo "IPA created at build/护花使者.ipa"
+          ls -lh build/护花使者.ipa
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 护花使者-iOS-${{ github.run_number }}
+          path: build/护花使者.ipa
+          retention-days: 30
+
+      - name: Build summary
+        if: always()
+        run: |
+          echo "## 构建结果" >> $GITHUB_STEP_SUMMARY
+          if [ -f "build/护花使者.ipa" ]; then
+            echo "- **状态**: 成功" >> $GITHUB_STEP_SUMMARY
+            size=$(ls -lh build/护花使者.ipa | awk '{print $5}')
+            echo "- **文件大小**: $size" >> $GITHUB_STEP_SUMMARY
+            echo "- **下载方式**: 在 Actions 页面此运行记录的 Artifacts 区域下载" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **状态**: 失败，请检查日志" >> $GITHUB_STEP_SUMMARY
+          fi
