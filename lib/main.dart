@@ -58,10 +58,15 @@ class _UpdateCheckerState extends ConsumerState<_UpdateChecker> {
   Widget build(BuildContext context) {
     final state = ref.watch(updateProvider);
     ref.listen<UpdateState>(updateProvider, (prev, next) {
+      // 检测到新版本时，使用根导航器的context弹出更新对话框
       if (next.status == UpdateStatus.updateAvailable && prev?.status != UpdateStatus.updateAvailable) {
-        UpdateDialog.show(context);
+        // 延迟一帧确保MaterialApp已完全构建
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (rootNavigatorKey.currentContext != null && mounted) {
+            UpdateDialog.show(rootNavigatorKey.currentContext!);
+          }
+        });
       }
-      // upToDate / noRelease 不弹窗，静默处理
     });
     return widget.child;
   }

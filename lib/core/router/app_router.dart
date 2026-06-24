@@ -8,11 +8,14 @@ import '../../features/presets/widgets/preset_form_page.dart';
 import '../../features/classroom/widgets/course_detail_page.dart';
 import '../../features/mission/pages/map_select_page.dart';
 import '../../features/mine/widgets/device_scan_page.dart';
-import '../../features/settings/pages/settings_page.dart';
 import '../../features/mine/pages/mine_sub_pages.dart';
+import '../../features/settings/pages/settings_page.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
+
+/// 获取根导航器key（供更新弹窗等全局弹窗使用）
+GlobalKey<NavigatorState> get rootNavigatorKey => _rootNavigatorKey;
 
 final appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,

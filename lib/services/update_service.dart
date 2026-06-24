@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:dio/dio.dart';
 
 import '../core/constants/app_version.dart' show appVersion;
+import 'apk_installer.dart';
 const String _githubReleaseApi = 'https://api.github.com/repos/YaoShuai01/huhuashizhe/releases/latest';
 
 class UpdateInfo {
@@ -117,5 +119,8 @@ class UpdateService {
     }
   }
 
-  Future<void> installUpdate(String filePath) async {}
+  /// 安装已下载的APK文件（调用系统安装器）
+  Future<bool> installUpdate(String filePath) async {
+    return await ApkInstaller.install(filePath);
+  }
 }
