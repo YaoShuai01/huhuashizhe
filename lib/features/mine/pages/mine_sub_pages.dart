@@ -367,6 +367,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v1.0.3',
+        'date': '2025-06-24',
+        'content': [
+          '修复自动更新弹窗不显示的问题（使用根导航器context）',
+          '修复下载后安装按钮无效（新增MethodChannel原生安装）',
+          '仓库改为公开，GitHub Release API可正常访问',
+        ],
+      },
+      {
         'version': 'v1.0.2',
         'date': '2025-06-24',
         'content': [
