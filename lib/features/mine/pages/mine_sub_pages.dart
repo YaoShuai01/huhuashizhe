@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/update_service.dart';
 import '../../../providers/update_provider.dart';
 import '../../../widgets/update_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-const String AppVersion = '1.0.1';
+import '../../../core/constants/app_version.dart' show appVersion;
 
 class AccountPage extends StatefulWidget {
   const AccountPage({super.key});
@@ -174,7 +175,7 @@ class AboutPage extends ConsumerWidget {
                   const SizedBox(height: 16),
                   const Text('护花使者', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
-                  const Text('v$AppVersion', style: TextStyle(color: AppColors.textHint, fontSize: 14)),
+                  const Text('v$appVersion', style: TextStyle(color: AppColors.textHint, fontSize: 14)),
                   const SizedBox(height: 4),
                   const Text('智能植保无人机操控平台',
                       style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
@@ -184,22 +185,9 @@ class AboutPage extends ConsumerWidget {
             const SizedBox(height: 32),
             const Divider(),
             ListTile(
-              title: const Text('版本更新'),
+              title: const Text('版本信息'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () async {
-                final notifier = ref.read(updateProvider.notifier);
-                await notifier.checkForUpdate();
-                if (context.mounted) {
-                  final state = ref.read(updateProvider);
-                  if (state.status == UpdateStatus.updateAvailable) {
-                    UpdateDialog.show(context);
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('当前已是最新版本')),
-                    );
-                  }
-                }
-              },
+              onTap: () => context.push('/mine/version'),
             ),
             ListTile(
               title: const Text('功能介绍'),
@@ -289,6 +277,187 @@ class LegalPage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class VersionInfoPage extends ConsumerWidget {
+  const VersionInfoPage({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('版本信息')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildCurrentVersionCard(),
+            const SizedBox(height: 16),
+            _buildCheckUpdateButton(context, ref),
+            const SizedBox(height: 24),
+            const Text('更新日志', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            ..._buildUpdateHistory(),
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCurrentVersionCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(colors: [AppColors.primary, AppColors.primaryLight]),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          const Text('当前版本', style: TextStyle(color: Colors.white70, fontSize: 13)),
+          const SizedBox(height: 8),
+          Text('v$appVersion', style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          const Text('智能植保无人机操控平台', style: TextStyle(color: Colors.white70, fontSize: 13)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCheckUpdateButton(BuildContext context, WidgetRef ref) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: () async {
+          final notifier = ref.read(updateProvider.notifier);
+          await notifier.checkForUpdate();
+          if (context.mounted) {
+            final state = ref.read(updateProvider);
+            if (state.status == UpdateStatus.updateAvailable) {
+              UpdateDialog.show(context);
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('当前已是最新版本')),
+              );
+            }
+          }
+        },
+        icon: const Icon(Icons.sync),
+        label: const Text('检查更新'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.primary,
+          side: const BorderSide(color: AppColors.primary),
+          padding: const EdgeInsets.symmetric(vertical: 14),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _buildUpdateHistory() {
+    final histories = [
+      {
+        'version': 'v1.0.2',
+        'date': '2025-06-24',
+        'content': [
+          '修复地图渲染空白问题，添加多瓦片源备用方案',
+          '优化航点标记样式（半透明、无数字标识）',
+          '子页面隐藏底部Tab栏导航',
+          '新增「版本信息」页面（含更新日志列表）',
+          '进入主页即时检测更新（去除3秒延迟）',
+          '本地数据持久化存储（更新不丢失）',
+        ],
+      },
+      {
+        'version': 'v1.0.1',
+        'date': '2025-06-24',
+        'content': [
+          '修复地图空白：十字准心移至Stack覆盖层',
+          '航点标记优化：仅第一个航点显示标记',
+          '子页面隐藏底部Tab栏：10个子页面路由外置',
+          '新增在线更新功能（GitHub Release检测）',
+          '精美卡片式更新弹窗（版本对比+进度条）',
+        ],
+      },
+      {
+        'version': 'v1.0.0',
+        'date': '2025-06-23',
+        'content': [
+          '初始版本发布',
+          '首页：天气信息、设备连接、快捷操作、任务统计',
+          '预设管理：搜索、筛选、CRUD完整功能、AI标签',
+          '小课堂：9大分类、6门内置课程、课程详情',
+          '我的：账户、设备扫描、设置、帮助、关于等子页面',
+          '飞行任务流程：地图选点→AI调优→任务确认→实时监控',
+          '深色模式支持',
+        ],
+      },
+    ];
+
+    return histories.map((h) => _buildVersionItem(h)).toList();
+  }
+
+  Widget _buildVersionItem(Map<String, dynamic> item) {
+    final isExpanded = ValueNotifier<bool>(false);
+    return ValueListenableBuilder<bool>(
+      valueListenable: isExpanded,
+      builder: (context, expanded, _) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppColors.surfaceVariant),
+          ),
+          child: Column(
+            children: [
+              InkWell(
+                onTap: () => isExpanded.value = !isExpanded.value,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(item['version'], style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13)),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(child: Text(item['date'], style: const TextStyle(color: AppColors.textHint, fontSize: 13))),
+                      Icon(expanded ? Icons.expand_less : Icons.expand_more, color: AppColors.textHint, size: 20),
+                    ],
+                  ),
+                ),
+              ),
+              if (expanded) ...[
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: (item['content'] as List).map((c) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('• ', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                          Expanded(child: Text(c, style: const TextStyle(fontSize: 13, height: 1.5))),
+                        ],
+                      ),
+                    )).toList(),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }

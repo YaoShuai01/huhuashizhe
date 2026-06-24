@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 
-const String currentVersion = '1.0.1';
+import '../core/constants/app_version.dart' show appVersion;
 const String _githubReleaseApi = 'https://api.github.com/repos/YaoShuai01/huhuashizhe/releases/latest';
 
 class UpdateInfo {
@@ -70,7 +70,7 @@ class UpdateService {
 
   bool _isNewerVersion(String remoteVersion) {
     final remoteParts = remoteVersion.split('.').map((e) => int.tryParse(e) ?? 0).toList();
-    final localParts = currentVersion.split('.').map((e) => int.tryParse(e) ?? 0).toList();
+    final localParts = appVersion.split('.').map((e) => int.tryParse(e) ?? 0).toList();
 
     for (var i = 0; i < 3; i++) {
       final remote = i < remoteParts.length ? remoteParts[i] : 0;

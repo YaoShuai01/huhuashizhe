@@ -165,7 +165,9 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
       body: Stack(
         children: [
           // 地图主体（children 只包含图层组件）
-          FlutterMap(
+          Container(
+            color: const Color(0xFFE8E8E8),
+            child: FlutterMap(
             mapController: _mapController,
             options: MapOptions(
               initialCenter: _defaultCenter,
@@ -214,8 +216,8 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
                   markers: [
                     Marker(
                       point: _waypoints.first,
-                      width: 36,
-                      height: 36,
+                      width: 24,
+                      height: 24,
                       child: GestureDetector(
                         onTap: () {
                           showModalBottomSheet(
@@ -241,39 +243,28 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
                             ),
                           );
                         },
-                        child: Stack(
-                          alignment: Alignment.center,
-                          children: [
-                            // 绿色圆点
-                            Container(
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: AppColors.primary,
-                                border: Border.all(color: Colors.white, width: 2),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.3),
-                                    blurRadius: 4,
-                                  ),
-                                ],
+                        child: Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppColors.primary.withValues(alpha: 0.6),
+                            border: Border.all(color: Colors.white.withValues(alpha: 0.8), width: 1.5),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.2),
+                                blurRadius: 3,
+                                offset: const Offset(0, 1),
                               ),
-                            ),
-                            // 序号文字
-                            const Text(
-                              '1',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ],
                 ),
             ],
+          ),
           ),
 
           // 十字准心覆盖层（在 Stack 中，不在 FlutterMap children 中）

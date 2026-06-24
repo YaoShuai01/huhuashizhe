@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
+import 'data/local_database.dart';
 import 'providers/update_provider.dart';
 import 'widgets/update_dialog.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await LocalDatabase().init(); // 初始化本地数据持久化
   runApp(
     const ProviderScope(
       child: HuHuaShiZheApp(),
@@ -45,11 +47,10 @@ class _UpdateCheckerState extends ConsumerState<_UpdateChecker> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Future.delayed(const Duration(seconds: 3), () {
-        if (mounted) {
-          ref.read(updateProvider.notifier).checkForUpdate();
-        }
-      });
+      // 进入主页后立即检查更新，不等待
+      if (mounted) {
+        ref.read(updateProvider.notifier).checkForUpdate();
+      }
     });
   }
 

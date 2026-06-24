@@ -114,6 +114,11 @@ final appRouter = GoRouter(
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const AboutPage(),
     ),
+    GoRoute(
+      path: '/mine/version',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const VersionInfoPage(),
+    ),
   ],
 );
 

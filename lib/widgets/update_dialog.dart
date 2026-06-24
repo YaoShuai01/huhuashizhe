@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../core/constants/app_version.dart';
 import '../core/theme/app_theme.dart';
 import '../providers/update_provider.dart';
-import '../services/update_service.dart';
 
 class UpdateDialog extends ConsumerWidget {
   const UpdateDialog({super.key});
@@ -163,7 +163,7 @@ class UpdateDialog extends ConsumerWidget {
               ),
               const SizedBox(width: 10),
               Text(
-                '当前 v$currentVersion',
+                '当前 v$appVersion',
                 style: TextStyle(color: AppColors.textHint, fontSize: 13),
               ),
             ],

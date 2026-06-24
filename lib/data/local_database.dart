@@ -1,22 +1,52 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 class LocalDatabase {
   static final LocalDatabase _instance = LocalDatabase._();
   factory LocalDatabase() => _instance;
   LocalDatabase._();
 
-  final Map<String, dynamic> _store = {};
+  final Map<String, dynamic> _cache = {};
 
-  Future<void> init() async {}
+  String get _dataDir => '${Directory.systemTemp.path}/huhuashizhe_data';
 
-  // 预设
+  String _filePath(String key) => '$_dataDir/$key.json';
+
+  Future<void> init() async {
+    final dir = Directory(_dataDir);
+    if (!await dir.exists()) await dir.create(recursive: true);
+    // 预热缓存：从文件加载到内存
+    for (final key in ['presets', 'missions', 'favorites', 'settings']) {
+      final file = File(_filePath(key));
+      if (await file.exists()) {
+        _cache[key] = await file.readAsString();
+      }
+    }
+  }
+
+  /// 异步持久化到文件（内部使用，不阻塞调用方）
+  Future<void> _persistToFile(String key) async {
+    final content = _cache[key];
+    if (content == null) return;
+    final file = File(_filePath(key));
+    await file.writeAsString(content as String);
+  }
+
+  String? _readCache(String key) {
+    return _cache[key] as String?;
+  }
+
+  // ==================== 预设 ====================
+
   List<Map<String, dynamic>> getPresets() {
-    final json = _store['presets'] ?? '[]';
-    return List<Map<String, dynamic>>.from(jsonDecode(json as String));
+    final json = _readCache('presets') ?? '[]';
+    return List<Map<String, dynamic>>.from(jsonDecode(json));
   }
 
   void savePresets(List<Map<String, dynamic>> presets) {
-    _store['presets'] = jsonEncode(presets);
+    _cache['presets'] = jsonEncode(presets);
+    unawaited(_persistToFile('presets'));
   }
 
   void addPreset(Map<String, dynamic> preset) {
@@ -40,14 +70,16 @@ class LocalDatabase {
     savePresets(presets);
   }
 
-  // 作业任务
+  // ==================== 作业任务 ====================
+
   List<Map<String, dynamic>> getMissions() {
-    final json = _store['missions'] ?? '[]';
-    return List<Map<String, dynamic>>.from(jsonDecode(json as String));
+    final json = _readCache('missions') ?? '[]';
+    return List<Map<String, dynamic>>.from(jsonDecode(json));
   }
 
   void saveMissions(List<Map<String, dynamic>> missions) {
-    _store['missions'] = jsonEncode(missions);
+    _cache['missions'] = jsonEncode(missions);
+    unawaited(_persistToFile('missions'));
   }
 
   void addMission(Map<String, dynamic> mission) {
@@ -58,16 +90,38 @@ class LocalDatabase {
     saveMissions(missions);
   }
 
-  // 设置
-  bool getBool(String key) => _store[key] as bool? ?? false;
-  void setBool(String key, bool value) { _store[key] = value; }
-  String? get(String key) => _store[key] as String?;
-  void set(String key, String value) { _store[key] = value; }
-  void remove(String key) { _store.remove(key); }
+  // ==================== 设置 ====================
 
-  // 收藏
-  List<String> getFavorites() =>
-      (_store['favorites'] as List?)?.cast<String>() ?? [];
+  bool getBool(String key) {
+    final val = _readCache(key);
+    if (val != null) return val.toLowerCase() == 'true';
+    return false;
+  }
+
+  void setBool(String key, bool value) {
+    _cache[key] = value.toString();
+    unawaited(_persistToFile(key));
+  }
+
+  String? get(String key) => _readCache(key);
+
+  void set(String key, String value) {
+    _cache[key] = value;
+    unawaited(_persistToFile(key));
+  }
+
+  void remove(String key) {
+    _cache.remove(key);
+    final file = File(_filePath(key));
+    unawaited(file.exists().then((exists) { if (exists) file.delete(); }));
+  }
+
+  // ==================== 收藏 ====================
+
+  List<String> getFavorites() {
+    final json = _readCache('favorites') ?? '[]';
+    return List<String>.from(jsonDecode(json));
+  }
 
   void toggleFavorite(String courseId) {
     final favorites = getFavorites();
@@ -76,6 +130,7 @@ class LocalDatabase {
     } else {
       favorites.add(courseId);
     }
-    _store['favorites'] = favorites;
+    _cache['favorites'] = jsonEncode(favorites);
+    unawaited(_persistToFile('favorites'));
   }
 }
