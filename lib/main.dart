@@ -61,6 +61,7 @@ class _UpdateCheckerState extends ConsumerState<_UpdateChecker> {
       if (next.status == UpdateStatus.updateAvailable && prev?.status != UpdateStatus.updateAvailable) {
         UpdateDialog.show(context);
       }
+      // upToDate / noRelease 不弹窗，静默处理
     });
     return widget.child;
   }

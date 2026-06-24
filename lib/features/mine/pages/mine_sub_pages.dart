@@ -338,9 +338,17 @@ class VersionInfoPage extends ConsumerWidget {
             final state = ref.read(updateProvider);
             if (state.status == UpdateStatus.updateAvailable) {
               UpdateDialog.show(context);
-            } else {
+            } else if (state.status == UpdateStatus.upToDate) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('当前已是最新版本')),
+              );
+            } else if (state.status == UpdateStatus.noRelease) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('暂无更新信息，请稍后再试')),
+              );
+            } else if (state.status == UpdateStatus.error) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(state.errorMessage)),
               );
             }
           }

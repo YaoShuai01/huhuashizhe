@@ -47,24 +47,39 @@ class UpdateInfo {
   }
 }
 
+/// 检查更新结果（区分三种情况）
+enum CheckResult { hasUpdate, upToDate, noRelease, networkError }
+
 class UpdateService {
   final Dio _dio = Dio(BaseOptions(
     connectTimeout: const Duration(seconds: 15),
     receiveTimeout: const Duration(seconds: 30),
   ));
 
-  Future<UpdateInfo?> checkForUpdate() async {
+  /// 检查是否有新版本，返回 (结果, 更新信息)
+  Future<(CheckResult, UpdateInfo?)> checkForUpdate() async {
     try {
       final response = await _dio.get(_githubReleaseApi);
       if (response.statusCode == 200 && response.data != null) {
         final info = UpdateInfo.fromJson(response.data);
         if (_isNewerVersion(info.versionName)) {
-          return info;
+          return (CheckResult.hasUpdate, info);
+        } else {
+          return (CheckResult.upToDate, info); // 有Release但版本相同或更低
         }
+      } else if (response.statusCode == 404) {
+        // 仓库还没有任何 Release
+        return (CheckResult.noRelease, null);
       }
-      return null;
+      return (CheckResult.noRelease, null);
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.connectionTimeout ||
+          e.type == DioExceptionType.connectionError) {
+        return (CheckResult.networkError, null);
+      }
+      return (CheckResult.noRelease, null);
     } catch (e) {
-      return null;
+      return (CheckResult.networkError, null);
     }
   }
 

@@ -5,7 +5,7 @@ final updateServiceProvider = Provider<UpdateService>((ref) => UpdateService());
 final updateProvider =
     StateNotifierProvider<UpdateNotifier, UpdateState>(UpdateNotifier.new);
 
-enum UpdateStatus { idle, checking, updateAvailable, downloading, downloaded, error }
+enum UpdateStatus { idle, checking, updateAvailable, downloading, downloaded, error, upToDate, noRelease }
 
 class UpdateState {
   final UpdateStatus status;
@@ -43,14 +43,22 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
   Future<void> checkForUpdate() async {
     state = state.copyWith(status: UpdateStatus.checking);
     final service = ref.read(updateServiceProvider);
-    final info = await service.checkForUpdate();
-    if (info != null) {
-      state = state.copyWith(
-        status: UpdateStatus.updateAvailable,
-        updateInfo: info,
-      );
-    } else {
-      state = state.copyWith(status: UpdateStatus.idle);
+    final (result, info) = await service.checkForUpdate();
+    switch (result) {
+      case CheckResult.hasUpdate:
+        state = state.copyWith(
+          status: UpdateStatus.updateAvailable,
+          updateInfo: info,
+        );
+      case CheckResult.upToDate:
+        state = state.copyWith(status: UpdateStatus.upToDate, updateInfo: info);
+      case CheckResult.noRelease:
+        state = state.copyWith(status: UpdateStatus.noRelease);
+      case CheckResult.networkError:
+        state = state.copyWith(
+          status: UpdateStatus.error,
+          errorMessage: '网络连接失败，请检查网络后重试',
+        );
     }
   }
 
