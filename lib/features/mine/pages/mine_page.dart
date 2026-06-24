@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../widgets/device_scan_page.dart';
 import '../pages/mine_sub_pages.dart';
@@ -39,19 +40,19 @@ class MinePage extends StatelessWidget {
               icon: Icons.account_circle_outlined,
               title: '我的账户',
               subtitle: '本地存储，卸载APP数据会丢失',
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AccountPage())),
+              onTap: () => context.push('/mine/account'),
             ),
             _buildMenuItem(
               icon: Icons.bluetooth_outlined,
               title: '设备连接',
               subtitle: '蓝牙设备管理、已配对设备列表',
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const DeviceScanPage())),
+              onTap: () => context.push('/mine/device'),
             ),
             _buildMenuItem(
               icon: Icons.settings_outlined,
               title: '设置',
               subtitle: '语言、通知、缓存、深色模式',
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsPage())),
+              onTap: () => context.push('/mine/settings'),
             ),
             const SizedBox(height: 12),
             _buildMenuItem(
@@ -64,26 +65,26 @@ class MinePage extends StatelessWidget {
               icon: Icons.description_outlined,
               title: '法律文书及用户条款',
               subtitle: '隐私政策、用户协议',
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const LegalPage())),
+              onTap: () => context.push('/mine/legal'),
             ),
             const SizedBox(height: 12),
             _buildMenuItem(
               icon: Icons.help_outline,
               title: '帮助',
               subtitle: '常见问题FAQ',
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HelpPage())),
+              onTap: () => context.push('/mine/help'),
             ),
             _buildMenuItem(
               icon: Icons.feedback_outlined,
               title: '反馈',
               subtitle: '问题反馈、功能建议',
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const FeedbackPage())),
+              onTap: () => context.push('/mine/feedback'),
             ),
             _buildMenuItem(
               icon: Icons.info_outline,
               title: '关于',
               subtitle: 'v1.0.0',
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AboutPage())),
+              onTap: () => context.push('/mine/about'),
             ),
             const SizedBox(height: 24),
             Padding(

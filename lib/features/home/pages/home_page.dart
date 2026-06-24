@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/weather_provider.dart';
 import '../../../providers/device_provider.dart';
@@ -156,10 +157,7 @@ class HomePage extends ConsumerWidget {
     return Card(
       child: InkWell(
         onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const DeviceScanPage()),
-          );
+          context.push('/mine/device');
         },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
@@ -222,10 +220,7 @@ class HomePage extends ConsumerWidget {
               ),
               ElevatedButton(
                 onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const DeviceScanPage()),
-                  );
+                  context.push('/mine/device');
                 },
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -255,10 +250,7 @@ class HomePage extends ConsumerWidget {
           subtitle: '新建植保作业任务',
           color: AppColors.primary,
           onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const MapSelectPage()),
-            );
+            context.push('/mission/map');
           },
         ),
         _buildActionCard(

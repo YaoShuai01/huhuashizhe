@@ -4,6 +4,12 @@ import '../../features/home/pages/home_page.dart';
 import '../../features/presets/pages/presets_page.dart';
 import '../../features/classroom/pages/classroom_page.dart';
 import '../../features/mine/pages/mine_page.dart';
+import '../../features/presets/widgets/preset_form_page.dart';
+import '../../features/classroom/widgets/course_detail_page.dart';
+import '../../features/mission/pages/map_select_page.dart';
+import '../../features/mine/widgets/device_scan_page.dart';
+import '../../features/settings/pages/settings_page.dart';
+import '../../features/mine/pages/mine_sub_pages.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -43,6 +49,70 @@ final appRouter = GoRouter(
           ),
         ),
       ],
+    ),
+    // 子页面路由（位于 ShellRoute 外部，不显示底部导航栏）
+    GoRoute(
+      path: '/presets/form',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final existingPreset = state.extra as Map<String, dynamic>?;
+        return existingPreset != null
+            ? PresetFormPage(existingPreset: existingPreset)
+            : const PresetFormPage();
+      },
+    ),
+    GoRoute(
+      path: '/classroom/course',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final extra = state.extra as Map<String, String>?;
+        return CourseDetailPage(
+          title: extra?['title'] ?? '',
+          content: extra?['content'] ?? '',
+          cropType: extra?['cropType'] ?? '',
+          category: extra?['category'] ?? '',
+        );
+      },
+    ),
+    GoRoute(
+      path: '/mission/map',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const MapSelectPage(),
+    ),
+    GoRoute(
+      path: '/mine/account',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const AccountPage(),
+    ),
+    GoRoute(
+      path: '/mine/device',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const DeviceScanPage(),
+    ),
+    GoRoute(
+      path: '/mine/settings',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const SettingsPage(),
+    ),
+    GoRoute(
+      path: '/mine/legal',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const LegalPage(),
+    ),
+    GoRoute(
+      path: '/mine/help',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const HelpPage(),
+    ),
+    GoRoute(
+      path: '/mine/feedback',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const FeedbackPage(),
+    ),
+    GoRoute(
+      path: '/mine/about',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const AboutPage(),
     ),
   ],
 );

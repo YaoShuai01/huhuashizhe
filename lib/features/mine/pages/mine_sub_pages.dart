@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../services/update_service.dart';
+import '../../../providers/update_provider.dart';
+import '../../../widgets/update_dialog.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+const String AppVersion = '1.0.1';
 
 class AccountPage extends StatefulWidget {
   const AccountPage({super.key});
@@ -141,11 +147,11 @@ class FeedbackPage extends StatelessWidget {
   }
 }
 
-class AboutPage extends StatelessWidget {
+class AboutPage extends ConsumerWidget {
   const AboutPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(title: const Text('关于')),
       body: SingleChildScrollView(
@@ -168,7 +174,7 @@ class AboutPage extends StatelessWidget {
                   const SizedBox(height: 16),
                   const Text('护花使者', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
-                  const Text('v1.0.0', style: TextStyle(color: AppColors.textHint, fontSize: 14)),
+                  const Text('v$AppVersion', style: TextStyle(color: AppColors.textHint, fontSize: 14)),
                   const SizedBox(height: 4),
                   const Text('智能植保无人机操控平台',
                       style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
@@ -180,7 +186,20 @@ class AboutPage extends StatelessWidget {
             ListTile(
               title: const Text('版本更新'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () {},
+              onTap: () async {
+                final notifier = ref.read(updateProvider.notifier);
+                await notifier.checkForUpdate();
+                if (context.mounted) {
+                  final state = ref.read(updateProvider);
+                  if (state.status == UpdateStatus.updateAvailable) {
+                    UpdateDialog.show(context);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('当前已是最新版本')),
+                    );
+                  }
+                }
+              },
             ),
             ListTile(
               title: const Text('功能介绍'),

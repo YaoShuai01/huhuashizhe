@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../widgets/course_detail_page.dart';
 
@@ -127,17 +128,12 @@ class _ClassroomPageState extends State<ClassroomPage> {
                   margin: const EdgeInsets.only(bottom: 12),
                   child: InkWell(
                     onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => CourseDetailPage(
-                            title: course['title'],
-                            content: course['content'],
-                            cropType: course['cropType'],
-                            category: course['category'],
-                          ),
-                        ),
-                      );
+                      context.push('/classroom/course', extra: {
+                        'title': course['title'],
+                        'content': course['content'],
+                        'cropType': course['cropType'],
+                        'category': course['category'],
+                      });
                     },
                     borderRadius: BorderRadius.circular(12),
                     child: Padding(

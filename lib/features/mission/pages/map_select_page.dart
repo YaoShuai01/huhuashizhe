@@ -164,7 +164,7 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
       ),
       body: Stack(
         children: [
-          // 地图主体
+          // 地图主体（children 只包含图层组件）
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
@@ -208,81 +208,76 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
                   ],
                 ),
 
-              // 航点标记
-                  MarkerLayer(
-                    markers: _waypoints.asMap().entries.map((entry) {
-                      final index = entry.key;
-                      final point = entry.value;
-                      return Marker(
-                        point: point,
-                        width: 36,
-                        height: 36,
-                        child: GestureDetector(
-                          onTap: () {
-                            // 点击航点可查看信息
-                            showModalBottomSheet(
-                              context: context,
-                              builder: (ctx) => Container(
-                                padding: const EdgeInsets.all(20),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text('航点 ${index + 1}',
-                                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                                    const SizedBox(height: 8),
-                                    Text('纬度: ${point.latitude.toStringAsFixed(6)}'),
-                                    Text('经度: ${point.longitude.toStringAsFixed(6)}'),
-                                    if (index == 0)
-                                      const Padding(
-                                        padding: EdgeInsets.only(top: 8),
-                                        child: Text('起始航点',
-                                            style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
-                                      ),
-                                  ],
-                                ),
+              // 航点标记（只显示第一个航点）
+              if (_waypoints.isNotEmpty)
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: _waypoints.first,
+                      width: 36,
+                      height: 36,
+                      child: GestureDetector(
+                        onTap: () {
+                          showModalBottomSheet(
+                            context: context,
+                            builder: (ctx) => Container(
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('航点 1',
+                                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                                  const SizedBox(height: 8),
+                                  Text('纬度: ${_waypoints.first.latitude.toStringAsFixed(6)}'),
+                                  Text('经度: ${_waypoints.first.longitude.toStringAsFixed(6)}'),
+                                  const Padding(
+                                    padding: EdgeInsets.only(top: 8),
+                                    child: Text('起始航点',
+                                        style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+                                  ),
+                                ],
                               ),
-                            );
-                          },
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              // 红色圆点
-                              Container(
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: index == 0 ? AppColors.primary : Colors.red.shade600,
-                                  border: Border.all(color: Colors.white, width: 2),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.3),
-                                      blurRadius: 4,
-                                    ),
-                                  ],
-                                ),
+                            ),
+                          );
+                        },
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // 绿色圆点
+                            Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: AppColors.primary,
+                                border: Border.all(color: Colors.white, width: 2),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.3),
+                                    blurRadius: 4,
+                                  ),
+                                ],
                               ),
-                              // 序号文字
-                              Text(
-                                '${index + 1}',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                            ),
+                            // 序号文字
+                            const Text(
+                              '1',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
-                      );
-                    }).toList(),
-                  ),
-
-              // 十字准心（始终在屏幕中央）
-              const Center(
-                child: _Crosshair(),
-              ),
+                      ),
+                    ),
+                  ],
+                ),
             ],
           ),
+
+          // 十字准心覆盖层（在 Stack 中，不在 FlutterMap children 中）
+          const Positioned.fill(child: Center(child: _Crosshair())),
 
           // 面积显示浮层
           if (_area != null && _isClosed)

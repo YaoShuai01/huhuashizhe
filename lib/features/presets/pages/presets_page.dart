@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/preset_provider.dart';
 import '../widgets/preset_form_page.dart';
@@ -51,10 +52,7 @@ class PresetsPage extends ConsumerWidget {
             color: AppColors.surface,
             child: ElevatedButton.icon(
               onPressed: () async {
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const PresetFormPage()),
-                );
+                final result = await context.push<bool>('/presets/form');
                 if (result == true) { ref.invalidate(presetsProvider); }
               },
               icon: const Icon(Icons.add, size: 20),
@@ -98,7 +96,7 @@ class PresetsPage extends ConsumerWidget {
                               Row(mainAxisAlignment: MainAxisAlignment.end, children: [
                                 TextButton.icon(onPressed: () {}, icon: const Icon(Icons.flight_takeoff, size: 16), label: const Text('使用')),
                                 const SizedBox(width: 8),
-                                TextButton.icon(onPressed: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => PresetFormPage(existingPreset: p))); ref.invalidate(presetsProvider); }, icon: const Icon(Icons.edit, size: 16), label: const Text('编辑')),
+                                TextButton.icon(onPressed: () async { await context.push('/presets/form', extra: p); ref.invalidate(presetsProvider); }, icon: const Icon(Icons.edit, size: 16), label: const Text('编辑')),
                                 TextButton.icon(onPressed: () { showDialog(context: context, builder: (ctx) => AlertDialog(title: const Text('删除预设'), content: const Text('确定要删除此预设吗？'), actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')), TextButton(onPressed: () { ref.read(presetsProvider.notifier).deletePreset(p['id']); Navigator.pop(ctx); }, child: const Text('删除', style: TextStyle(color: AppColors.error)))])); }, icon: const Icon(Icons.delete_outline, size: 16), label: const Text('删除'), style: TextButton.styleFrom(foregroundColor: AppColors.error)),
                               ]),
                             ],
