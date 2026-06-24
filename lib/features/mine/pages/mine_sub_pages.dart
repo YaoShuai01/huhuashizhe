@@ -367,6 +367,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v1.0.4',
+        'date': '2025-06-24',
+        'content': [
+          '修复"下次再说"按钮点击后弹窗不关闭的问题',
+          '修复地图空白问题（切换为高德地图瓦片源，国内可用）',
+          '修复小课堂课程详情页点击报错（路由推送方式优化）',
+        ],
+      },
+      {
         'version': 'v1.0.3',
         'date': '2025-06-24',
         'content': [

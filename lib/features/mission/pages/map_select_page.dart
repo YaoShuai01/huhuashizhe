@@ -179,9 +179,11 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
             ),
             children: [
               TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                // 高德地图瓦片（中国境内快速稳定）
+                urlTemplate: 'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
+                subdomains: const ['1', '2', '3', '4'],
                 userAgentPackageName: 'com.huhuashizhe.huhuashizhe',
-                maxZoom: 19,
+                maxZoom: 18,
               ),
 
               // 多边形填充（闭合后显示浅蓝色）

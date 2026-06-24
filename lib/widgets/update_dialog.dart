@@ -206,7 +206,10 @@ class UpdateDialog extends ConsumerWidget {
         children: [
           Expanded(
             child: TextButton(
-              onPressed: () => notifier.dismiss(),
+              onPressed: () {
+                notifier.dismiss();
+                Navigator.of(context).pop(); // 关闭弹窗
+              },
               child: const Text(
                 '下次再说',
                 style: TextStyle(color: AppColors.textHint),

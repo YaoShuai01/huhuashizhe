@@ -128,12 +128,14 @@ class _ClassroomPageState extends State<ClassroomPage> {
                   margin: const EdgeInsets.only(bottom: 12),
                   child: InkWell(
                     onTap: () {
-                      context.push('/classroom/course', extra: {
-                        'title': course['title'],
-                        'content': course['content'],
-                        'cropType': course['cropType'],
-                        'category': course['category'],
-                      });
+                      final args = <String, String>{
+                        'title': course['title'].toString(),
+                        'content': course['content'].toString(),
+                        'cropType': course['cropType'].toString(),
+                        'category': course['category'].toString(),
+                      };
+                      // 使用 rootNavigator 推送到外部路由
+                      GoRouter.of(context).push('/classroom/course', extra: args);
                     },
                     borderRadius: BorderRadius.circular(12),
                     child: Padding(
