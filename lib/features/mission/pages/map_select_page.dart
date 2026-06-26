@@ -25,12 +25,10 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
   double? _area;
   bool _canClose = false;
   bool _isLocating = false;
-  bool _showLabels = false;        // 是否显示地名标注（卫星图默认无标注）
   bool _isSatellite = true;        // 当前是否为卫星图模式
   double _tuneStep = 0.5;          // 微调步长（米）
 
-  // 默认上海坐标，GPS定位后会更新
-  LatLng _center = const LatLng(31.2304, 121.4737);
+  static const LatLng _initialCenter = LatLng(31.2304, 121.4737);
   double _currentZoom = 16.0;
   static const double _minZoom = 3.0;
   static const double _maxZoom = 18.0;
@@ -45,11 +43,9 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
     setState(() => _isLocating = true);
     final pos = await GpsLocationService.getCurrentLocation();
     if (pos != null && mounted) {
-      setState(() {
-        _center = LatLng(pos['lat']!, pos['lng']!);
-        _isLocating = false;
-      });
-      _mapController.move(_center, 16.0);
+      final loc = LatLng(pos['lat']!, pos['lng']!);
+      _mapController.move(loc, 16.0);
+      if (mounted) setState(() => _isLocating = false);
     } else {
       if (mounted) setState(() => _isLocating = false);
     }
@@ -180,31 +176,28 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
 
   Widget _buildFineTunePanel() {
     return Container(
-      padding: const EdgeInsets.all(6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.92),
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 6)],
+        color: Theme.of(context).scaffoldBackgroundColor,
+        border: Border(top: BorderSide(color: Colors.grey.withValues(alpha: 0.15))),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: Row(
         children: [
-          // 上方向键
+          // 方向键
+          _dirButton(Icons.keyboard_arrow_left, -1, 0),
+          const SizedBox(width: 6),
           _dirButton(Icons.keyboard_arrow_up, 0, 1),
-          const SizedBox(height: 2),
-          // 左右方向键
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _dirButton(Icons.keyboard_arrow_left, -1, 0),
-              const SizedBox(width: 8),
-              _dirButton(Icons.keyboard_arrow_right, 1, 0),
-            ],
-          ),
-          const SizedBox(height: 2),
-          // 下方向键
+          const SizedBox(width: 6),
+          _dirButton(Icons.keyboard_arrow_right, 1, 0),
+          const SizedBox(width: 6),
           _dirButton(Icons.keyboard_arrow_down, 0, -1),
-          const SizedBox(height: 6),
+          const SizedBox(width: 12),
+          // 分隔
+          Container(width: 1, height: 24, color: Colors.grey.withValues(alpha: 0.2)),
+          const SizedBox(width: 12),
+          // 步长标签
+          const Text('步长', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+          const SizedBox(width: 6),
           // 步长调节
           _buildStepControl(),
         ],
@@ -215,14 +208,14 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
   Widget _dirButton(IconData icon, int dx, int dy) {
     return InkWell(
       onTap: () => _moveMap(dx * _tuneStep, dy * _tuneStep),
-      borderRadius: BorderRadius.circular(5),
+      borderRadius: BorderRadius.circular(6),
       child: Container(
-        width: 34,
-        height: 34,
+        width: 36,
+        height: 36,
         decoration: BoxDecoration(
-          color: AppColors.primary.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(5),
-          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+          color: AppColors.primary.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
         ),
         child: Icon(icon, color: AppColors.primary, size: 22),
       ),
@@ -339,16 +332,6 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
             constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
           ),
           const SizedBox(width: 2),
-          // 地名标注开关
-          IconButton(
-            icon: Icon(_showLabels ? Icons.place : Icons.place_outlined,
-                color: _showLabels ? Colors.white : Colors.white70),
-            onPressed: () => setState(() => _showLabels = !_showLabels),
-            tooltip: _showLabels ? '隐藏地名' : '显示地名',
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-          ),
-          const SizedBox(width: 2),
           // 图层切换按钮
           IconButton(
             icon: Icon(_isSatellite ? Icons.satellite_alt : Icons.map, color: Colors.white),
@@ -367,7 +350,7 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
             child: FlutterMap(
               mapController: _mapController,
               options: MapOptions(
-                initialCenter: _center,
+                initialCenter: _initialCenter,
                 initialZoom: _currentZoom,
                 minZoom: _minZoom,
                 maxZoom: _maxZoom,
@@ -379,9 +362,7 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
                 TileLayer(
                   urlTemplate: _isSatellite
                       ? 'https://webst0{s}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}'
-                      : (_showLabels
-                          ? 'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}'
-                          : 'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=1&x={x}&y={y}&z={z}'),
+                      : 'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
                   subdomains: const ['1', '2', '3', '4'],
                   userAgentPackageName: 'com.huhuashizhe.huhuashizhe',
                   maxZoom: _maxZoom,
@@ -416,9 +397,7 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
           // 十字准心
           const Positioned.fill(child: Center(child: _Crosshair())),
           // 比例尺（左下角）
-          Positioned(bottom: 100, left: 12, child: _ScaleBar(zoom: _currentZoom, latitude: _center.latitude)),
-          // 微调面板（右下角，比例尺和底部操作栏之间）
-          Positioned(bottom: 100, right: 12, child: _buildFineTunePanel()),
+          Positioned(bottom: 100, left: 12, child: _ScaleBar(zoom: _currentZoom, latitude: _mapController.camera.center.latitude)),
           // 面积浮层
           if (_area != null && _isClosed)
             Positioned(top: MediaQuery.of(context).padding.top + kToolbarHeight + 12, left: 0, right: 0, child: Center(child: Container(
@@ -445,8 +424,10 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(color: Theme.of(context).scaffoldBackgroundColor, boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 8, offset: const Offset(0, -2))]),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
+          // 微调面板（比例尺和航点操作面板之间，同宽）
+          _buildFineTunePanel(),
           if (_waypoints.isNotEmpty)
-            Container(margin: const EdgeInsets.only(bottom: 8), constraints: const BoxConstraints(maxHeight: 60), child: ListView.builder(scrollDirection: Axis.horizontal, itemCount: _waypoints.length.clamp(0, 5), itemBuilder: (_, i) {
+            Container(margin: const EdgeInsets.only(top: 8), constraints: const BoxConstraints(maxHeight: 60), child: ListView.builder(scrollDirection: Axis.horizontal, itemCount: _waypoints.length.clamp(0, 5), itemBuilder: (_, i) {
               final p = _waypoints[i];
               return Container(margin: const EdgeInsets.only(right: 8), padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(8), border: Border.all(color: i == 0 ? AppColors.primary : AppColors.textDisabled.withValues(alpha: 0.3))), child: Row(mainAxisSize: MainAxisSize.min, children: [
                 CircleAvatar(radius: 10, backgroundColor: i == 0 ? AppColors.primary : AppColors.error, child: Text('${i + 1}', style: const TextStyle(color: Colors.white, fontSize: 9))),
