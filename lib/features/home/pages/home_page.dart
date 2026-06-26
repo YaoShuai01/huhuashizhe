@@ -63,6 +63,7 @@ class HomePage extends ConsumerWidget {
     final windSpeed = weather?.windSpeed;
     final humidity = weather?.humidity;
     final isWindWarning = weather?.isWindWarning ?? false;
+    final showTemp = weather != null && weather.weatherDescription != '无法获取天气';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -104,7 +105,7 @@ class HomePage extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      temp != null ? temp.toStringAsFixed(0) : '--',
+                      showTemp ? (temp?.toStringAsFixed(0) ?? '--') : '--',
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 48,
@@ -116,10 +117,11 @@ class HomePage extends ConsumerWidget {
                       style: TextStyle(color: Colors.white70, fontSize: 20),
                     ),
                     const SizedBox(width: 8),
-                    Text(
-                      weather?.weatherIcon ?? '',
-                      style: const TextStyle(fontSize: 28),
-                    ),
+                    if (showTemp)
+                      Text(
+                        weather?.weatherIcon ?? '',
+                        style: const TextStyle(fontSize: 28),
+                      ),
                     const Spacer(),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
@@ -130,17 +132,18 @@ class HomePage extends ConsumerWidget {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          '风速 ${windSpeed != null ? '${windSpeed.toStringAsFixed(1)} m/s' : '-- m/s'}',
+                          showTemp ? '风速 ${windSpeed != null ? '${windSpeed.toStringAsFixed(1)} m/s' : '-- m/s'}' : '',
                           style: TextStyle(
                             color: isWindWarning ? AppColors.accent : Colors.white70,
                             fontSize: 12,
                             fontWeight: isWindWarning ? FontWeight.bold : FontWeight.normal,
                           ),
                         ),
-                        Text(
-                          '湿度 ${humidity != null ? '${humidity.toStringAsFixed(0)}%' : '--%'}',
-                          style: const TextStyle(color: Colors.white70, fontSize: 12),
-                        ),
+                        if (showTemp)
+                          Text(
+                            '湿度 ${humidity != null ? '${humidity.toStringAsFixed(0)}%' : '--%'}',
+                            style: const TextStyle(color: Colors.white70, fontSize: 12),
+                          ),
                       ],
                     ),
                   ],

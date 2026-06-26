@@ -38,35 +38,54 @@ class WeatherNotifier extends AsyncNotifier<WeatherData?> {
       // GPS超时或失败，使用默认坐标
     }
 
-    final weather = await weatherService.fetchWeather(lat, lng);
+    WeatherData? weather;
+    try {
+      weather = await weatherService.fetchWeather(lat, lng);
+    } catch (_) {
+      // 天气API请求失败
+    }
+
     if (weather != null) {
       // 先立即显示天气（地名先用"当前位置"），避免逆地理编码阻塞
+      final w = weather;
       state = AsyncData(WeatherData(
-        temperature: weather.temperature,
-        windSpeed: weather.windSpeed,
-        windDirection: weather.windDirection,
-        humidity: weather.humidity,
-        weatherCode: weather.weatherCode,
-        weatherDescription: weather.weatherDescription,
-        precipitationProbability: weather.precipitationProbability,
+        temperature: w.temperature,
+        windSpeed: w.windSpeed,
+        windDirection: w.windDirection,
+        humidity: w.humidity,
+        weatherCode: w.weatherCode,
+        weatherDescription: w.weatherDescription,
+        precipitationProbability: w.precipitationProbability,
         locationName: '当前位置',
       ));
 
-      // 逆地理编码在后台执行，完成后更新地名
-      weatherService.reverseGeocode(lat, lng).then((address) {
+      // 使用Android原生Geocoder做逆地理编码（国内可用），完成后更新地名
+      GpsLocationService.reverseGeocode(lat, lng).then((address) {
         if (address != null) {
           state = AsyncData(WeatherData(
-            temperature: weather.temperature,
-            windSpeed: weather.windSpeed,
-            windDirection: weather.windDirection,
-            humidity: weather.humidity,
-            weatherCode: weather.weatherCode,
-            weatherDescription: weather.weatherDescription,
-            precipitationProbability: weather.precipitationProbability,
+            temperature: w.temperature,
+            windSpeed: w.windSpeed,
+            windDirection: w.windDirection,
+            humidity: w.humidity,
+            weatherCode: w.weatherCode,
+            weatherDescription: w.weatherDescription,
+            precipitationProbability: w.precipitationProbability,
             locationName: '当前位置  |  $address',
           ));
         }
       });
+    } else {
+      // 天气获取失败时显示错误提示
+      state = const AsyncData(WeatherData(
+        temperature: 0,
+        windSpeed: 0,
+        windDirection: 0,
+        humidity: 0,
+        weatherCode: 0,
+        weatherDescription: '无法获取天气',
+        precipitationProbability: 0,
+        locationName: '当前位置',
+      ));
     }
   }
 }

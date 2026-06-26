@@ -3,6 +3,7 @@ package com.huhuashizhe.huhuashizhe
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.location.Geocoder
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
@@ -42,6 +43,11 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, LOCATION_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "getLocation" -> getCurrentLocation(result)
+                "reverseGeocode" -> {
+                    val lat = call.argument<Double>("lat") ?: 0.0
+                    val lng = call.argument<Double>("lng") ?: 0.0
+                    reverseGeocode(lat, lng, result)
+                }
                 else -> result.notImplemented()
             }
         }
@@ -160,6 +166,29 @@ class MainActivity : FlutterActivity() {
         locationListener?.let { locationManager?.removeUpdates(it) }
         locationListener = null
         locationResult = null
+    }
+
+    private fun reverseGeocode(lat: Double, lng: Double, result: MethodChannel.Result) {
+        Thread {
+            try {
+                val geocoder = Geocoder(this, java.util.Locale.CHINA)
+                val addresses = geocoder.getFromLocation(lat, lng, 1)
+                if (addresses != null && addresses.isNotEmpty()) {
+                    val addr = addresses[0]
+                    val parts = mutableListOf<String>()
+                    addr.adminArea?.let { if (it.isNotEmpty()) parts.add(it) }
+                    addr.locality?.let { if (it.isNotEmpty() && it != parts.lastOrNull()) parts.add(it) }
+                    addr.subLocality?.let { if (it.isNotEmpty() && it != parts.lastOrNull()) parts.add(it) }
+                    addr.featureName?.let { if (it.isNotEmpty()) parts.add(it) }
+                    val name = parts.joinToString(" · ")
+                    runOnUiThread { result.success(name) }
+                } else {
+                    runOnUiThread { result.success(null) }
+                }
+            } catch (e: Exception) {
+                runOnUiThread { result.success(null) }
+            }
+        }.start()
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {

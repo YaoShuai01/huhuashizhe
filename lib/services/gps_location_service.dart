@@ -19,4 +19,17 @@ class GpsLocationService {
       return null;
     }
   }
+
+  /// 逆地理编码：根据经纬度获取地名（使用Android原生Geocoder，国内可用）
+  static Future<String?> reverseGeocode(double lat, double lng) async {
+    try {
+      final result = await _channel.invokeMethod<String>('reverseGeocode', {
+        'lat': lat,
+        'lng': lng,
+      });
+      return result;
+    } catch (e) {
+      return null;
+    }
+  }
 }
