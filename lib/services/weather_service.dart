@@ -48,10 +48,45 @@ class WeatherData {
 
 class WeatherService {
   static const _baseUrl = 'https://api.open-meteo.com/v1/forecast';
+  static const _geoUrl = 'https://nominatim.openstreetmap.org/reverse';
   final Dio _dio = Dio(BaseOptions(
     connectTimeout: const Duration(seconds: 10),
     receiveTimeout: const Duration(seconds: 10),
   ));
+
+  /// 逆地理编码：根据经纬度获取地名（省·市·区·镇）
+  Future<String?> reverseGeocode(double lat, double lng) async {
+    try {
+      final response = await _dio.get(_geoUrl, queryParameters: {
+        'lat': lat,
+        'lon': lng,
+        'format': 'json',
+        'zoom': 14,
+        'accept-language': 'zh',
+      });
+      if (response.statusCode == 200) {
+        final address = response.data['address'] as Map<String, dynamic>?;
+        if (address != null) {
+          final parts = <String>[];
+          final province = address['province']?.toString() ?? '';
+          final city = address['city']?.toString() ?? '';
+          final district = address['district']?.toString() ?? '';
+          final town = address['town']?.toString() ?? '';
+
+          // 直辖市省份与城市名相同则跳过省份
+          if (province.isNotEmpty && province != city) parts.add(province);
+          if (city.isNotEmpty) parts.add(city);
+          if (district.isNotEmpty && district != city) parts.add(district);
+          if (town.isNotEmpty) parts.add(town);
+
+          return parts.isNotEmpty ? parts.join(' · ') : null;
+        }
+      }
+    } catch (e) {
+      debugPrint('Reverse geocode error: $e');
+    }
+    return null;
+  }
 
   Future<WeatherData?> fetchWeather(double lat, double lng) async {
     try {

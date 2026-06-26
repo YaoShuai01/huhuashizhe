@@ -94,6 +94,8 @@ class HomePage extends ConsumerWidget {
                     Text(
                       location,
                       style: const TextStyle(color: Colors.white70, fontSize: 14),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
