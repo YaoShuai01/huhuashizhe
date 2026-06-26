@@ -23,7 +23,7 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
   double? _area;
   bool _canClose = false;
   bool _isLocating = false;
-  bool _showLabels = true;         // 是否显示地名标注（标准地图=有标注，卫星图=无标注）
+  bool _showLabels = false;        // 是否显示地名标注（卫星图默认无标注）
   bool _isSatellite = true;        // 当前是否为卫星图模式
 
   // 默认上海坐标，GPS定位后会更新
@@ -165,7 +165,7 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
           // 图层切换按钮
           IconButton(
             icon: Icon(_isSatellite ? Icons.satellite_alt : Icons.map, color: Colors.white),
-            onPressed: () => setState(() { _isSatellite = !_isSatellite; _showLabels = true; }),
+            onPressed: () => setState(() { _isSatellite = !_isSatellite; _showLabels = !_isSatellite; }),
             tooltip: _isSatellite ? '切换为标准地图' : '切换为卫星图',
             padding: const EdgeInsets.symmetric(horizontal: 10),
             constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
