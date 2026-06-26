@@ -154,7 +154,8 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
             const Padding(padding: EdgeInsets.only(right: 8), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
           // 地名标注开关
           IconButton(
-            icon: Icon(_showLabels ? Icons.location_on : Icons.location_on_outlined, color: _showLabels ? AppColors.primary : AppColors.textDisabled),
+            icon: Icon(_showLabels ? Icons.location_on : Icons.location_on_outlined,
+                color: _showLabels ? Colors.white : Colors.white70),
             onPressed: () => setState(() => _showLabels = !_showLabels),
             tooltip: _showLabels ? '隐藏地名' : '显示地名',
             padding: const EdgeInsets.symmetric(horizontal: 10),
@@ -163,7 +164,7 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
           const SizedBox(width: 2),
           // 图层切换按钮
           IconButton(
-            icon: Icon(_isSatellite ? Icons.satellite_alt : Icons.map, color: AppColors.primary),
+            icon: Icon(_isSatellite ? Icons.satellite_alt : Icons.map, color: Colors.white),
             onPressed: () => setState(() { _isSatellite = !_isSatellite; _showLabels = true; }),
             tooltip: _isSatellite ? '切换为标准地图' : '切换为卫星图',
             padding: const EdgeInsets.symmetric(horizontal: 10),

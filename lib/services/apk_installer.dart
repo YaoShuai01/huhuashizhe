@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 
 /// APK安装器（通过原生平台通道调用系统安装）
 class ApkInstaller {
@@ -8,8 +9,9 @@ class ApkInstaller {
   /// 获取适合下载APK的目录（外部存储，系统安装器可访问）
   static Future<String> getDownloadDir() async {
     try {
-      final dir = await _channel.invokeMethod<String>('getDownloadDir');
-      if (dir != null && dir.isNotEmpty) return dir;
+      // 优先使用path_provider获取外部存储目录（比MethodChannel更可靠）
+      final dir = await getExternalStorageDirectory();
+      if (dir != null) return dir.path;
     } catch (_) {}
     // 回退到系统临时目录
     return Directory.systemTemp.path;
