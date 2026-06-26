@@ -27,9 +27,11 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
   bool _isLocating = false;
   bool _isSatellite = true;        // 当前是否为卫星图模式
   double _tuneStep = 0.5;          // 微调步长（米）
+  bool _mapReady = false;          // 地图是否已初始化完毕
 
   static const LatLng _initialCenter = LatLng(31.2304, 121.4737);
   double _currentZoom = 16.0;
+  double _currentCenterLat = 31.2304; // 用于比例尺等UI组件
   static const double _minZoom = 3.0;
   static const double _maxZoom = 18.0;
 
@@ -53,6 +55,7 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
 
   /// 微调移动地图中心（dxMeters: 东西方向，正值向东；dyMeters: 南北方向，正值向北）
   void _moveMap(double dxMeters, double dyMeters) {
+    if (!_mapReady) return;
     final camera = _mapController.camera;
     final lat = camera.center.latitude;
     final metersPerDegLat = 111320.0;
@@ -63,10 +66,12 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
   }
 
   void _onMapEvent(MapEvent event) {
+    _mapReady = true;
     if (event is MapEventMoveEnd) {
       final camera = _mapController.camera;
       setState(() {
         _currentZoom = camera.zoom;
+        _currentCenterLat = camera.center.latitude;
         if (_waypoints.length >= 3 && !_isClosed) {
           final center = camera.center;
           final firstPoint = _waypoints.first;
@@ -88,6 +93,7 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
   }
 
   void _addWaypoint() {
+    if (!_mapReady) return;
     final center = _mapController.camera.center;
     if (_canClose && _waypoints.length >= 3) {
       _closePolygon();
@@ -397,7 +403,7 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
           // 十字准心
           const Positioned.fill(child: Center(child: _Crosshair())),
           // 比例尺（左下角）
-          Positioned(bottom: 100, left: 12, child: _ScaleBar(zoom: _currentZoom, latitude: _mapController.camera.center.latitude)),
+          Positioned(bottom: 100, left: 12, child: _ScaleBar(zoom: _currentZoom, latitude: _currentCenterLat)),
           // 面积浮层
           if (_area != null && _isClosed)
             Positioned(top: MediaQuery.of(context).padding.top + kToolbarHeight + 12, left: 0, right: 0, child: Center(child: Container(
