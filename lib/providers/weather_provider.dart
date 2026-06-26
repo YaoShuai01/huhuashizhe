@@ -13,9 +13,9 @@ class WeatherNotifier extends AsyncNotifier<WeatherData?> {
   Future<WeatherData?> build() async {
     ref.onDispose(() => _timer?.cancel());
     _startAutoRefresh();
-    // 启动时立即获取天气
-    await refresh();
-    return state.valueOrNull;
+    // 异步触发首次刷新，不阻塞UI渲染
+    refresh();
+    return null;
   }
 
   void _startAutoRefresh() {
@@ -25,18 +25,22 @@ class WeatherNotifier extends AsyncNotifier<WeatherData?> {
 
   Future<void> refresh() async {
     final weatherService = ref.read(weatherServiceProvider);
-    // 优先使用GPS定位获取当前位置的天气，失败时回退到上海默认坐标
+    // 优先使用GPS定位，超时或失败时回退到上海默认坐标
     double lat = 31.23, lng = 121.47;
-    final pos = await GpsLocationService.getCurrentLocation();
-    if (pos != null) {
-      lat = pos['lat']!;
-      lng = pos['lng']!;
+    try {
+      final pos = await GpsLocationService.getCurrentLocation()
+          .timeout(const Duration(seconds: 5));
+      if (pos != null) {
+        lat = pos['lat']!;
+        lng = pos['lng']!;
+      }
+    } catch (_) {
+      // GPS超时或失败，使用默认坐标
     }
+
     final weather = await weatherService.fetchWeather(lat, lng);
     if (weather != null) {
-      // 逆地理编码获取地名
-      final address = await weatherService.reverseGeocode(lat, lng);
-      final locationStr = address != null ? '当前位置  |  $address' : '当前位置';
+      // 先立即显示天气（地名先用"当前位置"），避免逆地理编码阻塞
       state = AsyncData(WeatherData(
         temperature: weather.temperature,
         windSpeed: weather.windSpeed,
@@ -45,8 +49,24 @@ class WeatherNotifier extends AsyncNotifier<WeatherData?> {
         weatherCode: weather.weatherCode,
         weatherDescription: weather.weatherDescription,
         precipitationProbability: weather.precipitationProbability,
-        locationName: locationStr,
+        locationName: '当前位置',
       ));
+
+      // 逆地理编码在后台执行，完成后更新地名
+      weatherService.reverseGeocode(lat, lng).then((address) {
+        if (address != null) {
+          state = AsyncData(WeatherData(
+            temperature: weather.temperature,
+            windSpeed: weather.windSpeed,
+            windDirection: weather.windDirection,
+            humidity: weather.humidity,
+            weatherCode: weather.weatherCode,
+            weatherDescription: weather.weatherDescription,
+            precipitationProbability: weather.precipitationProbability,
+            locationName: '当前位置  |  $address',
+          ));
+        }
+      });
     }
   }
 }
