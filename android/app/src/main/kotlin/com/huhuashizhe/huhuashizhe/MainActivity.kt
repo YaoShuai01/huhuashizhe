@@ -176,8 +176,8 @@ class MainActivity : FlutterActivity() {
                 if (addresses != null && addresses.isNotEmpty()) {
                     val addr = addresses[0]
                     val parts = mutableListOf<String>()
-                    addr.adminArea?.let { if (it.isNotEmpty()) parts.add(it) }
-                    addr.locality?.let { if (it.isNotEmpty() && it != parts.lastOrNull()) parts.add(it) }
+                    // 省去省份，只保留市·区·镇三级
+                    addr.locality?.let { if (it.isNotEmpty()) parts.add(it) }
                     addr.subLocality?.let { if (it.isNotEmpty() && it != parts.lastOrNull()) parts.add(it) }
                     addr.featureName?.let { if (it.isNotEmpty()) parts.add(it) }
                     val name = parts.joinToString(" · ")

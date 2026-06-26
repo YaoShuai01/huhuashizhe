@@ -92,11 +92,13 @@ class HomePage extends ConsumerWidget {
                   children: [
                     const Icon(Icons.location_on, color: Colors.white70, size: 16),
                     const SizedBox(width: 4),
-                    Text(
-                      location,
-                      style: const TextStyle(color: Colors.white70, fontSize: 14),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                    Expanded(
+                      child: Text(
+                        location,
+                        style: const TextStyle(color: Colors.white70, fontSize: 14),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
