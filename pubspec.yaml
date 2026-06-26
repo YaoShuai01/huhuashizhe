@@ -1,7 +1,7 @@
 name: huhuashizhe
 description: "护花使者 - 智能植保无人机操控APP"
 publish_to: 'none'
-version: 1.0.4+5
+version: 1.0.5+6
 
 environment:
   sdk: ^3.7.2

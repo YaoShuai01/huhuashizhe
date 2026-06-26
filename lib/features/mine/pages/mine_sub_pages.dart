@@ -367,6 +367,20 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v1.0.5',
+        'date': '2025-06-25',
+        'content': [
+          '修复更新弹窗「下次再说」关闭后绿色头部残留',
+          '地图切换为高德卫星图层（符合农业用途）',
+          '地图新增缩放限制（3-18级），防止无限缩放导致空白',
+          '新增GPS自动定位（进入地图自动获取手机位置）',
+          '新增地图比例尺（左下角实时显示，随缩放级别变化）',
+          '修复操作提示文字溢出容器（RIGHT OVERFLOWED）',
+          '修复APK安装失败问题（增强安装器健壮性）',
+          '新增应用从后台恢复时自动刷新更新检测',
+        ],
+      },
+      {
         'version': 'v1.0.4',
         'date': '2025-06-24',
         'content': [

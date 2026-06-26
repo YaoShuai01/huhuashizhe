@@ -207,8 +207,9 @@ class UpdateDialog extends ConsumerWidget {
           Expanded(
             child: TextButton(
               onPressed: () {
+                // 先关弹窗，再重置状态（避免 dismiss 触发 rebuild 导致头部残留）
+                Navigator.of(context).pop();
                 notifier.dismiss();
-                Navigator.of(context).pop(); // 关闭弹窗
               },
               child: const Text(
                 '下次再说',

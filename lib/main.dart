@@ -42,12 +42,30 @@ class _UpdateChecker extends ConsumerStatefulWidget {
   ConsumerState<_UpdateChecker> createState() => _UpdateCheckerState();
 }
 
-class _UpdateCheckerState extends ConsumerState<_UpdateChecker> {
+class _UpdateCheckerState extends ConsumerState<_UpdateChecker> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _checkUpdate();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 应用从后台回到前台时自动刷新
+    if (state == AppLifecycleState.resumed) {
+      _checkUpdate();
+    }
+  }
+
+  void _checkUpdate() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // 进入主页后立即检查更新，不等待
       if (mounted) {
         ref.read(updateProvider.notifier).checkForUpdate();
       }
