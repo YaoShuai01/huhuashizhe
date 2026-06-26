@@ -5,6 +5,7 @@ import '../../features/presets/pages/presets_page.dart';
 import '../../features/classroom/pages/classroom_page.dart';
 import '../../features/mine/pages/mine_page.dart';
 import '../../features/presets/widgets/preset_form_page.dart';
+import '../../features/presets/widgets/preset_tuning_page.dart';
 import '../../features/classroom/widgets/course_detail_page.dart';
 import '../../features/mission/pages/map_select_page.dart';
 import '../../features/mine/widgets/device_scan_page.dart';
@@ -65,6 +66,14 @@ final appRouter = GoRouter(
       },
     ),
     GoRoute(
+      path: '/presets/tuning',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final preset = state.extra as Map<String, dynamic>;
+        return PresetTuningPage(preset: preset);
+      },
+    ),
+    GoRoute(
       path: '/classroom/course',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
@@ -80,7 +89,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/mission/map',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => const MapSelectPage(),
+      builder: (context, state) {
+        final presetParams = state.extra as Map<String, dynamic>?;
+        return MapSelectPage(presetParams: presetParams);
+      },
     ),
     GoRoute(
       path: '/mine/account',

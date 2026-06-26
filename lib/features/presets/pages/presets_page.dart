@@ -94,8 +94,8 @@ class PresetsPage extends ConsumerWidget {
                               Text('喷洒量 ${(p['sprayVolume'] ?? 0).toStringAsFixed(1)} L/亩 · 高度 ${(p['flightHeight'] ?? 0).toStringAsFixed(1)} m', style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
                               const SizedBox(height: 8),
                               Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                                TextButton.icon(onPressed: () {}, icon: const Icon(Icons.flight_takeoff, size: 16), label: const Text('使用')),
-                                const SizedBox(width: 8),
+                                TextButton.icon(onPressed: () async { await context.push('/presets/tuning', extra: p); ref.invalidate(presetsProvider); }, icon: const Icon(Icons.tune, size: 16), label: const Text('微调')),
+                                const SizedBox(width: 4),
                                 TextButton.icon(onPressed: () async { await context.push('/presets/form', extra: p); ref.invalidate(presetsProvider); }, icon: const Icon(Icons.edit, size: 16), label: const Text('编辑')),
                                 TextButton.icon(onPressed: () { showDialog(context: context, builder: (ctx) => AlertDialog(title: const Text('删除预设'), content: const Text('确定要删除此预设吗？'), actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')), TextButton(onPressed: () { ref.read(presetsProvider.notifier).deletePreset(p['id']); Navigator.pop(ctx); }, child: const Text('删除', style: TextStyle(color: AppColors.error)))])); }, icon: const Icon(Icons.delete_outline, size: 16), label: const Text('删除'), style: TextButton.styleFrom(foregroundColor: AppColors.error)),
                               ]),

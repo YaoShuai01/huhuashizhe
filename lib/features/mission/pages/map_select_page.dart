@@ -10,7 +10,9 @@ import '../../../providers/weather_provider.dart';
 import '../../../providers/preset_provider.dart';
 
 class MapSelectPage extends ConsumerStatefulWidget {
-  const MapSelectPage({super.key});
+  final Map<String, dynamic>? presetParams;
+
+  const MapSelectPage({super.key, this.presetParams});
 
   @override
   ConsumerState<MapSelectPage> createState() => _MapSelectPageState();
@@ -135,6 +137,25 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
   }
 
   void _navigateToTuning() {
+    // 如果来自预设，跳过AI调参直接进入确认页面
+    if (widget.presetParams != null) {
+      final waypointMaps = _waypoints.map((p) => {'lat': p.latitude, 'lng': p.longitude}).toList();
+      Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => MissionConfirmPage(
+          waypoints: waypointMaps,
+          area: _area!,
+          cropType: widget.presetParams!['cropType'] ?? '水稻',
+          operationType: widget.presetParams!['operationType'] ?? '杀虫',
+          flightHeight: (widget.presetParams!['flightHeight'] ?? 2.5).toDouble(),
+          flightSpeed: (widget.presetParams!['flightSpeed'] ?? 5.0).toDouble(),
+          sprayVolume: (widget.presetParams!['sprayVolume'] ?? 1.5).toDouble(),
+          sprayWidth: (widget.presetParams!['sprayWidth'] ?? 6.0).toDouble(),
+          windCorrection: 0,
+          referenceData: widget.presetParams!,
+        ),
+      ));
+      return;
+    }
     Navigator.of(context).push(MaterialPageRoute(
       builder: (_) => AiTuningPage(waypoints: _waypoints, area: _area!),
     ));
@@ -165,7 +186,7 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
           // 图层切换按钮
           IconButton(
             icon: Icon(_isSatellite ? Icons.satellite_alt : Icons.map, color: Colors.white),
-            onPressed: () => setState(() { _isSatellite = !_isSatellite; _showLabels = !_isSatellite; }),
+            onPressed: () => setState(() => _isSatellite = !_isSatellite),
             tooltip: _isSatellite ? '切换为标准地图' : '切换为卫星图',
             padding: const EdgeInsets.symmetric(horizontal: 10),
             constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
@@ -190,9 +211,11 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
               children: [
                 // 图层：卫星图或标准地图（含地名路网）
                 TileLayer(
-                  urlTemplate: (_isSatellite && !_showLabels)
+                  urlTemplate: _isSatellite
                       ? 'https://webst0{s}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}'
-                      : 'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
+                      : (_showLabels
+                          ? 'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}'
+                          : 'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=1&x={x}&y={y}&z={z}'),
                   subdomains: const ['1', '2', '3', '4'],
                   userAgentPackageName: 'com.huhuashizhe.huhuashizhe',
                   maxZoom: _maxZoom,
