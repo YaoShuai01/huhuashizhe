@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:path_provider/path_provider.dart';
+
 class LocalDatabase {
   static final LocalDatabase _instance = LocalDatabase._();
   factory LocalDatabase() => _instance;
@@ -9,12 +11,20 @@ class LocalDatabase {
 
   final Map<String, dynamic> _cache = {};
 
-  String get _dataDir => '${Directory.systemTemp.path}/huhuashizhe_data';
+  String? _dataDir;
 
-  String _filePath(String key) => '$_dataDir/$key.json';
+  Future<String> _getDataDir() async {
+    if (_dataDir != null) return _dataDir!;
+    final dir = await getApplicationDocumentsDirectory();
+    _dataDir = '${dir.path}/huhuashizhe_data';
+    return _dataDir!;
+  }
+
+  String _filePath(String key) => '${_dataDir!}/$key.json';
 
   Future<void> init() async {
-    final dir = Directory(_dataDir);
+    final dataDir = await _getDataDir();
+    final dir = Directory(dataDir);
     if (!await dir.exists()) await dir.create(recursive: true);
     // 预热缓存：从文件加载到内存
     for (final key in ['presets', 'missions', 'favorites', 'settings']) {

@@ -147,25 +147,29 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        titleSpacing: 0,
         title: Text('航点: ${_waypoints.length}${_isClosed ? " (已闭合)" : ""}'),
         actions: [
           if (_isLocating)
-            const Padding(padding: EdgeInsets.only(right: 12), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
-          // 地名标注开关（仅卫星图模式下显示）
-          if (_isSatellite)
-            IconButton(
-              icon: Icon(_showLabels ? Icons.location_on : Icons.location_on_outlined, color: _showLabels ? AppColors.primary : AppColors.textDisabled),
-              onPressed: () => setState(() => _showLabels = !_showLabels),
-              tooltip: _showLabels ? '隐藏地名' : '显示地名',
-            ),
+            const Padding(padding: EdgeInsets.only(right: 8), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+          // 地名标注开关
+          IconButton(
+            icon: Icon(_showLabels ? Icons.location_on : Icons.location_on_outlined, color: _showLabels ? AppColors.primary : AppColors.textDisabled),
+            onPressed: () => setState(() => _showLabels = !_showLabels),
+            tooltip: _showLabels ? '隐藏地名' : '显示地名',
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+          ),
+          const SizedBox(width: 2),
           // 图层切换按钮
           IconButton(
             icon: Icon(_isSatellite ? Icons.satellite_alt : Icons.map, color: AppColors.primary),
             onPressed: () => setState(() { _isSatellite = !_isSatellite; _showLabels = true; }),
             tooltip: _isSatellite ? '切换为标准地图' : '切换为卫星图',
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
           ),
-          // 定位按钮
-          IconButton(icon: const Icon(Icons.my_location), onPressed: _autoLocate, tooltip: '定位到当前位置'),
+          const SizedBox(width: 4),
         ],
       ),
       body: Stack(

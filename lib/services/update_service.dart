@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:dio/dio.dart';
 
 import '../core/constants/app_version.dart' show appVersion;
@@ -58,6 +57,8 @@ class UpdateService {
     receiveTimeout: const Duration(seconds: 30),
   ));
 
+  String _downloadPath = '';
+
   /// 检查是否有新版本，返回 (结果, 更新信息)
   Future<(CheckResult, UpdateInfo?)> checkForUpdate() async {
     try {
@@ -103,8 +104,9 @@ class UpdateService {
     void Function(int received, int total) onProgress,
   ) async {
     try {
-      final dir = Directory.systemTemp;
-      final filePath = '${dir.path}/huhuashizhe_update.apk';
+      final dir = await ApkInstaller.getDownloadDir();
+      final filePath = '$dir/huhuashizhe_update.apk';
+      _downloadPath = filePath;
 
       await _dio.download(
         url,
@@ -118,6 +120,9 @@ class UpdateService {
       return false;
     }
   }
+
+  /// 获取下载文件路径
+  String get downloadPath => _downloadPath;
 
   /// 安装已下载的APK文件（调用系统安装器）
   Future<bool> installUpdate(String filePath) async {

@@ -367,6 +367,17 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v1.0.7',
+        'date': '2025-06-27',
+        'content': [
+          '修复APK安装失败（下载路径改为外部存储，系统安装器可正常访问）',
+          '修复「下次再说」关闭后弹窗绿色头部残留问题',
+          '修复地图工具栏布局：移除冗余定位图标，按钮间距优化，标题靠左',
+          '修复应用更新后用户数据丢失（存储路径改为应用文档目录持久化）',
+          '新增更新提醒弹窗（启动时自动检测GitHub新版本并弹出更新对话框）',
+        ],
+      },
+      {
         'version': 'v1.0.6',
         'date': '2025-06-26',
         'content': [

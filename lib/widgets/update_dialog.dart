@@ -1,10 +1,8 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/constants/app_version.dart';
 import '../core/theme/app_theme.dart';
 import '../providers/update_provider.dart';
-import '../services/update_service.dart';
 
 class UpdateDialog extends ConsumerWidget {
   const UpdateDialog({super.key});
@@ -207,9 +205,7 @@ class UpdateDialog extends ConsumerWidget {
           Expanded(
             child: TextButton(
               onPressed: () {
-                // 先关弹窗，再重置状态（避免 dismiss 触发 rebuild 导致头部残留）
                 Navigator.of(context).pop();
-                notifier.dismiss();
               },
               child: const Text(
                 '下次再说',
@@ -245,7 +241,7 @@ class UpdateDialog extends ConsumerWidget {
         child: ElevatedButton.icon(
           onPressed: () async {
             final service = ref.read(updateServiceProvider);
-            final filePath = '${Directory.systemTemp.path}/huhuashizhe_update.apk';
+            final filePath = service.downloadPath;
             final success = await service.installUpdate(filePath);
             if (!success && context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(

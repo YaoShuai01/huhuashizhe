@@ -74,7 +74,7 @@ class _UpdateCheckerState extends ConsumerState<_UpdateChecker> with WidgetsBind
 
   @override
   Widget build(BuildContext context) {
-    final state = ref.watch(updateProvider);
+    ref.watch(updateProvider);
     ref.listen<UpdateState>(updateProvider, (prev, next) {
       // 检测到新版本时，使用根导航器的context弹出更新对话框
       if (next.status == UpdateStatus.updateAvailable && prev?.status != UpdateStatus.updateAvailable) {

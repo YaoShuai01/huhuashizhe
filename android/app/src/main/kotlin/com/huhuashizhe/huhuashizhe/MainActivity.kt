@@ -33,6 +33,7 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, INSTALLER_CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
                 "installApk" -> installApk(call.argument("path") ?: "", result)
+                "getDownloadDir" -> getDownloadDir(result)
                 else -> result.notImplemented()
             }
         }
@@ -43,6 +44,17 @@ class MainActivity : FlutterActivity() {
                 "getLocation" -> getCurrentLocation(result)
                 else -> result.notImplemented()
             }
+        }
+    }
+
+    private fun getDownloadDir(result: MethodChannel.Result) {
+        // 返回外部存储的应用专属文件目录，系统安装器可访问
+        val externalFilesDir = getExternalFilesDir(null)?.absolutePath
+        if (externalFilesDir != null) {
+            result.success(externalFilesDir)
+        } else {
+            // 回退到外部存储的下载目录
+            result.success(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath)
         }
     }
 
