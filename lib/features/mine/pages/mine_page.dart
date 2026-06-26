@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/constants/app_version.dart' show appVersion;
 import '../widgets/device_scan_page.dart';
 import '../pages/mine_sub_pages.dart';
 import '../../settings/pages/settings_page.dart';
@@ -83,7 +84,7 @@ class MinePage extends StatelessWidget {
             _buildMenuItem(
               icon: Icons.info_outline,
               title: '关于',
-              subtitle: 'v1.0.0',
+              subtitle: 'v$appVersion',
               onTap: () => context.push('/mine/about'),
             ),
             const SizedBox(height: 24),

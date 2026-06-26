@@ -27,6 +27,7 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
   bool _isLocating = false;
   bool _showLabels = false;        // 是否显示地名标注（卫星图默认无标注）
   bool _isSatellite = true;        // 当前是否为卫星图模式
+  double _tuneStep = 0.5;          // 微调步长（米）
 
   // 默认上海坐标，GPS定位后会更新
   LatLng _center = const LatLng(31.2304, 121.4737);
@@ -52,6 +53,17 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
     } else {
       if (mounted) setState(() => _isLocating = false);
     }
+  }
+
+  /// 微调移动地图中心（dxMeters: 东西方向，正值向东；dyMeters: 南北方向，正值向北）
+  void _moveMap(double dxMeters, double dyMeters) {
+    final camera = _mapController.camera;
+    final lat = camera.center.latitude;
+    final metersPerDegLat = 111320.0;
+    final metersPerDegLng = 111320.0 * cos(lat * pi / 180);
+    final newLat = lat + dyMeters / metersPerDegLat;
+    final newLng = camera.center.longitude + dxMeters / metersPerDegLng;
+    _mapController.move(LatLng(newLat, newLng), camera.zoom);
   }
 
   void _onMapEvent(MapEvent event) {
@@ -164,6 +176,151 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
   String _getMainButtonText() => (_canClose && _waypoints.length >= 3) ? '闭合区域' : '添加航点';
   IconData _getMainButtonIcon() => (_canClose && _waypoints.length >= 3) ? Icons.link : Icons.add_location_outlined;
 
+  // ==================== 微调面板 ====================
+
+  Widget _buildFineTunePanel() {
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 6)],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 上方向键
+          _dirButton(Icons.keyboard_arrow_up, 0, 1),
+          const SizedBox(height: 2),
+          // 左右方向键
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _dirButton(Icons.keyboard_arrow_left, -1, 0),
+              const SizedBox(width: 8),
+              _dirButton(Icons.keyboard_arrow_right, 1, 0),
+            ],
+          ),
+          const SizedBox(height: 2),
+          // 下方向键
+          _dirButton(Icons.keyboard_arrow_down, 0, -1),
+          const SizedBox(height: 6),
+          // 步长调节
+          _buildStepControl(),
+        ],
+      ),
+    );
+  }
+
+  Widget _dirButton(IconData icon, int dx, int dy) {
+    return InkWell(
+      onTap: () => _moveMap(dx * _tuneStep, dy * _tuneStep),
+      borderRadius: BorderRadius.circular(5),
+      child: Container(
+        width: 34,
+        height: 34,
+        decoration: BoxDecoration(
+          color: AppColors.primary.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(5),
+          border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+        ),
+        child: Icon(icon, color: AppColors.primary, size: 22),
+      ),
+    );
+  }
+
+  Widget _buildStepControl() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 减号按钮
+        InkWell(
+          onTap: () {
+            final newStep = (_tuneStep - 0.2).clamp(0.1, 5.0);
+            setState(() => _tuneStep = double.parse(newStep.toStringAsFixed(1)));
+          },
+          borderRadius: BorderRadius.circular(4),
+          child: Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Icon(Icons.remove, size: 16, color: AppColors.primary),
+          ),
+        ),
+        const SizedBox(width: 4),
+        // 步长数值（点击可键盘输入）
+        InkWell(
+          onTap: _showStepInputDialog,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text('${_tuneStep.toStringAsFixed(1)}m',
+                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary)),
+          ),
+        ),
+        const SizedBox(width: 4),
+        // 加号按钮
+        InkWell(
+          onTap: () {
+            final newStep = (_tuneStep + 0.2).clamp(0.1, 5.0);
+            setState(() => _tuneStep = double.parse(newStep.toStringAsFixed(1)));
+          },
+          borderRadius: BorderRadius.circular(4),
+          child: Container(
+            width: 22,
+            height: 22,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Icon(Icons.add, size: 16, color: AppColors.primary),
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showStepInputDialog() {
+    final controller = TextEditingController(text: _tuneStep.toStringAsFixed(1));
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('微调步长'),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(
+            labelText: '步长（米）',
+            hintText: '0.1 ~ 5.0',
+          ),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () {
+              final val = double.tryParse(controller.text);
+              if (val != null) {
+                setState(() => _tuneStep = val.clamp(0.1, 5.0));
+              }
+              Navigator.pop(ctx);
+            },
+            child: const Text('确定'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -172,10 +329,19 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
         title: Text('航点: ${_waypoints.length}${_isClosed ? " (已闭合)" : ""}'),
         actions: [
           if (_isLocating)
-            const Padding(padding: EdgeInsets.only(right: 8), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+            const Padding(padding: EdgeInsets.only(right: 8), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))),
+          // GPS定位按钮（静态图标，点击居中到用户位置）
+          IconButton(
+            icon: const Icon(Icons.my_location, color: Colors.white),
+            onPressed: _autoLocate,
+            tooltip: '定位到当前位置',
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+          ),
+          const SizedBox(width: 2),
           // 地名标注开关
           IconButton(
-            icon: Icon(_showLabels ? Icons.location_on : Icons.location_on_outlined,
+            icon: Icon(_showLabels ? Icons.place : Icons.place_outlined,
                 color: _showLabels ? Colors.white : Colors.white70),
             onPressed: () => setState(() => _showLabels = !_showLabels),
             tooltip: _showLabels ? '隐藏地名' : '显示地名',
@@ -251,6 +417,8 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
           const Positioned.fill(child: Center(child: _Crosshair())),
           // 比例尺（左下角）
           Positioned(bottom: 100, left: 12, child: _ScaleBar(zoom: _currentZoom, latitude: _center.latitude)),
+          // 微调面板（右下角，比例尺和底部操作栏之间）
+          Positioned(bottom: 100, right: 12, child: _buildFineTunePanel()),
           // 面积浮层
           if (_area != null && _isClosed)
             Positioned(top: MediaQuery.of(context).padding.top + kToolbarHeight + 12, left: 0, right: 0, child: Center(child: Container(
@@ -259,18 +427,6 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 const Icon(Icons.area_chart, color: Colors.white, size: 18), const SizedBox(width: 6),
                 Text('面积: ${_area!.toStringAsFixed(1)} 亩', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-              ]),
-            ))),
-          // 操作提示（修复溢出：使用Flexible包裹文本）
-          if (_waypoints.isEmpty)
-            Positioned(bottom: 100, left: 0, right: 0, child: Center(child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 16),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(12)),
-              child: Row(children: [
-                const Icon(Icons.info_outline, color: Colors.white70, size: 18),
-                const SizedBox(width: 8),
-                const Flexible(child: Text('移动地图使十字准心对准作业区域边缘，点击「添加航点」', style: TextStyle(color: Colors.white, fontSize: 13))),
               ]),
             ))),
           // 可闭合提示
