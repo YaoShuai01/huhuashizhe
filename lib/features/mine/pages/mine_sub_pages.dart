@@ -367,6 +367,16 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v1.0.6',
+        'date': '2025-06-26',
+        'content': [
+          '新增图层切换按钮（卫星图/标准地图一键切换）',
+          '新增地名标注开关（卫星图模式下单独控制地名显示）',
+          '修复GPS定位不生效（不限缓存时间+被动定位回退）',
+          '闭合区域检测改为像素重叠（十字准心与航点标记视觉重叠）',
+        ],
+      },
+      {
         'version': 'v1.0.5',
         'date': '2025-06-25',
         'content': [

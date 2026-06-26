@@ -23,6 +23,8 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
   double? _area;
   bool _canClose = false;
   bool _isLocating = false;
+  bool _showLabels = true;         // 是否显示地名标注（标准地图=有标注，卫星图=无标注）
+  bool _isSatellite = true;        // 当前是否为卫星图模式
 
   // 默认上海坐标，GPS定位后会更新
   LatLng _center = const LatLng(31.2304, 121.4737);
@@ -58,7 +60,10 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
         if (_waypoints.length >= 3 && !_isClosed) {
           final center = camera.center;
           final firstPoint = _waypoints.first;
-          const closeThreshold = 0.0005;
+          // 基于像素重叠检测：十字准心与第一个航点标记(20px)重叠
+          // 将10px容差转换为地理坐标度数
+          final pixelsPerDegree = (256 * pow(2, _currentZoom)) / 360;
+          final closeThreshold = 10.0 / pixelsPerDegree; // 10px容差
           final distance = _calculateDistance(center, firstPoint);
           _canClose = distance < closeThreshold;
         } else {
@@ -146,6 +151,20 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
         actions: [
           if (_isLocating)
             const Padding(padding: EdgeInsets.only(right: 12), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+          // 地名标注开关（仅卫星图模式下显示）
+          if (_isSatellite)
+            IconButton(
+              icon: Icon(_showLabels ? Icons.location_on : Icons.location_on_outlined, color: _showLabels ? AppColors.primary : AppColors.textDisabled),
+              onPressed: () => setState(() => _showLabels = !_showLabels),
+              tooltip: _showLabels ? '隐藏地名' : '显示地名',
+            ),
+          // 图层切换按钮
+          IconButton(
+            icon: Icon(_isSatellite ? Icons.satellite_alt : Icons.map, color: AppColors.primary),
+            onPressed: () => setState(() { _isSatellite = !_isSatellite; _showLabels = true; }),
+            tooltip: _isSatellite ? '切换为标准地图' : '切换为卫星图',
+          ),
+          // 定位按钮
           IconButton(icon: const Icon(Icons.my_location), onPressed: _autoLocate, tooltip: '定位到当前位置'),
         ],
       ),
@@ -164,9 +183,11 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
                 interactionOptions: const InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.rotate),
               ),
               children: [
-                // 高德卫星图（符合农业用途）
+                // 图层：卫星图或标准地图（含地名路网）
                 TileLayer(
-                  urlTemplate: 'https://webst0{s}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}',
+                  urlTemplate: (_isSatellite && !_showLabels)
+                      ? 'https://webst0{s}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}'
+                      : 'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
                   subdomains: const ['1', '2', '3', '4'],
                   userAgentPackageName: 'com.huhuashizhe.huhuashizhe',
                   maxZoom: _maxZoom,

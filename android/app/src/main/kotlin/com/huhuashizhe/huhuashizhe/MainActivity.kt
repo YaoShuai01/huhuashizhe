@@ -88,52 +88,58 @@ class MainActivity : FlutterActivity() {
                 arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
                 1001
             )
-            // 权限未授予，返回null让Flutter端处理
-            result.success(null)
+            // 权限未授予时，尝试返回任意缓存位置作为回退
+            val anyLocation = locationManager?.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                ?: locationManager?.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+                ?: locationManager?.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)
+            if (anyLocation != null) {
+                result.success(mapOf("lat" to anyLocation.latitude, "lng" to anyLocation.longitude))
+            } else {
+                result.success(null)
+            }
             return
         }
 
-        // 先尝试获取最后一次已知位置
-        val lastLocation = locationManager?.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+        // 返回任意缓存位置（不限时间），同时请求新位置
+        val cachedLocation = locationManager?.getLastKnownLocation(LocationManager.GPS_PROVIDER)
             ?: locationManager?.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+            ?: locationManager?.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)
 
-        if (lastLocation != null && (System.currentTimeMillis() - lastLocation.time) < 5 * 60 * 1000) {
-            // 5分钟内的缓存位置可用
-            val map = mapOf(
-                "lat" to lastLocation.latitude,
-                "lng" to lastLocation.longitude
-            )
-            result.success(map)
-            return
+        if (cachedLocation != null) {
+            result.success(mapOf("lat" to cachedLocation.latitude, "lng" to cachedLocation.longitude))
         }
 
-        // 请求单次位置更新
-        locationResult = result
+        // 同时请求更精确的位置更新
+        locationResult = if (cachedLocation != null) null else result
         locationListener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
+                // 如果之前没返回过，现在返回
                 locationResult?.success(mapOf("lat" to location.latitude, "lng" to location.longitude))
+                locationResult = null
                 cleanupLocation()
             }
             override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
             override fun onProviderEnabled(provider: String) {}
             override fun onProviderDisabled(provider: String) {
                 locationResult?.success(null)
+                locationResult = null
                 cleanupLocation()
             }
         }
 
         try {
-            locationManager?.requestSingleUpdate(
-                LocationManager.GPS_PROVIDER, locationListener!!, Looper.getMainLooper()
+            locationManager?.requestLocationUpdates(
+                LocationManager.GPS_PROVIDER, 0L, 0f, locationListener!!, Looper.getMainLooper()
             )
         } catch (e: Exception) {
-            // GPS不可用，尝试网络定位
             try {
-                locationManager?.requestSingleUpdate(
-                    LocationManager.NETWORK_PROVIDER, locationListener!!, Looper.getMainLooper()
+                locationManager?.requestLocationUpdates(
+                    LocationManager.NETWORK_PROVIDER, 0L, 0f, locationListener!!, Looper.getMainLooper()
                 )
             } catch (e2: Exception) {
-                result.success(null)
+                if (cachedLocation == null) {
+                    result.success(null)
+                }
                 cleanupLocation()
             }
         }
