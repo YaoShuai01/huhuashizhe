@@ -1,18 +1,23 @@
 import 'package:flutter/services.dart';
+import 'package:latlong2/latlong.dart';
 
 /// 原生GPS定位服务（通过MethodChannel直接调用Android LocationManager）
 class GpsLocationService {
   static const _channel = MethodChannel('com.huhuashizhe/location');
+
+  /// 全局缓存的最后一次GPS定位（WGS-84坐标），应用启动后首次获取即缓存
+  static LatLng? _cachedLocation;
+  static LatLng? get cachedLocation => _cachedLocation;
 
   /// 获取当前位置，返回 {lat: double, lng: double}，失败返回null
   static Future<Map<String, double>?> getCurrentLocation() async {
     try {
       final result = await _channel.invokeMethod<Map<dynamic, dynamic>>('getLocation');
       if (result != null) {
-        return {
-          'lat': (result['lat'] as num).toDouble(),
-          'lng': (result['lng'] as num).toDouble(),
-        };
+        final lat = (result['lat'] as num).toDouble();
+        final lng = (result['lng'] as num).toDouble();
+        _cachedLocation = LatLng(lat, lng);
+        return {'lat': lat, 'lng': lng};
       }
       return null;
     } catch (e) {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -29,29 +30,54 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
   bool _isSatellite = true;        // 当前是否为卫星图模式
   double _tuneStep = 0.5;          // 微调步长（米）
   bool _mapReady = false;          // 地图是否已初始化完毕
+  bool _gpsReady = false;          // GPS是否已获取到有效位置
 
-  static const LatLng _initialCenter = LatLng(31.2304, 121.4737);
+  // 优先使用缓存GPS位置，无缓存时使用上海作为初始地图中心（加载动画覆盖，用户看不到）
+  static final LatLng _fallbackCenter = const LatLng(31.2304, 121.4737);
   double _currentZoom = 16.0;
   double _currentCenterLat = 31.2304; // 用于比例尺等UI组件
   static const double _minZoom = 3.0;
   static const double _maxZoom = 18.0;
 
+  LatLng get _initialCenter {
+    final cached = GpsLocationService.cachedLocation;
+    if (cached != null) {
+      return CoordTransform.wgs84ToGcj02(cached.latitude, cached.longitude);
+    }
+    return _fallbackCenter;
+  }
+
+  Timer? _gpsTimeout;
+
   @override
   void initState() {
     super.initState();
+    // 15秒超时：GPS无法获取时自动跳过，不永久阻塞
+    _gpsTimeout = Timer(const Duration(seconds: 15), () {
+      if (mounted && !_gpsReady) {
+        setState(() => _gpsReady = true);
+      }
+    });
     _autoLocate();
+  }
+
+  @override
+  void dispose() {
+    _gpsTimeout?.cancel();
+    super.dispose();
   }
 
   Future<void> _autoLocate() async {
     setState(() => _isLocating = true);
     final pos = await GpsLocationService.getCurrentLocation();
     if (pos != null && mounted) {
+      _gpsTimeout?.cancel();
       final wgs84 = LatLng(pos['lat']!, pos['lng']!);
       // GPS返回WGS-84，高德地图瓦片使用GCJ-02，必须转换以消除~400m偏差
       final gcj02 = CoordTransform.wgs84ToGcj02(wgs84.latitude, wgs84.longitude);
       _mapController.move(gcj02, 16.0);
       _currentCenterLat = gcj02.latitude;
-      if (mounted) setState(() => _isLocating = false);
+      if (mounted) setState(() { _isLocating = false; _gpsReady = true; });
     } else {
       if (mounted) setState(() => _isLocating = false);
     }
@@ -428,6 +454,31 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
                 Flexible(child: Text('已对准起始航点，点击「闭合区域」完成圈选', style: TextStyle(color: Colors.white, fontSize: 13))),
               ]),
             ))),
+          // GPS未就绪时的加载遮罩（不显示错误位置给用户）
+          if (!_gpsReady)
+            Positioned.fill(
+              child: Container(
+                color: const Color(0xFFE8E8E8),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const CircularProgressIndicator(color: AppColors.primary),
+                      const SizedBox(height: 16),
+                      const Text('正在获取位置...', style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+                      const SizedBox(height: 24),
+                      TextButton(
+                        onPressed: () {
+                          _gpsTimeout?.cancel();
+                          setState(() => _gpsReady = true);
+                        },
+                        child: const Text('跳过，手动定位', style: TextStyle(color: AppColors.primary)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
       bottomNavigationBar: SafeArea(child: Container(
