@@ -367,6 +367,14 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v1.1.12',
+        'date': '2026-06-27',
+        'content': [
+          '修复安装器界面版本号显示为旧版问题（pubspec.yaml版本号不同步）',
+          '修复天气卡片无法获取天气（Android 9+拦截HTTP明文流量）',
+        ],
+      },
+      {
         'version': 'v1.1.11',
         'date': '2026-06-27',
         'content': [
