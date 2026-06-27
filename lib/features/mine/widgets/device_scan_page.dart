@@ -19,6 +19,7 @@ class _DeviceScanPageState extends State<DeviceScanPage> {
   final List<DiscoveredDevice> _devices = [];
   StreamSubscription<DiscoveredDevice>? _deviceSub;
   StreamSubscription? _scanCompleteSub;
+  Timer? _errorTimer;
 
   @override
   void initState() {
@@ -53,6 +54,16 @@ class _DeviceScanPageState extends State<DeviceScanPage> {
     });
   }
 
+  void _showError(String message) {
+    _errorTimer?.cancel();
+    setState(() => _errorMessage = message);
+    _errorTimer = Timer(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() => _errorMessage = '');
+      }
+    });
+  }
+
   Future<void> _startScan() async {
     setState(() {
       _isScanning = true;
@@ -63,29 +74,23 @@ class _DeviceScanPageState extends State<DeviceScanPage> {
     try {
       final success = await _bluetoothService.startScan();
       if (!success && mounted) {
-        setState(() {
-          _isScanning = false;
-          _errorMessage = '扫描启动失败，请检查蓝牙权限';
-        });
+        setState(() => _isScanning = false);
+        _showError('扫描启动失败，请检查蓝牙权限');
       }
     } on PlatformException catch (e) {
       if (mounted) {
-        setState(() {
-          _isScanning = false;
-          if (e.code == 'BT_DISABLED') {
-            _bluetoothEnabled = false;
-            _errorMessage = '蓝牙未开启，请先打开蓝牙';
-          } else {
-            _errorMessage = '扫描失败: ${e.message}';
-          }
-        });
+        setState(() => _isScanning = false);
+        if (e.code == 'BT_DISABLED') {
+          _bluetoothEnabled = false;
+          _showError('蓝牙未开启，请先打开蓝牙');
+        } else {
+          _showError('扫描失败: ${e.message}');
+        }
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _isScanning = false;
-          _errorMessage = '扫描失败: $e';
-        });
+        setState(() => _isScanning = false);
+        _showError('扫描失败: $e');
       }
     }
   }
@@ -94,6 +99,7 @@ class _DeviceScanPageState extends State<DeviceScanPage> {
   void dispose() {
     _deviceSub?.cancel();
     _scanCompleteSub?.cancel();
+    _errorTimer?.cancel();
     _bluetoothService.stopScan();
     _bluetoothService.dispose();
     super.dispose();
@@ -232,13 +238,17 @@ class _DeviceScanPageState extends State<DeviceScanPage> {
                           ),
                           subtitle: Row(
                             children: [
-                              Text(d.address, style: const TextStyle(fontSize: 12, color: AppColors.textHint)),
-                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(d.address,
+                                    style: const TextStyle(fontSize: 12, color: AppColors.textHint),
+                                    overflow: TextOverflow.ellipsis),
+                              ),
+                              const SizedBox(width: 6),
                               signalIcon,
-                              const SizedBox(width: 4),
+                              const SizedBox(width: 3),
                               Text(d.signalStrengthDisplay,
                                   style: TextStyle(fontSize: 12, color: _getSignalColor(d.rssi))),
-                              const SizedBox(width: 8),
+                              const SizedBox(width: 6),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
                                 decoration: BoxDecoration(

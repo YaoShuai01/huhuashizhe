@@ -554,6 +554,59 @@ class LegalPage extends StatelessWidget {
   }
 }
 
+/// 显示状态提示弹窗（2秒后自动消失）
+void _showStatusDialog(BuildContext context, IconData icon, String title, String message) {
+  showDialog(
+    context: context,
+    barrierDismissible: true,
+    builder: (ctx) {
+      Future.delayed(const Duration(seconds: 2), () {
+        if (ctx.mounted) Navigator.of(ctx).pop();
+      });
+      return Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.15),
+                blurRadius: 20,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 52, height: 52,
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, color: AppColors.primary, size: 28),
+              ),
+              const SizedBox(height: 12),
+              Text(title,
+                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 6),
+              Text(message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  );
+}
+
 class VersionInfoPage extends ConsumerWidget {
   const VersionInfoPage({super.key});
 
@@ -612,17 +665,11 @@ class VersionInfoPage extends ConsumerWidget {
             if (state.status == UpdateStatus.updateAvailable) {
               UpdateDialog.show(context);
             } else if (state.status == UpdateStatus.upToDate) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('当前已是最新版本')),
-              );
+              _showStatusDialog(context, Icons.check_circle, '已是最新版本', '当前版本 v$appVersion，无需更新');
             } else if (state.status == UpdateStatus.noRelease) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('暂无更新信息，请稍后再试')),
-              );
+              _showStatusDialog(context, Icons.info_outline, '暂无更新', '暂未发布更新信息，请稍后再试');
             } else if (state.status == UpdateStatus.error) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(state.errorMessage)),
-              );
+              _showStatusDialog(context, Icons.error_outline, '检查失败', state.errorMessage);
             }
           }
         },
@@ -639,6 +686,16 @@ class VersionInfoPage extends ConsumerWidget {
 
   List<Widget> _buildUpdateHistory() {
     final histories = [
+      {
+        'version': 'v1.2.2',
+        'date': '2026-06-28',
+        'content': [
+          '修复蓝牙设备列表名称溢出报错',
+          '蓝牙未开启红色提示3秒后自动消失',
+          '优化"已是最新版本"弹窗：改为美观对话框，2秒自动消失',
+          '优化"暂无更新"和"检查失败"提示弹窗样式',
+        ],
+      },
       {
         'version': 'v1.2.1',
         'date': '2026-06-28',
