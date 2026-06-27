@@ -11,6 +11,7 @@ import '../../features/mission/pages/map_select_page.dart';
 import '../../features/mine/widgets/device_scan_page.dart';
 import '../../features/mine/pages/mine_sub_pages.dart';
 import '../../features/settings/pages/settings_page.dart';
+import '../../features/ai_chat/pages/ai_chat_page.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -133,6 +134,44 @@ final appRouter = GoRouter(
       path: '/mine/version',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const VersionInfoPage(),
+    ),
+    GoRoute(
+      path: '/mine/manual',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const ManualPage(),
+    ),
+    GoRoute(
+      path: '/mine/feature-intro',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const FeatureIntroPage(),
+    ),
+    GoRoute(
+      path: '/mine/license',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const OpenSourceLicensePage(),
+    ),
+    GoRoute(
+      path: '/mine/legal-detail',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final args = state.extra as Map<String, String>;
+        return LegalDetailPage(title: args['title']!, content: args['content']!);
+      },
+    ),
+    GoRoute(
+      path: '/notification',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const NotificationPage(),
+    ),
+    GoRoute(
+      path: '/mission/history',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const MissionHistoryPage(),
+    ),
+    GoRoute(
+      path: '/ai-chat',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const AiChatPage(),
     ),
   ],
 );

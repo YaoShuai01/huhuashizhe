@@ -26,7 +26,7 @@ class HomePage extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications_outlined),
-            onPressed: () {},
+            onPressed: () => context.push('/notification'),
           ),
         ],
       ),
@@ -265,21 +265,21 @@ class HomePage extends ConsumerWidget {
           title: 'AI建议',
           subtitle: '智能诊断与用药推荐',
           color: AppColors.accent,
-          onTap: () {},
+          onTap: () => context.push('/ai-chat'),
         ),
         _buildActionCard(
           icon: Icons.speed,
           title: '快速预设',
           subtitle: '从历史预设一键启动',
           color: const Color(0xFF1976D2),
-          onTap: () {},
+          onTap: () => context.go('/presets'),
         ),
         _buildActionCard(
           icon: Icons.history,
           title: '作业记录',
           subtitle: '查看历史作业详情',
           color: const Color(0xFF7B1FA2),
-          onTap: () {},
+          onTap: () => context.push('/mission/history'),
         ),
       ],
     );
