@@ -34,7 +34,7 @@ class UpdateDialog extends ConsumerWidget {
               if (state.status == UpdateStatus.updateAvailable)
                 _buildActionButtons(context, notifier),
               if (state.status == UpdateStatus.downloaded)
-                _buildInstallButton(context, ref),
+                _buildDownloadComplete(),
               if (state.status == UpdateStatus.error)
                 _buildErrorRetry(state, notifier),
               const SizedBox(height: 20),
@@ -233,33 +233,18 @@ class UpdateDialog extends ConsumerWidget {
     );
   }
 
-  Widget _buildInstallButton(BuildContext context, WidgetRef ref) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-      child: SizedBox(
-        width: double.infinity,
-        child: ElevatedButton.icon(
-          onPressed: () async {
-            final service = ref.read(updateServiceProvider);
-            final filePath = service.downloadPath;
-            final success = await service.installUpdate(filePath);
-            if (!success && context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('安装失败，请到文件管理器中手动安装')),
-              );
-            }
-          },
-          icon: const Icon(Icons.install_mobile, size: 20),
-          label: const Text('安装更新', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.success,
-            foregroundColor: Colors.white,
-            minimumSize: const Size(double.infinity, 46),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+  Widget _buildDownloadComplete() {
+    return const Padding(
+      padding: EdgeInsets.fromLTRB(20, 4, 20, 8),
+      child: Column(
+        children: [
+          Icon(Icons.check_circle, color: AppColors.success, size: 40),
+          SizedBox(height: 8),
+          Text(
+            '下载完成，正在安装...',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
           ),
-        ),
+        ],
       ),
     );
   }

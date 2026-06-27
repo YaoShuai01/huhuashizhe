@@ -83,6 +83,8 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
 
     if (success) {
       state = state.copyWith(status: UpdateStatus.downloaded, progress: 1.0);
+      // 下载完成后自动拉起系统安装器，无需用户点击
+      await service.installUpdate(service.downloadPath);
     } else {
       state = state.copyWith(
         status: UpdateStatus.error,

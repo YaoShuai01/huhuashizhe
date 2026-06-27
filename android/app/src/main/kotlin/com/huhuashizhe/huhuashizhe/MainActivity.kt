@@ -121,22 +121,32 @@ class MainActivity : FlutterActivity() {
             return
         }
 
-        // 新策略：等待高精度新定位，不再立即返回缓存位置
+        // 优化策略：先立即返回缓存位置（快速定位），再后台监听更高精度
+        val cached = locationManager?.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+            ?: locationManager?.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+            ?: locationManager?.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)
+
+        if (cached != null) {
+            // 有缓存位置，立即返回，不阻塞UI
+            result.success(mapOf("lat" to cached.latitude, "lng" to cached.longitude))
+            // 后台静默更新到更精确位置（下次请求时可用）
+            updateCacheInBackground()
+            return
+        }
+
+        // 无缓存位置：启动监听，尽快返回第一个可用定位
         locationResult = result
         bestLocation = null
 
         locationListener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
-                // 跟踪最优位置（精度最高的）
                 if (bestLocation == null || location.accuracy < bestLocation!!.accuracy) {
                     bestLocation = location
                 }
-                // 精度达到30米以内，立即返回
-                if (location.accuracy < 30.0f) {
-                    locationResult?.success(mapOf("lat" to location.latitude, "lng" to location.longitude))
-                    locationResult = null
-                    cleanupLocation()
-                }
+                // 收到第一个定位（任意精度）立即返回，不再等待高精度
+                locationResult?.success(mapOf("lat" to location.latitude, "lng" to location.longitude))
+                locationResult = null
+                cleanupLocation()
             }
             override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
             override fun onProviderEnabled(provider: String) {}
@@ -147,27 +157,16 @@ class MainActivity : FlutterActivity() {
             }
         }
 
-        // 10秒超时：返回最优可用位置，或缓存回退
+        // 5秒超时：缩短等待时间
         locationTimeoutHandler = Handler(Looper.getMainLooper())
         locationTimeoutRunnable = Runnable {
             if (locationResult != null) {
-                if (bestLocation != null) {
-                    locationResult?.success(mapOf("lat" to bestLocation!!.latitude, "lng" to bestLocation!!.longitude))
-                } else {
-                    val cached = locationManager?.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-                        ?: locationManager?.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-                        ?: locationManager?.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)
-                    if (cached != null) {
-                        locationResult?.success(mapOf("lat" to cached.latitude, "lng" to cached.longitude))
-                    } else {
-                        locationResult?.success(null)
-                    }
-                }
+                locationResult?.success(null)
                 locationResult = null
                 cleanupLocation()
             }
         }
-        locationTimeoutHandler?.postDelayed(locationTimeoutRunnable!!, 10000)
+        locationTimeoutHandler?.postDelayed(locationTimeoutRunnable!!, 5000)
 
         // 同时请求GPS和网络定位
         try {
@@ -175,14 +174,31 @@ class MainActivity : FlutterActivity() {
                 LocationManager.GPS_PROVIDER, 0L, 0f, locationListener!!, Looper.getMainLooper()
             )
         } catch (e: Exception) {
-            // GPS不可用，尝试网络定位
         }
         try {
             locationManager?.requestLocationUpdates(
                 LocationManager.NETWORK_PROVIDER, 0L, 0f, locationListener!!, Looper.getMainLooper()
             )
         } catch (e: Exception) {
-            // 网络定位也不可用
+        }
+    }
+
+    /// 后台静默更新GPS缓存，不阻塞调用方
+    private fun updateCacheInBackground() {
+        try {
+            locationManager?.requestLocationUpdates(
+                LocationManager.GPS_PROVIDER, 0L, 0f,
+                object : LocationListener {
+                    override fun onLocationChanged(location: Location) {
+                        locationManager?.removeUpdates(this)
+                    }
+                    override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+                    override fun onProviderEnabled(provider: String) {}
+                    override fun onProviderDisabled(provider: String) {}
+                },
+                Looper.getMainLooper()
+            )
+        } catch (e: Exception) {
         }
     }
 

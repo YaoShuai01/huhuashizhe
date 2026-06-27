@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_theme.dart';
@@ -5,6 +6,7 @@ import 'core/router/app_router.dart';
 import 'data/local_database.dart';
 import 'providers/update_provider.dart';
 import 'widgets/update_dialog.dart';
+import 'widgets/splash_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,19 +18,43 @@ void main() async {
   );
 }
 
-class HuHuaShiZheApp extends StatelessWidget {
+class HuHuaShiZheApp extends StatefulWidget {
   const HuHuaShiZheApp({super.key});
 
   @override
+  State<HuHuaShiZheApp> createState() => _HuHuaShiZheAppState();
+}
+
+class _HuHuaShiZheAppState extends State<HuHuaShiZheApp> {
+  bool _showSplash = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // 闪屏页显示1.5秒后切换到主应用
+    Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) {
+        setState(() => _showSplash = false);
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_showSplash) {
+      return const MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: SplashPage(),
+      );
+    }
     return _UpdateChecker(
       child: MaterialApp.router(
-      title: '护花使者',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: ThemeMode.system,
-      routerConfig: appRouter,
+        title: '护花使者',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: ThemeMode.system,
+        routerConfig: appRouter,
       ),
     );
   }
