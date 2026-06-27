@@ -27,3 +27,4 @@ flutter:
   assets:
     - assets/images/
     - assets/courses/
+    - assets/city_codes.json

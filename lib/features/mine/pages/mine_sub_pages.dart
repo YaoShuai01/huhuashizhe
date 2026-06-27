@@ -367,6 +367,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v1.1.11',
+        'date': '2026-06-27',
+        'content': [
+          '天气数据源切换为中国天气网（中国气象局官方数据），与手机系统天气一致',
+          '支持区/县级天气精度，自动匹配GPS定位城市',
+          '完全免费、无限次数、无需API Key',
+        ],
+      },
+      {
         'version': 'v1.1.10',
         'date': '2026-06-27',
         'content': [
