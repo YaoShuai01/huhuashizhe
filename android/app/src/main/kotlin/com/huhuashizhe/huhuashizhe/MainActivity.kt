@@ -11,6 +11,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.os.Handler
 import android.os.Looper
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -26,6 +27,9 @@ class MainActivity : FlutterActivity() {
     private var locationResult: MethodChannel.Result? = null
     private var locationManager: LocationManager? = null
     private var locationListener: LocationListener? = null
+    private var bestLocation: Location? = null
+    private var locationTimeoutHandler: Handler? = null
+    private var locationTimeoutRunnable: Runnable? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -117,23 +121,22 @@ class MainActivity : FlutterActivity() {
             return
         }
 
-        // 返回任意缓存位置（不限时间），同时请求新位置
-        val cachedLocation = locationManager?.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-            ?: locationManager?.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-            ?: locationManager?.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)
+        // 新策略：等待高精度新定位，不再立即返回缓存位置
+        locationResult = result
+        bestLocation = null
 
-        if (cachedLocation != null) {
-            result.success(mapOf("lat" to cachedLocation.latitude, "lng" to cachedLocation.longitude))
-        }
-
-        // 同时请求更精确的位置更新
-        locationResult = if (cachedLocation != null) null else result
         locationListener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
-                // 如果之前没返回过，现在返回
-                locationResult?.success(mapOf("lat" to location.latitude, "lng" to location.longitude))
-                locationResult = null
-                cleanupLocation()
+                // 跟踪最优位置（精度最高的）
+                if (bestLocation == null || location.accuracy < bestLocation!!.accuracy) {
+                    bestLocation = location
+                }
+                // 精度达到30米以内，立即返回
+                if (location.accuracy < 30.0f) {
+                    locationResult?.success(mapOf("lat" to location.latitude, "lng" to location.longitude))
+                    locationResult = null
+                    cleanupLocation()
+                }
             }
             override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
             override fun onProviderEnabled(provider: String) {}
@@ -144,28 +147,52 @@ class MainActivity : FlutterActivity() {
             }
         }
 
+        // 10秒超时：返回最优可用位置，或缓存回退
+        locationTimeoutHandler = Handler(Looper.getMainLooper())
+        locationTimeoutRunnable = Runnable {
+            if (locationResult != null) {
+                if (bestLocation != null) {
+                    locationResult?.success(mapOf("lat" to bestLocation!!.latitude, "lng" to bestLocation!!.longitude))
+                } else {
+                    val cached = locationManager?.getLastKnownLocation(LocationManager.GPS_PROVIDER)
+                        ?: locationManager?.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+                        ?: locationManager?.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)
+                    if (cached != null) {
+                        locationResult?.success(mapOf("lat" to cached.latitude, "lng" to cached.longitude))
+                    } else {
+                        locationResult?.success(null)
+                    }
+                }
+                locationResult = null
+                cleanupLocation()
+            }
+        }
+        locationTimeoutHandler?.postDelayed(locationTimeoutRunnable!!, 10000)
+
+        // 同时请求GPS和网络定位
         try {
             locationManager?.requestLocationUpdates(
                 LocationManager.GPS_PROVIDER, 0L, 0f, locationListener!!, Looper.getMainLooper()
             )
         } catch (e: Exception) {
-            try {
-                locationManager?.requestLocationUpdates(
-                    LocationManager.NETWORK_PROVIDER, 0L, 0f, locationListener!!, Looper.getMainLooper()
-                )
-            } catch (e2: Exception) {
-                if (cachedLocation == null) {
-                    result.success(null)
-                }
-                cleanupLocation()
-            }
+            // GPS不可用，尝试网络定位
+        }
+        try {
+            locationManager?.requestLocationUpdates(
+                LocationManager.NETWORK_PROVIDER, 0L, 0f, locationListener!!, Looper.getMainLooper()
+            )
+        } catch (e: Exception) {
+            // 网络定位也不可用
         }
     }
 
     private fun cleanupLocation() {
+        locationTimeoutHandler?.removeCallbacks(locationTimeoutRunnable ?: return)
+        locationTimeoutRunnable = null
         locationListener?.let { locationManager?.removeUpdates(it) }
         locationListener = null
         locationResult = null
+        bestLocation = null
     }
 
     private fun reverseGeocode(lat: Double, lng: Double, result: MethodChannel.Result) {
