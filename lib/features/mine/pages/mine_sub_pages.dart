@@ -640,6 +640,16 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v1.2.1',
+        'date': '2026-06-28',
+        'content': [
+          '修复蓝牙设备扫描：实现真实BLE+经典蓝牙双模扫描，替代原有模拟虚拟设备',
+          '新增蓝牙权限动态申请（Android 12+ BLUETOOTH_SCAN/CONNECT）',
+          '蓝牙扫描UI增强：信号强度可视化、设备类型标识、已配对状态显示',
+          '扫描结果按信号强度排序，支持10秒超时自动停止',
+        ],
+      },
+      {
         'version': 'v1.2.0',
         'date': '2026-06-27',
         'content': [

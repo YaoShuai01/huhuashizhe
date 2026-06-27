@@ -1,7 +1,18 @@
 package com.huhuashizhe.huhuashizhe
 
 import android.Manifest
+import android.annotation.SuppressLint
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
+import android.bluetooth.le.BluetoothLeScanner
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanFilter
+import android.bluetooth.le.ScanResult
+import android.bluetooth.le.ScanSettings
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.location.Geocoder
 import android.location.Location
@@ -13,23 +24,36 @@ import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
+import android.os.ParcelUuid
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import java.io.File
 
 class MainActivity : FlutterActivity() {
     private val INSTALLER_CHANNEL = "com.huhuashizhe/apk_installer"
     private val LOCATION_CHANNEL = "com.huhuashizhe/location"
+    private val BLUETOOTH_CHANNEL = "com.huhuashizhe/bluetooth"
+    private val BLUETOOTH_EVENT_CHANNEL = "com.huhuashizhe/bluetooth_events"
     private var locationResult: MethodChannel.Result? = null
     private var locationManager: LocationManager? = null
     private var locationListener: LocationListener? = null
     private var bestLocation: Location? = null
     private var locationTimeoutHandler: Handler? = null
     private var locationTimeoutRunnable: Runnable? = null
+
+    // 蓝牙相关
+    private var bluetoothAdapter: BluetoothAdapter? = null
+    private var bluetoothLeScanner: BluetoothLeScanner? = null
+    private var bluetoothEventSink: EventChannel.EventSink? = null
+    private var isScanning = false
+    private var scanTimeoutHandler: Handler? = null
+    private var scanTimeoutRunnable: Runnable? = null
+    private val discoveredDevices = mutableSetOf<String>()
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -52,6 +76,29 @@ class MainActivity : FlutterActivity() {
                     val lng = call.argument<Double>("lng") ?: 0.0
                     reverseGeocode(lat, lng, result)
                 }
+                else -> result.notImplemented()
+            }
+        }
+
+        // 蓝牙事件通道（持续发送扫描结果）
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, BLUETOOTH_EVENT_CHANNEL).setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    bluetoothEventSink = events
+                }
+                override fun onCancel(arguments: Any?) {
+                    bluetoothEventSink = null
+                }
+            }
+        )
+
+        // 蓝牙控制通道
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, BLUETOOTH_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "startScan" -> startBluetoothScan(result)
+                "stopScan" -> stopBluetoothScan(result)
+                "getBondedDevices" -> getBondedDevices(result)
+                "isBluetoothEnabled" -> isBluetoothEnabled(result)
                 else -> result.notImplemented()
             }
         }
@@ -244,5 +291,239 @@ class MainActivity : FlutterActivity() {
                 locationResult?.success(null)
             }
         }
+        if (requestCode == 1002) {
+            // 蓝牙权限授予后重新开始扫描
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                startBluetoothScan(null)
+            }
+        }
+    }
+
+    // ==================== 蓝牙功能 ====================
+
+    private fun isBluetoothEnabled(result: MethodChannel.Result) {
+        val adapter = BluetoothAdapter.getDefaultAdapter()
+        if (adapter == null) {
+            result.success(false)
+        } else {
+            bluetoothAdapter = adapter
+            result.success(adapter.isEnabled)
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun getBondedDevices(result: MethodChannel.Result) {
+        val adapter = BluetoothAdapter.getDefaultAdapter()
+        if (adapter == null) {
+            result.error("NO_BT", "设备不支持蓝牙", null)
+            return
+        }
+        bluetoothAdapter = adapter
+
+        if (!hasBluetoothPermissions()) {
+            result.error("NO_PERMISSION", "缺少蓝牙权限", null)
+            return
+        }
+
+        val devices = mutableListOf<Map<String, Any>>()
+        for (device in adapter.bondedDevices) {
+            devices.add(deviceToMap(device))
+        }
+        result.success(devices)
+    }
+
+    private fun startBluetoothScan(result: MethodChannel.Result?) {
+        val adapter = BluetoothAdapter.getDefaultAdapter()
+        if (adapter == null) {
+            result?.error("NO_BT", "设备不支持蓝牙", null)
+            return
+        }
+        bluetoothAdapter = adapter
+
+        if (!adapter.isEnabled) {
+            result?.error("BT_DISABLED", "蓝牙未开启", null)
+            return
+        }
+
+        if (!hasBluetoothPermissions()) {
+            requestBluetoothPermissions()
+            result?.error("NO_PERMISSION", "正在请求蓝牙权限，请稍后再试", null)
+            return
+        }
+
+        if (isScanning) {
+            result?.success(true)
+            return
+        }
+
+        isScanning = true
+        discoveredDevices.clear()
+        result?.success(true)
+
+        // 先发送已配对设备
+        try {
+            for (device in adapter.bondedDevices) {
+                val map = deviceToMap(device)
+                discoveredDevices.add(device.address)
+                bluetoothEventSink?.success(map)
+            }
+        } catch (e: SecurityException) {}
+
+        // 启动BLE扫描
+        bluetoothLeScanner = adapter.bluetoothLeScanner
+        if (bluetoothLeScanner != null) {
+            try {
+                val scanSettings = ScanSettings.Builder()
+                    .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                    .setReportDelay(0)
+                    .build()
+                bluetoothLeScanner?.startScan(null, scanSettings, leScanCallback)
+            } catch (e: SecurityException) {
+                result?.error("SCAN_FAILED", "BLE扫描启动失败: ${e.message}", null)
+                isScanning = false
+                return
+            }
+        }
+
+        // 启动经典蓝牙发现
+        try {
+            adapter.startDiscovery()
+        } catch (e: SecurityException) {}
+
+        // 注册经典蓝牙发现广播接收器
+        val filter = IntentFilter().apply {
+            addAction(BluetoothDevice.ACTION_FOUND)
+            addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
+        }
+        registerReceiver(discoveryReceiver, filter)
+
+        // 10秒超时自动停止
+        scanTimeoutHandler = Handler(Looper.getMainLooper())
+        scanTimeoutRunnable = Runnable {
+            stopBluetoothScan(null)
+        }
+        scanTimeoutHandler?.postDelayed(scanTimeoutRunnable!!, 10000)
+    }
+
+    private fun stopBluetoothScan(result: MethodChannel.Result?) {
+        if (!isScanning) {
+            result?.success(true)
+            return
+        }
+
+        isScanning = false
+
+        // 停止BLE扫描
+        try {
+            bluetoothLeScanner?.stopScan(leScanCallback)
+        } catch (e: SecurityException) {}
+        bluetoothLeScanner = null
+
+        // 停止经典蓝牙发现
+        try {
+            bluetoothAdapter?.cancelDiscovery()
+        } catch (e: SecurityException) {}
+
+        // 取消广播接收器
+        try {
+            unregisterReceiver(discoveryReceiver)
+        } catch (e: IllegalArgumentException) {}
+
+        // 取消超时
+        scanTimeoutHandler?.removeCallbacks(scanTimeoutRunnable ?: return)
+        scanTimeoutRunnable = null
+
+        // 发送扫描完成事件
+        bluetoothEventSink?.success(mapOf("type" to "scanComplete"))
+
+        result?.success(true)
+    }
+
+    private val leScanCallback = @SuppressLint("MissingPermission") object : ScanCallback() {
+        override fun onScanResult(callbackType: Int, result: ScanResult) {
+            val device = result.device
+            if (device.address !in discoveredDevices) {
+                discoveredDevices.add(device.address)
+                val map = mutableMapOf<String, Any>(
+                    "name" to (device.name ?: "未知设备"),
+                    "address" to device.address,
+                    "rssi" to result.rssi,
+                    "type" to "BLE",
+                    "isBonded" to (device.bondState == BluetoothDevice.BOND_BONDED)
+                )
+                bluetoothEventSink?.success(map)
+            }
+        }
+
+        override fun onScanFailed(errorCode: Int) {
+            bluetoothEventSink?.success(mapOf("type" to "scanError", "error" to "BLE扫描失败: $errorCode"))
+        }
+    }
+
+    private val discoveryReceiver = @SuppressLint("MissingPermission") object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            when (intent?.action) {
+                BluetoothDevice.ACTION_FOUND -> {
+                    val device = intent.getParcelableExtra<BluetoothDevice>(BluetoothDevice.EXTRA_DEVICE)
+                    if (device != null && device.address !in discoveredDevices) {
+                        discoveredDevices.add(device.address)
+                        val rssi = intent.getShortExtra(BluetoothDevice.EXTRA_RSSI, Short.MIN_VALUE).toInt()
+                        val map = mutableMapOf<String, Any>(
+                            "name" to (device.name ?: "未知设备"),
+                            "address" to device.address,
+                            "rssi" to rssi,
+                            "type" to (device.type?.toString() ?: "CLASSIC"),
+                            "isBonded" to (device.bondState == BluetoothDevice.BOND_BONDED)
+                        )
+                        bluetoothEventSink?.success(map)
+                    }
+                }
+                BluetoothAdapter.ACTION_DISCOVERY_FINISHED -> {
+                    // 经典蓝牙扫描完成，不停止BLE扫描
+                }
+            }
+        }
+    }
+
+    private fun deviceToMap(device: BluetoothDevice): Map<String, Any> {
+        return mapOf(
+            "name" to (device.name ?: "未知设备"),
+            "address" to device.address,
+            "rssi" to 0,
+            "type" to (device.type?.toString() ?: "CLASSIC"),
+            "isBonded" to (device.bondState == BluetoothDevice.BOND_BONDED)
+        )
+    }
+
+    private fun hasBluetoothPermissions(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+        } else {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH) == PackageManager.PERMISSION_GRANTED &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_ADMIN) == PackageManager.PERMISSION_GRANTED &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    private fun requestBluetoothPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT),
+                1002
+            )
+        } else {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.BLUETOOTH, Manifest.permission.BLUETOOTH_ADMIN, Manifest.permission.ACCESS_FINE_LOCATION),
+                1002
+            )
+        }
+    }
+
+    override fun onDestroy() {
+        stopBluetoothScan(null)
+        super.onDestroy()
     }
 }
