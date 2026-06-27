@@ -367,6 +367,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v1.1.13',
+        'date': '2026-06-27',
+        'content': [
+          '修复天气API：切换到d1.weather.com.cn/sk_2d接口，支持全国所有城市',
+          '修复Content-Type: text/html导致JSON解析失败',
+          '天气数据包含：温度、天气描述、风向、风力、湿度、降水',
+        ],
+      },
+      {
         'version': 'v1.1.12',
         'date': '2026-06-27',
         'content': [

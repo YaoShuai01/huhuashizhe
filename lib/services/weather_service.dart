@@ -50,12 +50,13 @@ class WeatherData {
 
 /// 中国天气网天气服务（数据来源：中国气象局，与手机系统天气一致）
 class WeatherService {
-  static const _skUrl = 'http://www.weather.com.cn/data/sk';
-  static const _cityinfoUrl = 'http://www.weather.com.cn/data/cityinfo';
+  static const _skUrl = 'http://d1.weather.com.cn/sk_2d';
 
   final Dio _dio = Dio(BaseOptions(
     connectTimeout: const Duration(seconds: 8),
     receiveTimeout: const Duration(seconds: 8),
+    responseType: ResponseType.plain,
+    headers: {'Referer': 'http://www.weather.com.cn/'},
   ));
 
   Map<String, String>? _cityCodes;
@@ -73,7 +74,6 @@ class WeatherService {
   Future<String?> findCityCode(String cityName, String? districtName) async {
     final codes = await _loadCityCodes();
 
-    // 去掉"市"、"区"、"县"等后缀做匹配
     String clean(String s) => s
         .replaceAll('市', '')
         .replaceAll('区', '')
@@ -86,66 +86,106 @@ class WeatherService {
     final cleanCity = clean(cityName);
     final cleanDistrict = districtName != null ? clean(districtName) : null;
 
+    debugPrint('[Weather] 查找城市: city=$cleanCity, district=$cleanDistrict');
+
     // 优先匹配区/县级
     if (cleanDistrict != null && cleanDistrict.isNotEmpty) {
       final districtCode = codes[cleanDistrict];
-      if (districtCode != null) return districtCode;
+      if (districtCode != null) {
+        debugPrint('[Weather] 区级匹配成功: $cleanDistrict -> $districtCode');
+        return districtCode;
+      }
     }
 
     // 回退匹配市级
     final cityCode = codes[cleanCity];
-    if (cityCode != null) return cityCode;
+    if (cityCode != null) {
+      debugPrint('[Weather] 市级匹配成功: $cleanCity -> $cityCode');
+      return cityCode;
+    }
 
-    // 模糊匹配：检查是否包含关键词
+    // 模糊匹配
     for (final entry in codes.entries) {
       if (cleanCity.contains(entry.key) || entry.key.contains(cleanCity)) {
+        debugPrint('[Weather] 模糊匹配成功: $cleanCity -> ${entry.key} -> ${entry.value}');
         return entry.value;
       }
     }
 
+    debugPrint('[Weather] 城市匹配失败: city=$cleanCity');
     return null;
   }
 
-  /// 获取实时天气（中国天气网sk接口）
+  /// 获取实时天气（中国天气网d1 sk_2d接口，支持全国所有城市）
   Future<WeatherData?> fetchWeather(String cityCode) async {
     try {
-      final response = await _dio.get('$_skUrl/$cityCode.html');
-      if (response.statusCode == 200) {
-        final info = response.data['weatherinfo'] as Map<String, dynamic>?;
-        if (info == null) return null;
+      final url = '$_skUrl/$cityCode.html';
+      debugPrint('[Weather] 请求: $url');
 
-        final temp = double.tryParse(info['temp']?.toString() ?? '') ?? 0.0;
-        final sd = double.tryParse(info['SD']?.toString()?.replaceAll('%', '') ?? '') ?? 0.0;
-        final wd = info['WD']?.toString() ?? '无风';
-        final ws = info['WS']?.toString() ?? '0级';
-        final wse = double.tryParse(info['WSE']?.toString() ?? '') ?? 0.0;
-        final city = info['city']?.toString() ?? '';
-        final rain = double.tryParse(info['rain']?.toString() ?? '') ?? 0.0;
-
-        // 风速等级转m/s（中国天气网WS是风力等级，如"3级"）
-        double windSpeed = wse; // WSE是风速数值
-        if (windSpeed == 0) {
-          windSpeed = _windLevelToSpeed(ws);
-        }
-
-        // 风向文字转角度
-        final windDirection = _windDirToDegrees(wd);
-
-        return WeatherData(
-          temperature: temp,
-          windSpeed: windSpeed,
-          windDirection: windDirection,
-          humidity: sd,
-          weatherCode: rain > 0 ? 61 : 0, // 有降水标记为小雨代码
-          weatherDescription: _descFromWindRain(wd, ws, rain),
-          precipitationProbability: rain > 0 ? 80 : 0,
-          locationName: city,
-        );
+      final response = await _dio.get(url);
+      if (response.statusCode != 200) {
+        debugPrint('[Weather] HTTP错误: ${response.statusCode}');
+        return null;
       }
-    } catch (e) {
-      debugPrint('Weather fetch error: $e');
+
+      final body = response.data?.toString() ?? '';
+      if (body.isEmpty) {
+        debugPrint('[Weather] 响应体为空');
+        return null;
+      }
+
+      // d1 API返回格式: var dataSK={...JSON...}
+      // 去掉 "var dataSK=" 前缀，如果末尾有分号也去掉
+      String jsonStr = body;
+      if (jsonStr.startsWith('var dataSK=')) {
+        jsonStr = jsonStr.substring('var dataSK='.length);
+      }
+      jsonStr = jsonStr.trim();
+      if (jsonStr.endsWith(';')) {
+        jsonStr = jsonStr.substring(0, jsonStr.length - 1);
+      }
+
+      if (jsonStr.isEmpty || !jsonStr.startsWith('{')) {
+        debugPrint('[Weather] 非JSON响应: ${body.substring(0, body.length.clamp(0, 100))}');
+        return null;
+      }
+
+      final json = jsonDecode(jsonStr) as Map<String, dynamic>;
+
+      final temp = double.tryParse(json['temp']?.toString() ?? '') ?? 0.0;
+      final sd = double.tryParse(json['SD']?.toString()?.replaceAll('%', '') ?? '') ?? 0.0;
+      final wd = json['WD']?.toString() ?? '无风';
+      final ws = json['WS']?.toString() ?? '0级';
+      final city = json['cityname']?.toString() ?? '';
+      final rain = double.tryParse(json['rain']?.toString() ?? '') ?? 0.0;
+      final weather = json['weather']?.toString() ?? '';
+
+      // 风速: 从WS解析风力等级
+      double windSpeed = _windLevelToSpeed(ws);
+
+      // 风向转角度
+      final windDirection = _windDirToDegrees(wd);
+
+      // 天气描述：优先使用weather字段，否则根据风速和降水判断
+      final desc = weather.isNotEmpty ? weather : _descFromWindRain(wd, ws, rain);
+
+      debugPrint('[Weather] 响应: city=$city, temp=$temp, weather=$weather, '
+          'WD=$wd, WS=$ws, SD=$sd');
+
+      return WeatherData(
+        temperature: temp,
+        windSpeed: windSpeed,
+        windDirection: windDirection,
+        humidity: sd,
+        weatherCode: rain > 0 ? 61 : 0,
+        weatherDescription: desc,
+        precipitationProbability: rain > 0 ? 80 : 0,
+        locationName: city,
+      );
+    } catch (e, stack) {
+      debugPrint('[Weather] 异常: $e\n$stack');
+      return null;
     }
-    return null;
   }
 
   /// 风力等级转m/s
@@ -153,7 +193,6 @@ class WeatherService {
     final match = RegExp(r'(\d+)').firstMatch(level);
     if (match == null) return 0;
     final lv = int.parse(match.group(1)!);
-    // 风力等级→m/s 对照表
     const speeds = <double>[0, 0.9, 2.5, 4.4, 6.7, 9.4, 12.3, 15.5, 19.0, 22.6, 26.5, 30.6, 34.8];
     return lv < speeds.length ? speeds[lv] : speeds.last;
   }
