@@ -32,7 +32,10 @@ class MinePage extends StatelessWidget {
                   const SizedBox(height: 12),
                   const Text('未设置昵称', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                   const SizedBox(height: 4),
-                  const Text('点击编辑资料', style: TextStyle(fontSize: 13, color: AppColors.textHint)),
+                  InkWell(
+                    onTap: () => context.push('/mine/account'),
+                    child: const Text('点击编辑资料', style: TextStyle(fontSize: 13, color: AppColors.textHint)),
+                  ),
                 ],
               ),
             ),
@@ -60,7 +63,7 @@ class MinePage extends StatelessWidget {
               icon: Icons.menu_book_outlined,
               title: '操作文档',
               subtitle: '内置用户手册、教学视频',
-              onTap: () {},
+              onTap: () => context.push('/mine/manual'),
             ),
             _buildMenuItem(
               icon: Icons.description_outlined,
@@ -93,7 +96,27 @@ class MinePage extends StatelessWidget {
               child: SizedBox(
                 width: double.infinity,
                 child: OutlinedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (ctx) => AlertDialog(
+                        title: const Text('退出登录'),
+                        content: const Text('退出后将清除本地账户数据，确定要退出吗？'),
+                        actions: [
+                          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(ctx);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('已退出登录')),
+                              );
+                            },
+                            child: const Text('确定', style: TextStyle(color: AppColors.error)),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.error,
                     side: const BorderSide(color: AppColors.error),
