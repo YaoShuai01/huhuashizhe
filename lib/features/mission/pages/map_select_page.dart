@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/coord_transform.dart';
 import '../../../services/mission_service.dart';
 import '../../../services/gps_location_service.dart';
 import '../../../providers/weather_provider.dart';
@@ -45,8 +46,11 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
     setState(() => _isLocating = true);
     final pos = await GpsLocationService.getCurrentLocation();
     if (pos != null && mounted) {
-      final loc = LatLng(pos['lat']!, pos['lng']!);
-      _mapController.move(loc, 16.0);
+      final wgs84 = LatLng(pos['lat']!, pos['lng']!);
+      // GPS返回WGS-84，高德地图瓦片使用GCJ-02，必须转换以消除~400m偏差
+      final gcj02 = CoordTransform.wgs84ToGcj02(wgs84.latitude, wgs84.longitude);
+      _mapController.move(gcj02, 16.0);
+      _currentCenterLat = gcj02.latitude;
       if (mounted) setState(() => _isLocating = false);
     } else {
       if (mounted) setState(() => _isLocating = false);

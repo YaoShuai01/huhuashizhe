@@ -25,17 +25,31 @@ class WeatherNotifier extends AsyncNotifier<WeatherData?> {
 
   Future<void> refresh() async {
     final weatherService = ref.read(weatherServiceProvider);
-    // 优先使用GPS定位，超时或失败时回退到上海默认坐标
-    double lat = 31.23, lng = 121.47;
+    // 获取GPS定位，失败则不显示天气（绝不用硬编码回退位置）
+    double? lat, lng;
     try {
       final pos = await GpsLocationService.getCurrentLocation()
-          .timeout(const Duration(seconds: 5));
+          .timeout(const Duration(seconds: 12));
       if (pos != null) {
         lat = pos['lat']!;
         lng = pos['lng']!;
       }
     } catch (_) {
-      // GPS超时或失败，使用默认坐标
+      // GPS超时或失败
+    }
+
+    if (lat == null || lng == null) {
+      state = const AsyncData(WeatherData(
+        temperature: 0,
+        windSpeed: 0,
+        windDirection: 0,
+        humidity: 0,
+        weatherCode: 0,
+        weatherDescription: '无法获取天气',
+        precipitationProbability: 0,
+        locationName: '无法获取定位',
+      ));
+      return;
     }
 
     WeatherData? weather;
