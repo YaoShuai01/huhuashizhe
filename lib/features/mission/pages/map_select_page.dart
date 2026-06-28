@@ -44,7 +44,7 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
   LatLng get _initialCenter {
     final cached = GpsLocationService.cachedLocation;
     if (cached != null) {
-      return CoordTransform.wgs84ToGcj02(cached.latitude, cached.longitude);
+      return CoordTransform.wgs84ToGcj02(cached.lat, cached.lng);
     }
     return _fallbackCenter;
   }
@@ -74,7 +74,7 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
     final pos = await GpsLocationService.getCurrentLocation();
     if (pos != null && mounted) {
       _gpsTimeout?.cancel();
-      final wgs84 = LatLng(pos['lat']!, pos['lng']!);
+      final wgs84 = LatLng(pos.lat, pos.lng);
       // GPS返回WGS-84，高德地图瓦片使用GCJ-02，必须转换以消除~400m偏差
       final gcj02 = CoordTransform.wgs84ToGcj02(wgs84.latitude, wgs84.longitude);
       _mapController.move(gcj02, 16.0);
