@@ -27,7 +27,7 @@ class LocalDatabase {
     final dir = Directory(dataDir);
     if (!await dir.exists()) await dir.create(recursive: true);
     // 预热缓存：从文件加载到内存
-    for (final key in ['presets', 'missions', 'favorites', 'settings']) {
+    for (final key in ['presets', 'missions', 'favorites', 'settings', 'ai_chat_history']) {
       final file = File(_filePath(key));
       if (await file.exists()) {
         _cache[key] = await file.readAsString();
