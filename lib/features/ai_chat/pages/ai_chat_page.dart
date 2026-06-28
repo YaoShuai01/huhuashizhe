@@ -3,7 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/ai_chat_provider.dart';
+import '../../../providers/weather_provider.dart';
 import '../../../services/ai_chat_service.dart';
+import '../../../services/weather_service.dart';
 
 class AiChatPage extends ConsumerStatefulWidget {
   const AiChatPage({super.key});
@@ -16,6 +18,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
   final _controller = TextEditingController();
   final _scrollController = ScrollController();
   final _focusNode = FocusNode();
+  bool _hasAutoScrolled = false;
 
   @override
   void dispose() {
@@ -25,14 +28,18 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
     super.dispose();
   }
 
-  void _scrollToBottom() {
+  void _scrollToBottom({bool immediate = false}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
+        if (immediate) {
+          _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+        } else {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
       }
     });
   }
@@ -40,6 +47,12 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(aiChatProvider);
+
+    // 历史记录加载完成后自动滚动到底部
+    if (!_hasAutoScrolled && state.messages.isNotEmpty) {
+      _hasAutoScrolled = true;
+      _scrollToBottom(immediate: true);
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -85,7 +98,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
                     itemCount: state.messages.length + (state.isLoading ? 0 : 0),
                     itemBuilder: (context, index) {
                       final msg = state.messages[index];
-                      return _buildMessageBubble(msg);
+                      return _buildMessageBubble(msg, index);
                     },
                   ),
           ),
@@ -164,64 +177,115 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
     );
   }
 
-  Widget _buildMessageBubble(AiChatMessage msg) {
+  Widget _buildMessageBubble(AiChatMessage msg, int index) {
     final isUser = msg.role == 'user';
-    return GestureDetector(
-      onLongPress: () {
-        Clipboard.setData(ClipboardData(text: msg.content));
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('已复制到剪贴板'),
-            duration: Duration(seconds: 1),
-            behavior: SnackBarBehavior.floating,
-            width: 160,
-          ),
-        );
-      },
-      child: Align(
-        alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-        child: Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.78,
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: isUser ? AppColors.primary : AppColors.surface,
-            borderRadius: BorderRadius.only(
-              topLeft: const Radius.circular(16),
-              topRight: const Radius.circular(16),
-              bottomLeft: isUser ? const Radius.circular(16) : const Radius.circular(4),
-              bottomRight: isUser ? const Radius.circular(4) : const Radius.circular(16),
-            ),
-            border: isUser ? null : Border.all(color: AppColors.surfaceVariant),
-          ),
-          child: Column(
-            crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-            children: [
-              if (!isUser)
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.auto_awesome, size: 14, color: AppColors.accent),
-                      SizedBox(width: 4),
-                      Text('AI助手', style: TextStyle(fontSize: 12, color: AppColors.accent, fontWeight: FontWeight.w600)),
-                    ],
+    return Align(
+      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 4),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.78,
+        ),
+        child: Column(
+          crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+          children: [
+            GestureDetector(
+              onLongPress: () {
+                Clipboard.setData(ClipboardData(text: msg.content));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('已复制到剪贴板'),
+                    duration: Duration(seconds: 1),
+                    behavior: SnackBarBehavior.floating,
+                    width: 160,
                   ),
+                );
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(
+                  color: isUser ? AppColors.primary : AppColors.surface,
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(16),
+                    topRight: const Radius.circular(16),
+                    bottomLeft: isUser ? const Radius.circular(16) : const Radius.circular(4),
+                    bottomRight: isUser ? const Radius.circular(4) : const Radius.circular(16),
+                  ),
+                  border: isUser ? null : Border.all(color: AppColors.surfaceVariant),
                 ),
-              SelectableText(
-                msg.content,
-                style: TextStyle(
-                  fontSize: 15,
-                  color: isUser ? Colors.white : AppColors.textPrimary,
-                  height: 1.5,
+                child: Column(
+                  crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                  children: [
+                    if (!isUser)
+                      const Padding(
+                        padding: EdgeInsets.only(bottom: 6),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.auto_awesome, size: 14, color: AppColors.accent),
+                            SizedBox(width: 4),
+                            Text('AI助手', style: TextStyle(fontSize: 12, color: AppColors.accent, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ),
+                    SelectableText(
+                      msg.content,
+                      style: TextStyle(
+                        fontSize: 15,
+                        color: isUser ? Colors.white : AppColors.textPrimary,
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+            // 操作按钮行
+            Padding(
+              padding: const EdgeInsets.only(top: 4, left: 4, right: 4, bottom: 10),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _actionButton(Icons.copy, '复制', () {
+                    Clipboard.setData(ClipboardData(text: msg.content));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('已复制到剪贴板'),
+                        duration: Duration(seconds: 1),
+                        behavior: SnackBarBehavior.floating,
+                        width: 160,
+                      ),
+                    );
+                  }),
+                  if (!isUser) ...[
+                    const SizedBox(width: 4),
+                    _actionButton(Icons.refresh, '重新回答', () {
+                      final state = ref.read(aiChatProvider);
+                      if (state.messages.length >= 2 && index > 0) {
+                        final prevMsg = state.messages[index - 1];
+                        if (prevMsg.role == 'user') {
+                          final weather = ref.read(weatherProvider).valueOrNull;
+                          ref.read(aiChatProvider.notifier).removeLastAndRetry(weather: weather);
+                        }
+                      }
+                    }),
+                  ],
+                ],
+              ),
+            ),
+          ],
         ),
+      ),
+    );
+  }
+
+  Widget _actionButton(IconData icon, String tooltip, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        child: Icon(icon, size: 14, color: AppColors.textHint),
       ),
     );
   }
@@ -279,7 +343,8 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
     _controller.clear();
-    ref.read(aiChatProvider.notifier).sendMessage(text);
+    final weather = ref.read(weatherProvider).valueOrNull;
+    ref.read(aiChatProvider.notifier).sendMessage(text, weather: weather);
     _scrollToBottom();
   }
 }

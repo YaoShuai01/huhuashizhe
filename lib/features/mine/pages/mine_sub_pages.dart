@@ -687,6 +687,17 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v1.3.2',
+        'date': '2026-06-28',
+        'content': [
+          'AI助手打开后自动滚动到最新消息，无需手动翻页',
+          '每条消息下新增复制按钮和重新回答按钮（AI回复）',
+          'AI助手自动获取用户当前位置和天气信息，回答更精准',
+          '修复聊天记录历史加载后显示在顶部的问题',
+          '重新回答功能自动继承天气上下文信息',
+        ],
+      },
+      {
         'version': 'v1.3.1',
         'date': '2026-06-28',
         'content': [

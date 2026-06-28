@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'weather_service.dart';
 
 class AiChatMessage {
   final String role; // 'user' or 'assistant'
@@ -67,9 +68,9 @@ class AiChatService {
   ));
 
   /// 发送消息并获取AI回复（流式输出）
-  Stream<String> sendMessageStream(List<AiChatMessage> history) async* {
+  Stream<String> sendMessageStream(List<AiChatMessage> history, {WeatherData? weather}) async* {
     final messages = <Map<String, dynamic>>[
-      {'role': 'system', 'content': _systemPrompt},
+      {'role': 'system', 'content': _buildSystemPrompt(weather)},
     ];
 
     // 只保留最近20轮对话（40条消息），避免超出上下文
@@ -137,10 +138,24 @@ class AiChatService {
     }
   }
 
+  /// 构建带上下文的系统提示词
+  String _buildSystemPrompt(WeatherData? weather) {
+    String context = '';
+    if (weather != null) {
+      context = '当前环境信息：\n'
+          '用户位置：${weather.locationName}\n'
+          '天气：${weather.weatherDescription}，${weather.temperature.toStringAsFixed(0)}°C\n'
+          '湿度：${weather.humidity.toStringAsFixed(0)}%\n'
+          '风速：${weather.windSpeed.toStringAsFixed(1)} m/s\n'
+          '请根据以上环境信息，在回答植保问题时结合当地天气条件给出更精准的建议。\n\n';
+    }
+    return '$context$_systemPrompt';
+  }
+
   /// 发送消息并获取AI回复（非流式，备用）
-  Future<String> sendMessage(List<AiChatMessage> history) async {
+  Future<String> sendMessage(List<AiChatMessage> history, {WeatherData? weather}) async {
     final messages = <Map<String, dynamic>>[
-      {'role': 'system', 'content': _systemPrompt},
+      {'role': 'system', 'content': _buildSystemPrompt(weather)},
     ];
 
     final recentHistory = history.length > 40 ? history.sublist(history.length - 40) : history;

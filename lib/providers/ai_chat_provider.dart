@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/ai_chat_service.dart';
+import '../services/weather_service.dart';
 import '../data/local_database.dart';
 
 final aiChatServiceProvider = Provider<AiChatService>((ref) => AiChatService());
@@ -61,7 +62,7 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
     } catch (_) {}
   }
 
-  Future<void> sendMessage(String content) async {
+  Future<void> sendMessage(String content, {WeatherData? weather}) async {
     if (content.trim().isEmpty || state.isLoading) return;
 
     final userMsg = AiChatMessage(
@@ -77,8 +78,7 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
     );
 
     try {
-      // 使用非流式API（更稳定）
-      final reply = await _service.sendMessage(state.messages);
+      final reply = await _service.sendMessage(state.messages, weather: weather);
 
       final assistantMsg = AiChatMessage(
         role: 'assistant',
@@ -151,6 +151,41 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
   void clearHistory() {
     state = const AiChatState();
     _db.remove('ai_chat_history');
+  }
+
+  /// 删除最后一条AI回复，重新回答（保留上一条用户消息重新发送）
+  Future<void> removeLastAndRetry({WeatherData? weather}) async {
+    if (state.messages.length < 2) return;
+    final messages = [...state.messages];
+    // 移除最后一条AI回复
+    messages.removeLast();
+    final lastUserMsg = messages.last;
+    if (lastUserMsg.role != 'user') return;
+
+    state = state.copyWith(
+      messages: messages,
+      isLoading: true,
+      error: null,
+    );
+
+    try {
+      final reply = await _service.sendMessage(messages, weather: weather);
+      final assistantMsg = AiChatMessage(
+        role: 'assistant',
+        content: reply,
+        timestamp: DateTime.now(),
+      );
+      state = state.copyWith(
+        messages: [...state.messages, assistantMsg],
+        isLoading: false,
+      );
+      _saveHistory();
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: '请求失败: $e',
+      );
+    }
   }
 }
 
