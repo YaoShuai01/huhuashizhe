@@ -262,7 +262,7 @@ class HomePage extends ConsumerWidget {
         ),
         _buildActionCard(
           icon: Icons.auto_awesome,
-          title: 'AI建议',
+          title: 'AI助手',
           subtitle: '智能诊断与用药推荐',
           color: AppColors.accent,
           onTap: () => context.push('/ai-chat'),

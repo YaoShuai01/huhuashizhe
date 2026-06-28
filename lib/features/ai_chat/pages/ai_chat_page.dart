@@ -42,7 +42,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('AI 植保助手'),
+        title: const Text('AI助手'),
         actions: [
           if (state.messages.isNotEmpty)
             IconButton(
@@ -126,7 +126,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
             ),
             const SizedBox(height: 20),
             const Text(
-              'AI 植保助手',
+              'AI助手',
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
             ),
             const SizedBox(height: 8),

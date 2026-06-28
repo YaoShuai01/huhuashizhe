@@ -64,7 +64,7 @@ class FeatureIntroPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _featureCard('飞行任务', Icons.flight_takeoff, '创建植保作业任务，在地图上圈选作业区域，自动规划飞行路线，支持航点编辑和微调。'),
-            _featureCard('AI建议', Icons.auto_awesome, '基于小米MiMo大模型的智能植保助手，提供病虫害诊断、用药推荐、飞行参数优化等专业建议。'),
+            _featureCard('AI助手', Icons.auto_awesome, '基于小米MiMo大模型的智能植保助手，提供病虫害诊断、用药推荐、飞行参数优化等专业建议。'),
             _featureCard('预设管理', Icons.bookmark, '保存常用作业参数为预设，一键调用。支持飞行高度、速度、喷洒量等参数的自定义配置。'),
             _featureCard('天气信息', Icons.cloud, '实时显示当前位置天气（数据来源：中国气象局），包括温度、风向、风速、湿度，支持风力预警。'),
             _featureCard('设备连接', Icons.bluetooth, '通过蓝牙连接无人机遥控器，实时查看设备状态、电量、信号强度等信息。'),
@@ -439,7 +439,7 @@ class HelpPage extends StatelessWidget {
       {'q': '如何连接遥控器？', 'a': '打开遥控器电源，确保蓝牙可见。在APP中点击"设备连接"，选择发现的遥控器设备进行配对。'},
       {'q': '如何创建飞行任务？', 'a': '在首页点击"创建飞行任务"，在地图上圈选作业区域，AI将自动为您推荐最佳飞行参数。'},
       {'q': '作业区域面积太小怎么办？', 'a': '无人机的作业区域不能小于0.5亩。请扩大圈选范围或选择更大的作业区域。'},
-      {'q': '离线可以使用吗？', 'a': '地图圈选、预设管理、作业记录等核心功能支持离线使用。天气数据和AI建议需要网络连接。'},
+      {'q': '离线可以使用吗？', 'a': '地图圈选、预设管理、作业记录等核心功能支持离线使用。天气数据和AI助手需要网络连接。'},
       {'q': '数据会丢失吗？', 'a': '当前版本数据存储在本地，卸载APP会导致数据丢失。后续版本将支持云端备份功能。'},
     ];
 
@@ -492,7 +492,7 @@ class LegalPage extends StatelessWidget {
                   '3. 用户对飞行作业的安全负全部责任\n'
                   '4. 不得在禁飞区、人群密集区进行飞行作业\n\n'
                   '三、免责声明\n'
-                  '1. AI建议仅供参考，实际用药请以当地农技部门指导为准\n'
+                  '1. AI助手建议仅供参考，实际用药请以当地农技部门指导为准\n'
                   '2. 天气数据来源于中国气象局，可能存在延迟\n'
                   '3. 因操作不当造成的损失，本软件不承担责任\n\n'
                   '四、知识产权\n'
@@ -533,7 +533,7 @@ class LegalPage extends StatelessWidget {
             onTap: () => context.push('/mine/legal-detail', extra: {
               'title': '免责声明',
               'content': '护花使者免责声明\n\n'
-                  '一、AI建议\n'
+                  '一、AI助手\n'
                   'AI植保助手提供的病虫害诊断、用药推荐等建议仅供参考，不构成专业的农业技术指导。实际用药请以当地农业技术推广部门的指导为准，严格遵守农药使用规范。\n\n'
                   '二、天气数据\n'
                   '天气信息来源于中国气象局公开数据，可能存在一定延迟或误差。在极端天气条件下，请以当地气象部门发布的预警信息为准。\n\n'
@@ -687,6 +687,17 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v1.3.0',
+        'date': '2026-06-28',
+        'content': [
+          '首页"AI建议"更名为"AI助手"，统一全应用AI标识',
+          'AI自动调参接入小米MiMo大模型，真正实现AI智能推荐飞行参数',
+          '新增AiChatService.quickAnalysis通用分析方法，供各模块调用',
+          'AI助手页面标题和欢迎语优化，统一品牌形象',
+          'AI分析失败时自动回退到本地默认参数表，确保可用性',
+        ],
+      },
+      {
         'version': 'v1.2.2',
         'date': '2026-06-28',
         'content': [
@@ -715,7 +726,7 @@ class VersionInfoPage extends ConsumerWidget {
           '补全所有预留板块：操作文档、功能介绍、开源许可、法律文书详情',
           '新增通知中心、作业记录页面',
           '修复所有空回调：首页快捷操作、关于页、法律页、退出登录等',
-          '首页AI建议入口直达AI对话',
+          '首页AI助手入口直达AI对话',
         ],
       },
       {
