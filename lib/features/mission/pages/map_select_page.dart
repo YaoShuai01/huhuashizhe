@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,6 +9,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/coord_transform.dart';
 import '../../../services/mission_service.dart';
 import '../../../services/gps_location_service.dart';
+import '../../../services/ai_chat_service.dart';
 import '../../../providers/weather_provider.dart';
 import '../../../providers/preset_provider.dart';
 
@@ -618,10 +620,60 @@ class _AiTuningPageState extends ConsumerState<AiTuningPage> {
 
   Future<void> _runAiTuning() async {
     setState(() => _isAiLoading = true);
-    await Future.delayed(const Duration(seconds: 1));
-    if (!mounted) return;
     final weather = ref.read(weatherProvider).valueOrNull;
-    double windSpeed = weather?.windSpeed ?? 0;
+    final windSpeed = weather?.windSpeed ?? 0;
+    final temperature = weather?.temperature;
+    final humidity = weather?.humidity;
+
+    final prompt = '请为以下植保作业推荐最佳飞行参数：\n'
+        '作物类型：$_cropType\n'
+        '作业类型：$_operationType\n'
+        '作业面积：${widget.area.toStringAsFixed(1)} 亩\n'
+        '当前风速：${windSpeed.toStringAsFixed(1)} m/s\n'
+        '当前温度：${temperature?.toStringAsFixed(0) ?? "未知"}℃\n'
+        '当前湿度：${humidity?.toStringAsFixed(0) ?? "未知"}%\n\n'
+        '请以JSON格式返回以下参数（只返回JSON，不要其他文字）：\n'
+        '{"flightHeight": 飞行高度(米), "flightSpeed": 飞行速度(米/秒), "sprayVolume": 喷洒量(升/亩), "sprayWidth": 喷幅(米), "windCorrection": 风速修正角(度), "reason": "简要说明"}';
+
+    try {
+      final service = AiChatService();
+      final result = await service.quickAnalysis(prompt);
+      if (!mounted) return;
+
+      // 尝试解析JSON响应
+      final jsonMatch = RegExp(r'\{[\s\S]*\}').firstMatch(result);
+      if (jsonMatch != null) {
+        try {
+          final json = Map<String, dynamic>.from(
+            const JsonDecoder().convert(jsonMatch.group(0)!) as Map,
+          );
+          final height = (json['flightHeight'] as num?)?.toDouble() ?? 2.5;
+          final speed = (json['flightSpeed'] as num?)?.toDouble() ?? 5.0;
+          final volume = (json['sprayVolume'] as num?)?.toDouble() ?? 1.5;
+          final width = (json['sprayWidth'] as num?)?.toDouble() ?? 6.0;
+          final correction = (json['windCorrection'] as num?)?.toDouble() ?? 0;
+
+          setState(() {
+            _flightHeight = height.clamp(1.0, 10.0);
+            _flightSpeed = speed.clamp(1.0, 15.0);
+            _sprayVolume = volume.clamp(0.5, 5.0);
+            _sprayWidth = width.clamp(2.0, 10.0);
+            _windCorrection = correction.clamp(-30.0, 30.0);
+            _isAiLoading = false;
+          });
+          return;
+        } catch (_) {}
+      }
+
+      // 解析失败，使用默认值
+      _applyFallbackParams(windSpeed);
+    } catch (e) {
+      if (!mounted) return;
+      _applyFallbackParams(windSpeed);
+    }
+  }
+
+  void _applyFallbackParams(double windSpeed) {
     double height = 2.5, speed = 5.0, volume = 1.5, width = 6.0, correction = 0;
     switch (_cropType) {
       case '水稻': height = _operationType == '除草' ? 2.0 : 2.5; speed = 5.0; volume = _operationType == '除草' ? 2.0 : 1.5; break;

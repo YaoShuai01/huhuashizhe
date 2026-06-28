@@ -176,4 +176,40 @@ class AiChatService {
       return '网络连接出现问题，请检查网络后重试。';
     }
   }
+
+  /// 一次性AI分析（供其他模块调用，如飞行参数分析、病虫害诊断等）
+  /// [prompt] 分析提示词，[context] 可选的上下文信息
+  Future<String> quickAnalysis(String prompt, {String? context}) async {
+    final messages = <Map<String, dynamic>>[
+      {'role': 'system', 'content': _systemPrompt},
+    ];
+
+    final userContent = context != null ? '$prompt\n\n相关上下文：$context' : prompt;
+    messages.add({'role': 'user', 'content': userContent});
+
+    try {
+      final response = await _dio.post(
+        '/chat/completions',
+        data: {
+          'model': _model,
+          'messages': messages,
+          'max_tokens': 512,
+          'temperature': 0.7,
+          'top_p': 0.95,
+          'stream': false,
+          'extra_body': {'thinking': {'type': 'disabled'}},
+        },
+      );
+
+      final choices = response.data['choices'] as List<dynamic>?;
+      if (choices != null && choices.isNotEmpty) {
+        final message = choices[0]['message'] as Map<String, dynamic>?;
+        return message?['content']?.toString() ?? '抱歉，未能获取分析结果。';
+      }
+      return '抱歉，AI暂时无法分析，请稍后再试。';
+    } catch (e) {
+      debugPrint('[AI] 分析请求异常: $e');
+      return '网络连接出现问题，请检查网络后重试。';
+    }
+  }
 }
