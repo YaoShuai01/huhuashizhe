@@ -687,6 +687,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v1.3.1',
+        'date': '2026-06-28',
+        'content': [
+          '修复AI聊天记录重启APP后丢失的问题',
+          'AI助手消息气泡支持长按复制全部内容',
+          '消息内容文字支持选中拖拽复制（SelectableText）',
+        ],
+      },
+      {
         'version': 'v1.3.0',
         'date': '2026-06-28',
         'content': [

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/ai_chat_provider.dart';
@@ -165,48 +166,61 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
 
   Widget _buildMessageBubble(AiChatMessage msg) {
     final isUser = msg.role == 'user';
-    return Align(
-      alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.78,
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: isUser ? AppColors.primary : AppColors.surface,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(16),
-            topRight: const Radius.circular(16),
-            bottomLeft: isUser ? const Radius.circular(16) : const Radius.circular(4),
-            bottomRight: isUser ? const Radius.circular(4) : const Radius.circular(16),
+    return GestureDetector(
+      onLongPress: () {
+        Clipboard.setData(ClipboardData(text: msg.content));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('已复制到剪贴板'),
+            duration: Duration(seconds: 1),
+            behavior: SnackBarBehavior.floating,
+            width: 160,
           ),
-          border: isUser ? null : Border.all(color: AppColors.surfaceVariant),
-        ),
-        child: Column(
-          crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-          children: [
-            if (!isUser)
-              const Padding(
-                padding: EdgeInsets.only(bottom: 6),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.auto_awesome, size: 14, color: AppColors.accent),
-                    SizedBox(width: 4),
-                    Text('AI助手', style: TextStyle(fontSize: 12, color: AppColors.accent, fontWeight: FontWeight.w600)),
-                  ],
+        );
+      },
+      child: Align(
+        alignment: isUser ? Alignment.centerRight : Alignment.centerLeft,
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.78,
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: isUser ? AppColors.primary : AppColors.surface,
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(16),
+              topRight: const Radius.circular(16),
+              bottomLeft: isUser ? const Radius.circular(16) : const Radius.circular(4),
+              bottomRight: isUser ? const Radius.circular(4) : const Radius.circular(16),
+            ),
+            border: isUser ? null : Border.all(color: AppColors.surfaceVariant),
+          ),
+          child: Column(
+            crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+            children: [
+              if (!isUser)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.auto_awesome, size: 14, color: AppColors.accent),
+                      SizedBox(width: 4),
+                      Text('AI助手', style: TextStyle(fontSize: 12, color: AppColors.accent, fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                ),
+              SelectableText(
+                msg.content,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: isUser ? Colors.white : AppColors.textPrimary,
+                  height: 1.5,
                 ),
               ),
-            Text(
-              msg.content,
-              style: TextStyle(
-                fontSize: 15,
-                color: isUser ? Colors.white : AppColors.textPrimary,
-                height: 1.5,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
