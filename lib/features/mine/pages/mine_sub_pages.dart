@@ -687,6 +687,18 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v1.4.0',
+        'date': '2026-06-28',
+        'content': [
+          '新增北斗+GPS双轨高精定位系统，实时监测卫星状态',
+          '修复定位缓存过期问题：缓存超30秒自动重新定位',
+          '定位精度优化：GPS<30米或网络<50米即返回，8秒超时兜底',
+          '新增GNSS卫星信息监控：区分北斗/GPS/GLONASS/Galileo',
+          '定位结果返回精度、来源、时间戳和卫星数据',
+          'GpsLocationService重构为GpsLocation对象，接口更清晰',
+        ],
+      },
+      {
         'version': 'v1.3.2',
         'date': '2026-06-28',
         'content': [

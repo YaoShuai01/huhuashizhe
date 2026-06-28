@@ -25,14 +25,14 @@ class WeatherNotifier extends AsyncNotifier<WeatherData?> {
   Future<void> refresh() async {
     final weatherService = ref.read(weatherServiceProvider);
 
-    // 获取GPS定位
+    // 获取GPS+北斗双轨定位
     double? lat, lng;
     try {
       final pos = await GpsLocationService.getCurrentLocation()
           .timeout(const Duration(seconds: 12));
       if (pos != null) {
-        lat = pos['lat']!;
-        lng = pos['lng']!;
+        lat = pos.lat;
+        lng = pos.lng;
       }
     } catch (_) {}
 
