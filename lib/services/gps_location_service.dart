@@ -28,7 +28,15 @@ class GpsLocationService {
 
   /// 全局缓存的最后一次定位
   static GpsLocation? _cachedLocation;
-  static GpsLocation? get cachedLocation => _cachedLocation;
+  static DateTime? _cacheTime;
+  static const _cacheMaxAge = Duration(minutes: 3); // 3分钟过期
+
+  /// 获取缓存位置（已过期返回null）
+  static GpsLocation? get cachedLocation {
+    if (_cachedLocation == null || _cacheTime == null) return null;
+    if (DateTime.now().difference(_cacheTime!) > _cacheMaxAge) return null;
+    return _cachedLocation;
+  }
 
   /// 获取当前位置（带卫星信息），失败返回null
   static Future<GpsLocation?> getCurrentLocation() async {
@@ -51,6 +59,7 @@ class GpsLocationService {
           satellites: satellites,
         );
         _cachedLocation = loc;
+        _cacheTime = DateTime.now();
         return loc;
       }
       return null;

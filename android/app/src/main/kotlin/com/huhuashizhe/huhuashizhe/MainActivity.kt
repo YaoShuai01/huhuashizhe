@@ -172,34 +172,11 @@ class MainActivity : FlutterActivity() {
         // 启动GNSS卫星状态监听
         startGnssMonitoring()
 
-        // 检查缓存时效：30秒内的GPS缓存视为有效
+        // 缓存仅用于超时兜底，不再直接返回缓存位置
         val cachedGps = locationManager?.getLastKnownLocation(LocationManager.GPS_PROVIDER)
         val cachedNetwork = locationManager?.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
-        val now = System.currentTimeMillis()
-        val cacheMaxAge = 30000L // 30秒
 
-        val freshCache = if (cachedGps != null && (now - cachedGps.time) < cacheMaxAge) {
-            cachedGps
-        } else if (cachedNetwork != null && (now - cachedNetwork.time) < cacheMaxAge) {
-            cachedNetwork
-        } else null
-
-        if (freshCache != null) {
-            // 缓存有效，立即返回（毫秒级响应）
-            result.success(mapOf(
-                "lat" to freshCache.latitude,
-                "lng" to freshCache.longitude,
-                "accuracy" to freshCache.accuracy,
-                "provider" to freshCache.provider,
-                "timestamp" to freshCache.time,
-                "satellites" to satelliteInfo
-            ))
-            // 后台静默更新缓存
-            silentlyUpdateLocation()
-            return
-        }
-
-        // 缓存过期或不存在：启动实时定位，等待新数据
+        // 总是启动实时定位，等待新数据
         locationResult = result
         bestLocation = null
 
