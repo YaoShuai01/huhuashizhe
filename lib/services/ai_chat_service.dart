@@ -30,7 +30,7 @@ class AiChatMessage {
 /// 小米MiMo大模型AI对话服务（OpenAI兼容格式）
 class AiChatService {
   static const _baseUrl = 'https://api.xiaomimimo.com/v1';
-  static const _model = 'mimo-v2-flash';
+  static const _model = 'mimo-v2.5';
   static const _apiKey = 'sk-cmg9hlk0p32xk3zvwlx3q1ui4q4b5qql3qua554jfl5lshef';
 
   /// 护花使者智能体系统提示词
@@ -92,7 +92,6 @@ class AiChatService {
           'temperature': 0.7,
           'top_p': 0.95,
           'stream': true,
-          'extra_body': {'thinking': {'type': 'disabled'}},
         },
         options: Options(
           responseType: ResponseType.stream,
@@ -122,8 +121,10 @@ class AiChatService {
               if (choices != null && choices.isNotEmpty) {
                 final delta = choices[0]['delta'] as Map<String, dynamic>?;
                 final content = delta?['content'] as String?;
-                if (content != null && content.isNotEmpty) {
-                  yield content;
+                final reasoning = delta?['reasoning_content'] as String?;
+                final output = (content != null && content.isNotEmpty) ? content : reasoning;
+                if (output != null && output.isNotEmpty) {
+                  yield output;
                 }
               }
             } catch (_) {
@@ -176,14 +177,16 @@ class AiChatService {
           'temperature': 0.7,
           'top_p': 0.95,
           'stream': false,
-          'extra_body': {'thinking': {'type': 'disabled'}},
         },
       );
 
       final choices = response.data['choices'] as List<dynamic>?;
       if (choices != null && choices.isNotEmpty) {
         final message = choices[0]['message'] as Map<String, dynamic>?;
-        return message?['content']?.toString() ?? '抱歉，未能获取回复。';
+        final content = message?['content']?.toString();
+        final reasoning = message?['reasoning_content']?.toString();
+        final result = (content != null && content.isNotEmpty) ? content : (reasoning ?? '');
+        if (result.isNotEmpty) return result;
       }
       return '抱歉，AI暂时无法回复，请稍后再试。';
     } catch (e) {
@@ -212,14 +215,16 @@ class AiChatService {
           'temperature': 0.7,
           'top_p': 0.95,
           'stream': false,
-          'extra_body': {'thinking': {'type': 'disabled'}},
         },
       );
 
       final choices = response.data['choices'] as List<dynamic>?;
       if (choices != null && choices.isNotEmpty) {
         final message = choices[0]['message'] as Map<String, dynamic>?;
-        return message?['content']?.toString() ?? '抱歉，未能获取分析结果。';
+        final content = message?['content']?.toString();
+        final reasoning = message?['reasoning_content']?.toString();
+        final result = (content != null && content.isNotEmpty) ? content : (reasoning ?? '');
+        if (result.isNotEmpty) return result;
       }
       return '抱歉，AI暂时无法分析，请稍后再试。';
     } catch (e) {

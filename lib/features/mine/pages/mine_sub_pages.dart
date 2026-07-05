@@ -688,6 +688,17 @@ class VersionInfoPage extends ConsumerWidget {
     final histories = [
       {
         'version': 'v1.4.1',
+        'date': '2026-06-28',
+        'content': [
+          '修复AI助手全部用户无法使用的问题（API模型已升级）',
+          'AI模型从 mimo-v2-flash 升级至 mimo-v2.5',
+          '兼容推理模型 reasoning_content 响应字段',
+          '非流式和流式API均支持新模型格式',
+          '移除无效的 extra_body thinking 参数',
+        ],
+      },
+      {
+        'version': 'v1.4.0',
         'date': '2026-06-27',
         'content': [
           '修复GPS定位不实时更新：移除Android层30秒缓存快速返回，总是等待实时GPS定位',
