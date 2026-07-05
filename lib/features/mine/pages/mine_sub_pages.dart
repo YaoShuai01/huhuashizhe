@@ -687,6 +687,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v1.4.1',
+        'date': '2026-06-27',
+        'content': [
+          '修复GPS定位不实时更新：移除Android层30秒缓存快速返回，总是等待实时GPS定位',
+          'Dart层GPS缓存添加3分钟过期机制，过期后自动重新获取位置',
+          '修复版本号倒退问题（v1.1.9→v1.4.1，延续v1.4.0序列）',
+        ],
+      },
+      {
         'version': 'v1.4.0',
         'date': '2026-06-28',
         'content': [
