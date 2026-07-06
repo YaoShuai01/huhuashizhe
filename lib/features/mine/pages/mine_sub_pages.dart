@@ -687,6 +687,14 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v1.4.2',
+        'date': '2026-07-06',
+        'content': [
+          '修复构建环境导致图标和布局丢失的问题',
+          '重新全量构建APK确保所有资源完整打包',
+        ],
+      },
+      {
         'version': 'v1.4.1',
         'date': '2026-06-28',
         'content': [
