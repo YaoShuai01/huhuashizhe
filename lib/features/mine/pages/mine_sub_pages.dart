@@ -687,6 +687,14 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v1.4.3',
+        'date': '2026-07-06',
+        'content': [
+          '修复系统大字体下功能卡片溢出报错',
+          '全局限制字体缩放最大1.2倍，兼顾可读性与布局稳定性',
+        ],
+      },
+      {
         'version': 'v1.4.2',
         'date': '2026-07-06',
         'content': [
