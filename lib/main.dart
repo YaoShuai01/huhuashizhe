@@ -55,6 +55,15 @@ class _HuHuaShiZheAppState extends State<HuHuaShiZheApp> {
         darkTheme: AppTheme.darkTheme,
         themeMode: ThemeMode.system,
         routerConfig: appRouter,
+        builder: (context, child) {
+          // 限制系统字体缩放最大1.2倍，防止大字号下卡片溢出报错
+          final mediaQuery = MediaQuery.of(context);
+          final clampedScale = mediaQuery.textScaler.clamp(maxScaleFactor: 1.2);
+          return MediaQuery(
+            data: mediaQuery.copyWith(textScaler: clampedScale),
+            child: child!,
+          );
+        },
       ),
     );
   }
