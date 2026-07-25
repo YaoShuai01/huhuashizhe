@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_version.dart' show appVersion;
-import '../widgets/device_scan_page.dart';
 import '../pages/mine_sub_pages.dart';
-import '../../settings/pages/settings_page.dart';
 
 class MinePage extends StatelessWidget {
   const MinePage({super.key});
@@ -57,6 +55,12 @@ class MinePage extends StatelessWidget {
               title: '设置',
               subtitle: '语言、通知、缓存、深色模式',
               onTap: () => context.push('/mine/settings'),
+            ),
+            _buildMenuItem(
+              icon: Icons.dashboard_outlined,
+              title: '数据管理中心',
+              subtitle: '地块、无人机、农药、病虫害、作业记录等11项数据管理',
+              onTap: () => context.push('/data-center'),
             ),
             const SizedBox(height: 12),
             _buildMenuItem(
