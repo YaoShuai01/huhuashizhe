@@ -199,7 +199,7 @@ class AppShell extends StatelessWidget {
 
   int _currentIndex(BuildContext context) {
     final location = GoRouterState.of(context).uri.toString();
-    if (location.startsWith('/presets')) return 1;
+    if (location.startsWith('/data-center')) return 1;
     if (location.startsWith('/classroom')) return 2;
     if (location.startsWith('/mine')) return 3;
     return 0;
@@ -211,7 +211,7 @@ class AppShell extends StatelessWidget {
         context.go('/home');
         break;
       case 1:
-        context.go('/presets');
+        context.go('/data-center');
         break;
       case 2:
         context.go('/classroom');
@@ -237,9 +237,9 @@ class AppShell extends StatelessWidget {
             label: '首页',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.bookmark_outline),
-            activeIcon: Icon(Icons.bookmark),
-            label: '预设',
+            icon: Icon(Icons.dashboard_outlined),
+            activeIcon: Icon(Icons.dashboard),
+            label: '数据管理',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.school_outlined),

@@ -254,7 +254,7 @@ class HomePage extends ConsumerWidget {
         _buildActionCard(
           icon: Icons.flight_takeoff,
           title: '创建飞行任务',
-          subtitle: '新建植保作业任务',
+          subtitle: '油菜植保作业规划',
           color: AppColors.primary,
           onTap: () {
             context.push('/mission/map');
@@ -263,21 +263,21 @@ class HomePage extends ConsumerWidget {
         _buildActionCard(
           icon: Icons.auto_awesome,
           title: 'AI助手',
-          subtitle: '智能诊断与用药推荐',
+          subtitle: '油菜病虫害智能诊断',
           color: AppColors.accent,
           onTap: () => context.push('/ai-chat'),
         ),
         _buildActionCard(
           icon: Icons.speed,
           title: '快速预设',
-          subtitle: '从历史预设一键启动',
+          subtitle: '油菜一键适配参数',
           color: const Color(0xFF1976D2),
           onTap: () => context.go('/presets'),
         ),
         _buildActionCard(
           icon: Icons.history,
           title: '作业记录',
-          subtitle: '查看历史作业详情',
+          subtitle: '油菜植保历史作业',
           color: const Color(0xFF7B1FA2),
           onTap: () => context.push('/mission/history'),
         ),

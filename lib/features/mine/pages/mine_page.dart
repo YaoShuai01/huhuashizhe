@@ -56,12 +56,6 @@ class MinePage extends StatelessWidget {
               subtitle: '语言、通知、缓存、深色模式',
               onTap: () => context.push('/mine/settings'),
             ),
-            _buildMenuItem(
-              icon: Icons.dashboard_outlined,
-              title: '数据管理中心',
-              subtitle: '地块、无人机、农药、病虫害、作业记录等11项数据管理',
-              onTap: () => context.push('/data-center'),
-            ),
             const SizedBox(height: 12),
             _buildMenuItem(
               icon: Icons.menu_book_outlined,
