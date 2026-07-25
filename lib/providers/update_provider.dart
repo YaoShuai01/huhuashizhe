@@ -64,7 +64,13 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
 
   Future<void> startDownload() async {
     final info = state.updateInfo;
-    if (info == null || info.downloadUrl.isEmpty) return;
+    if (info == null || info.downloadUrl.isEmpty) {
+      state = state.copyWith(
+        status: UpdateStatus.error,
+        errorMessage: '未找到下载资源，请稍后重试',
+      );
+      return;
+    }
 
     state = state.copyWith(
       status: UpdateStatus.downloading,
