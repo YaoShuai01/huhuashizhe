@@ -12,6 +12,9 @@ import '../../features/mine/widgets/device_scan_page.dart';
 import '../../features/mine/pages/mine_sub_pages.dart';
 import '../../features/settings/pages/settings_page.dart';
 import '../../features/ai_chat/pages/ai_chat_page.dart';
+import '../../features/data_center/pages/data_center_page.dart';
+import '../../features/data_center/pages/data_list_page.dart';
+import '../../features/data_center/data_module_config.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -172,6 +175,19 @@ final appRouter = GoRouter(
       path: '/ai-chat',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const AiChatPage(),
+    ),
+    GoRoute(
+      path: '/data-center',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const DataCenterPage(),
+    ),
+    GoRoute(
+      path: '/data-center/list',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final config = state.extra as DataModuleConfig;
+        return DataListPage(config: config);
+      },
     ),
   ],
 );

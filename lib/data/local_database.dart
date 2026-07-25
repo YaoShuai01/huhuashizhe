@@ -143,4 +143,41 @@ class LocalDatabase {
     _cache['favorites'] = jsonEncode(favorites);
     unawaited(_persistToFile('favorites'));
   }
+
+  // ==================== 通用数据CRUD（PC端数据管理模块） ====================
+
+  List<Map<String, dynamic>> getDataList(String storageKey) {
+    final json = _readCache(storageKey) ?? '[]';
+    return List<Map<String, dynamic>>.from(jsonDecode(json));
+  }
+
+  void saveDataList(String storageKey, List<Map<String, dynamic>> data) {
+    _cache[storageKey] = jsonEncode(data);
+    unawaited(_persistToFile(storageKey));
+  }
+
+  void addDataItem(String storageKey, Map<String, dynamic> item) {
+    final list = getDataList(storageKey);
+    item['id'] = DateTime.now().millisecondsSinceEpoch.toString();
+    item['createdAt'] = DateTime.now().toIso8601String();
+    list.insert(0, item);
+    saveDataList(storageKey, list);
+  }
+
+  void updateDataItem(String storageKey, String id, Map<String, dynamic> item) {
+    final list = getDataList(storageKey);
+    final index = list.indexWhere((d) => d['id'] == id);
+    if (index >= 0) {
+      item['id'] = id;
+      item['createdAt'] = list[index]['createdAt'];
+      list[index] = item;
+    }
+    saveDataList(storageKey, list);
+  }
+
+  void deleteDataItem(String storageKey, String id) {
+    final list = getDataList(storageKey);
+    list.removeWhere((d) => d['id'] == id);
+    saveDataList(storageKey, list);
+  }
 }
