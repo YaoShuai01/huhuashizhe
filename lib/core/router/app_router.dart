@@ -39,9 +39,9 @@ final appRouter = GoRouter(
           ),
         ),
         GoRoute(
-          path: '/presets',
+          path: '/data-center',
           pageBuilder: (context, state) => const NoTransitionPage(
-            child: PresetsPage(),
+            child: DataCenterPage(),
           ),
         ),
         GoRoute(
@@ -59,6 +59,11 @@ final appRouter = GoRouter(
       ],
     ),
     // 子页面路由（位于 ShellRoute 外部，不显示底部导航栏）
+    GoRoute(
+      path: '/presets',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const PresetsPage(),
+    ),
     GoRoute(
       path: '/presets/form',
       parentNavigatorKey: _rootNavigatorKey,
@@ -175,11 +180,6 @@ final appRouter = GoRouter(
       path: '/ai-chat',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const AiChatPage(),
-    ),
-    GoRoute(
-      path: '/data-center',
-      parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => const DataCenterPage(),
     ),
     GoRoute(
       path: '/data-center/list',
