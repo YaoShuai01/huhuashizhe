@@ -272,7 +272,7 @@ class HomePage extends ConsumerWidget {
           title: '快速预设',
           subtitle: '油菜一键适配参数',
           color: const Color(0xFF1976D2),
-          onTap: () => context.go('/presets'),
+          onTap: () => context.push('/presets'),
         ),
         _buildActionCard(
           icon: Icons.history,
