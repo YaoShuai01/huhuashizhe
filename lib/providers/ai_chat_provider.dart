@@ -38,6 +38,19 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
     _loadHistory();
   }
 
+  /// 去除AI回复中的Markdown格式标记（**、*、#、`等）
+  String _stripMarkdown(String text) {
+    return text
+        .replaceAll(RegExp(r'\*{1,3}'), '') // 去除 *, **, ***
+        .replaceAll(RegExp(r'#{1,6}\s'), '') // 去除 # 标题标记
+        .replaceAll(RegExp(r'`{1,3}'), '')   // 去除 ` 代码标记
+        .replaceAll(RegExp(r'~~~?\s*\w*'), '') // 去除 ~~~ 代码块标记
+        .replaceAll(RegExp(r'_{1,3}'), '')   // 去除 _ 斜体/粗体标记
+        .replaceAll(RegExp(r'^\s*[-*+]\s', multiLine: true), '• ') // 无序列表转圆点
+        .replaceAll(RegExp(r'^\s*\d+\.\s', multiLine: true), '') // 有序列表去序号
+        .trim();
+  }
+
   Future<void> _loadHistory() async {
     try {
       final data = _db.get('ai_chat_history');
@@ -82,7 +95,7 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
 
       final assistantMsg = AiChatMessage(
         role: 'assistant',
-        content: reply,
+        content: _stripMarkdown(reply),
         timestamp: DateTime.now(),
       );
 
@@ -132,7 +145,7 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
         final updatedMessages = [...state.messages];
         updatedMessages[updatedMessages.length - 1] = AiChatMessage(
           role: 'assistant',
-          content: fullReply,
+          content: _stripMarkdown(fullReply),
           timestamp: DateTime.now(),
         );
         state = state.copyWith(messages: updatedMessages);
@@ -172,7 +185,7 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
       final reply = await _service.sendMessage(messages, weather: weather);
       final assistantMsg = AiChatMessage(
         role: 'assistant',
-        content: reply,
+        content: _stripMarkdown(reply),
         timestamp: DateTime.now(),
       );
       state = state.copyWith(
