@@ -51,6 +51,7 @@ class MissionService {
   }
 
   static double estimateMedicine(double areaMu, double sprayVolumePerMu) {
-    return areaMu * sprayVolumePerMu;
+    final amount = areaMu * sprayVolumePerMu;
+    return double.parse(amount.toStringAsFixed(1));
   }
 }
