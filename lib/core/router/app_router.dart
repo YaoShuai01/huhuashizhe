@@ -15,6 +15,7 @@ import '../../features/ai_chat/pages/ai_chat_page.dart';
 import '../../features/data_center/pages/data_center_page.dart';
 import '../../features/data_center/pages/data_list_page.dart';
 import '../../features/data_center/data_module_config.dart';
+import '../../features/remote_control/pages/remote_control_page.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -175,6 +176,11 @@ final appRouter = GoRouter(
       path: '/mission/history',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const MissionHistoryPage(),
+    ),
+    GoRoute(
+      path: '/remote-control',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const RemoteControlPage(),
     ),
     GoRoute(
       path: '/ai-chat',

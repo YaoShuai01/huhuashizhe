@@ -281,6 +281,13 @@ class HomePage extends ConsumerWidget {
           color: const Color(0xFF7B1FA2),
           onTap: () => context.push('/mission/history'),
         ),
+        _buildActionCard(
+          icon: Icons.gamepad,
+          title: '快速遥控',
+          subtitle: 'WiFi虚拟遥控器操控',
+          color: const Color(0xFFE65100),
+          onTap: () => context.push('/remote-control'),
+        ),
       ],
     );
   }
