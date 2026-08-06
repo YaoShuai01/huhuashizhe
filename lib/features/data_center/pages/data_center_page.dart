@@ -88,7 +88,7 @@ class DataCenterPage extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
-        childAspectRatio: 1.3,
+        childAspectRatio: 0.95,
         crossAxisSpacing: 12,
         mainAxisSpacing: 12,
       ),
@@ -114,37 +114,26 @@ class DataCenterPage extends StatelessWidget {
           );
         },
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: module.color.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(module.icon, color: module.color, size: 26),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      module.moduleName,
-                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
-                    ),
-                  ),
-                  Icon(Icons.chevron_right, color: module.color.withValues(alpha: 0.5), size: 20),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Expanded(
-                child: Text(
-                  module.description,
-                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary.withValues(alpha: 0.8), height: 1.4),
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: module.color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
+                child: Icon(module.icon, color: module.color, size: 28),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                module.moduleName,
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
