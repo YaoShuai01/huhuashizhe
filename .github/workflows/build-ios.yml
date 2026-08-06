@@ -1,13 +1,7 @@
 name: Build iOS IPA
 
 on:
-  workflow_dispatch:  # 手动触发
-  push:
-    branches: [main, master]
-    paths:
-      - 'ios/**'
-      - 'lib/**'
-      - 'pubspec.yaml'
+  workflow_dispatch:  # 仅手动触发
 
 jobs:
   build-ios:
