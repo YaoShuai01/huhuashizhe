@@ -87,10 +87,10 @@ class DataCenterPage extends StatelessWidget {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 3,
-        childAspectRatio: 0.95,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
+        crossAxisCount: 2,
+        childAspectRatio: 1.3,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
       ),
       itemCount: modules.length,
       itemBuilder: (context, index) {
@@ -102,10 +102,10 @@ class DataCenterPage extends StatelessWidget {
 
   Widget _buildModuleCard(BuildContext context, DataModuleConfig module) {
     return Card(
-      elevation: 1,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
         onTap: () {
           Navigator.of(context, rootNavigator: true).push(
             MaterialPageRoute(
@@ -114,26 +114,37 @@ class DataCenterPage extends StatelessWidget {
           );
         },
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(14),
           child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: module.color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(module.icon, color: module.color, size: 24),
+              Row(
+                children: [
+                  Container(
+                    width: 48,
+                    height: 48,
+                    decoration: BoxDecoration(
+                      color: module.color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(module.icon, color: module.color, size: 26),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      module.moduleName,
+                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                    ),
+                  ),
+                  Icon(Icons.chevron_right, color: module.color.withValues(alpha: 0.5), size: 20),
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                module.moduleName,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textPrimary),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+              const SizedBox(height: 10),
+              Expanded(
+                child: Text(
+                  module.description,
+                  style: TextStyle(fontSize: 12, color: AppColors.textSecondary.withValues(alpha: 0.8), height: 1.4),
+                ),
               ),
             ],
           ),

@@ -31,6 +31,7 @@ class DataModuleConfig {
   final List<FieldConfig> fields;
   final List<String> searchFields;
   final String storageKey;
+  final String description;
 
   const DataModuleConfig({
     required this.moduleKey,
@@ -40,6 +41,7 @@ class DataModuleConfig {
     required this.fields,
     required this.searchFields,
     required this.storageKey,
+    this.description = '',
   });
 }
 
@@ -55,6 +57,7 @@ class DataModules {
       icon: Icons.terrain,
       color: Color(0xFF4CAF50),
       storageKey: 'data_fields',
+      description: '管理油菜种植地块信息，记录编号、面积、种植日期',
       fields: [
         FieldConfig(key: 'field_code', label: '地块编号', required: true, hint: '如: YC-001'),
         FieldConfig(key: 'field_name', label: '地块名称', required: true, hint: '如: 王家村东片'),
@@ -71,6 +74,7 @@ class DataModules {
       icon: Icons.flight,
       color: Color(0xFF2196F3),
       storageKey: 'data_drones',
+      description: '管理植保无人机设备，记录型号、药箱容量、续航',
       fields: [
         FieldConfig(key: 'drone_code', label: '无人机编号', required: true, hint: '如: DJI-T40-001'),
         FieldConfig(key: 'model_name', label: '型号名称', required: true, hint: '如: 大疆T40'),
@@ -87,6 +91,7 @@ class DataModules {
       icon: Icons.science,
       color: Color(0xFFFF5722),
       storageKey: 'data_pesticides',
+      description: '管理农药信息，记录施用比例、稀释比例',
       fields: [
         FieldConfig(key: 'pesticide_code', label: '农药编号', required: true, hint: '如: NY-001'),
         FieldConfig(key: 'pesticide_name', label: '农药名称', required: true, hint: '如: 吡虫啉'),
@@ -103,6 +108,7 @@ class DataModules {
       icon: Icons.eco,
       color: Color(0xFF8BC34A),
       storageKey: 'data_growth',
+      description: '记录油菜各生长阶段，苗期、蕾薹、开花、结荚、成熟',
       fields: [
         FieldConfig(key: 'stage_code', label: '阶段编号', required: true, hint: '如: GS-001'),
         FieldConfig(key: 'field_code', label: '地块编号', required: true, hint: '如: YC-001'),
@@ -125,6 +131,7 @@ class DataModules {
       icon: Icons.bug_report,
       color: Color(0xFFE91E63),
       storageKey: 'data_pests',
+      description: '记录病虫害信息，菌核病、蚜虫等，标记严重程度',
       fields: [
         FieldConfig(key: 'disease_code', label: '病害编号', required: true, hint: '如: PD-001'),
         FieldConfig(key: 'field_code', label: '地块编号', required: true, hint: '如: YC-001'),
@@ -147,6 +154,7 @@ class DataModules {
       icon: Icons.route,
       color: Color(0xFF9C27B0),
       storageKey: 'data_flight_paths',
+      description: '规划无人机飞行路径，记录坐标序列和飞行高度',
       fields: [
         FieldConfig(key: 'path_code', label: '路径编号', required: true, hint: '如: FP-001'),
         FieldConfig(key: 'field_code', label: '地块编号', required: true, hint: '如: YC-001'),
@@ -163,6 +171,7 @@ class DataModules {
       icon: Icons.water_drop,
       color: Color(0xFF00BCD4),
       storageKey: 'data_spray_jobs',
+      description: '记录植保喷洒作业，关联无人机、地块、作业时间',
       fields: [
         FieldConfig(key: 'job_code', label: '作业编号', required: true, hint: '如: SJ-001'),
         FieldConfig(key: 'drone_code', label: '无人机编号', required: true, hint: '如: DJI-T40-001'),
@@ -179,6 +188,7 @@ class DataModules {
       icon: Icons.cloud,
       color: Color(0xFF607D8B),
       storageKey: 'data_weathers',
+      description: '监测田间气象环境，记录温度、风速等数据',
       fields: [
         FieldConfig(key: 'weather_code', label: '气象编号', required: true, hint: '如: WX-001'),
         FieldConfig(key: 'field_code', label: '地块编号', required: true, hint: '如: YC-001'),
@@ -195,6 +205,7 @@ class DataModules {
       icon: Icons.auto_fix_high,
       color: Color(0xFFFF9800),
       storageKey: 'data_adapters',
+      description: '根据生长阶段自动推荐农药配方和飞行参数',
       fields: [
         FieldConfig(key: 'config_code', label: '配置编号', required: true, hint: '如: AD-001'),
         FieldConfig(
@@ -217,6 +228,7 @@ class DataModules {
       icon: Icons.assignment,
       color: Color(0xFF795548),
       storageKey: 'data_operation_logs',
+      description: '记录操作员喷洒、维护、数据录入等操作日志',
       fields: [
         FieldConfig(key: 'log_code', label: '日志编号', required: true, hint: '如: LOG-001'),
         FieldConfig(key: 'operator_name', label: '操作员姓名', required: true, hint: '如: 张三'),
@@ -239,6 +251,7 @@ class DataModules {
       icon: Icons.assessment,
       color: Color(0xFF3F51B5),
       storageKey: 'data_reports',
+      description: '生成农情分析报告，关联地块和历史数据',
       fields: [
         FieldConfig(key: 'report_code', label: '报告编号', required: true, hint: '如: RP-001'),
         FieldConfig(key: 'field_code', label: '地块编号', required: true, hint: '如: YC-001'),
