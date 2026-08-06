@@ -70,6 +70,9 @@ class UpdateService {
         } else {
           return (CheckResult.upToDate, info); // 有Release但版本相同或更低
         }
+      } else if (response.statusCode == 403) {
+        // GitHub API 限流 (60次/小时)，应提示用户稍后重试
+        return (CheckResult.networkError, null);
       } else if (response.statusCode == 404) {
         // 仓库还没有任何 Release
         return (CheckResult.noRelease, null);
@@ -79,6 +82,12 @@ class UpdateService {
       if (e.type == DioExceptionType.connectionTimeout ||
           e.type == DioExceptionType.connectionError) {
         return (CheckResult.networkError, null);
+      }
+      if (e.type == DioExceptionType.badResponse) {
+        final statusCode = e.response?.statusCode;
+        if (statusCode == 403) {
+          return (CheckResult.networkError, null);
+        }
       }
       return (CheckResult.noRelease, null);
     } catch (e) {
