@@ -17,12 +17,19 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
   @override
   void initState() {
     super.initState();
+    // 强制横屏
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     _initUdp();
   }
 
   @override
   void dispose() {
+    // 恢复默认方向
+    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _udp.dispose();
     super.dispose();
@@ -105,44 +112,92 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
   Widget build(BuildContext context) {
     final armed = _udp.armed;
     final spray = _udp.spray;
-    // 根据可用高度动态计算摇杆大小
-    final screenHeight = MediaQuery.of(context).size.height;
-    final joystickSize = (screenHeight * 0.42).clamp(120.0, 180.0);
+    final screenSize = MediaQuery.of(context).size;
+    // 横屏下以高度为基准计算摇杆大小（高度是限制因素）
+    final joystickSize = (screenSize.height * 0.55).clamp(100.0, 160.0);
 
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            // 主体：左摇杆 | 摄像头 | 右摇杆
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                child: Row(
-                  children: [
-                    // 左摇杆（油门/偏航）
-                    Expanded(
-                      flex: 5,
-                      child: _buildLeftJoystick(joystickSize),
+            // 主体布局：左摇杆 | 监控画面 | 右摇杆
+            Column(
+              children: [
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 4, right: 4, top: 2, bottom: 2),
+                    child: Row(
+                      children: [
+                        // 左摇杆（油门/偏航）
+                        Expanded(
+                          flex: 4,
+                          child: _buildLeftJoystick(joystickSize),
+                        ),
+                        const SizedBox(width: 4),
+                        // 监控画面（居中）
+                        Expanded(
+                          flex: 7,
+                          child: _buildCameraView(),
+                        ),
+                        const SizedBox(width: 4),
+                        // 右摇杆（俯仰/横滚）
+                        Expanded(
+                          flex: 4,
+                          child: _buildRightJoystick(joystickSize),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 6),
-                    // 摄像头画面（居中）
-                    Expanded(
-                      flex: 7,
-                      child: _buildCameraView(),
-                    ),
-                    const SizedBox(width: 6),
-                    // 右摇杆（俯仰/横滚）
-                    Expanded(
-                      flex: 5,
-                      child: _buildRightJoystick(joystickSize),
-                    ),
-                  ],
+                  ),
                 ),
+                // 底部控制栏
+                _buildBottomBar(armed, spray),
+              ],
+            ),
+            // 左上角：设置 + 退出图标（悬浮在最上层）
+            Positioned(
+              top: 4,
+              left: 8,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _buildIconButton(Icons.settings, '设置', _showSettings),
+                  const SizedBox(width: 4),
+                  _buildIconButton(Icons.exit_to_app, '退出', _showExitConfirm),
+                ],
               ),
             ),
-            // 底部控制栏
-            _buildBottomBar(armed, spray),
+            // 右上角：连接状态
+            Positioned(
+              top: 4,
+              right: 8,
+              child: ValueListenableBuilder<DroneStatus>(
+                valueListenable: _udp.statusNotifier,
+                builder: (context, status, _) {
+                  final (icon, color, label) = switch (status) {
+                    DroneStatus.disconnected => (Icons.wifi_off, Colors.red, '未连接'),
+                    DroneStatus.ready => (Icons.wifi_find, AppColors.accent, '就绪'),
+                    DroneStatus.connected => (Icons.wifi, Colors.green, '已连接'),
+                    DroneStatus.error => (Icons.wifi_lock, Colors.red, '错误'),
+                  };
+                  return Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(icon, color: color, size: 12),
+                        const SizedBox(width: 3),
+                        Text(label, style: TextStyle(color: color, fontSize: 10)),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
           ],
         ),
       ),
@@ -208,83 +263,35 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
   }
 
   Widget _buildCameraView() {
-    return Stack(
-      children: [
-        // 摄像头画面容器
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.grey[900],
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.grey[800]!, width: 1),
-          ),
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.videocam_off_outlined, size: 40, color: Colors.grey[700]),
-                const SizedBox(height: 8),
-                Text('摄像头未连接', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                const SizedBox(height: 4),
-                Text('FPV画面将在此显示', style: TextStyle(color: Colors.grey[800], fontSize: 10)),
-                const SizedBox(height: 12),
-                ValueListenableBuilder<String>(
-                  valueListenable: _udp.debugNotifier,
-                  builder: (context, debug, _) {
-                    return Text(
-                      debug,
-                      style: TextStyle(color: Colors.green[700], fontSize: 9, fontFamily: 'monospace'),
-                      textAlign: TextAlign.center,
-                    );
-                  },
-                ),
-              ],
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey[900],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[800]!, width: 1),
+      ),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.videocam_off_outlined, size: 40, color: Colors.grey[700]),
+            const SizedBox(height: 8),
+            Text('摄像头未连接', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+            const SizedBox(height: 4),
+            Text('FPV画面将在此显示', style: TextStyle(color: Colors.grey[800], fontSize: 10)),
+            const SizedBox(height: 12),
+            ValueListenableBuilder<String>(
+              valueListenable: _udp.debugNotifier,
+              builder: (context, debug, _) {
+                return Text(
+                  debug,
+                  style: TextStyle(color: Colors.green[700], fontSize: 9, fontFamily: 'monospace'),
+                  textAlign: TextAlign.center,
+                );
+              },
             ),
-          ),
+          ],
         ),
-        // 左上角：设置 + 退出图标（悬浮覆盖）
-        Positioned(
-          top: 4,
-          left: 4,
-          child: Row(
-            children: [
-              _buildIconButton(Icons.settings, '设置', _showSettings),
-              const SizedBox(width: 2),
-              _buildIconButton(Icons.close, '退出', _showExitConfirm),
-            ],
-          ),
-        ),
-        // 右上角：连接状态
-        Positioned(
-          top: 6,
-          right: 8,
-          child: ValueListenableBuilder<DroneStatus>(
-            valueListenable: _udp.statusNotifier,
-            builder: (context, status, _) {
-              final (icon, color, label) = switch (status) {
-                DroneStatus.disconnected => (Icons.wifi_off, Colors.red, '未连接'),
-                DroneStatus.ready => (Icons.wifi_find, AppColors.accent, '就绪'),
-                DroneStatus.connected => (Icons.wifi, Colors.green, '已连接'),
-                DroneStatus.error => (Icons.wifi_lock, Colors.red, '错误'),
-              };
-              return Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(icon, color: color, size: 12),
-                    const SizedBox(width: 3),
-                    Text(label, style: TextStyle(color: color, fontSize: 10)),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-      ],
+      ),
     );
   }
 
