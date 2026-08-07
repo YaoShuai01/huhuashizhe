@@ -17,23 +17,24 @@ class DroneUdpService {
   int _lastSendTime = 0;
 
   // 当前控制值
-  int _throttle = 0; // -100 ~ 100
-  int _roll = 0;     // -100 ~ 100
-  int _pitch = 0;    // -100 ~ 100
-  int _yaw = 0;      // -100 ~ 100
+  int _pitch = 0;    // -100 ~ 100 (左摇杆Y: 前后移动)
+  int _roll = 0;     // -100 ~ 100 (左摇杆X: 左右移动)
+  int _throttle = 0; // -100 ~ 100 (右摇杆Y: 上下升降, sticky)
+  int _yaw = 0;      // -100 ~ 100 (右摇杆X: 左右旋转)
   bool _spray = false;
   bool _armed = false;
 
   bool _dirty = false; // 是否有未发送的变更
 
-  // 状态回调
+  // 飞行状态
   final ValueNotifier<DroneStatus> statusNotifier = ValueNotifier(DroneStatus.disconnected);
   final ValueNotifier<String> debugNotifier = ValueNotifier('未连接');
+  final ValueNotifier<FlightState> flightStateNotifier = ValueNotifier(FlightState.landed);
 
-  // 获取当前控制值（用于UI显示）
-  int get throttle => _throttle;
-  int get roll => _roll;
+  // 获取当前控制值
   int get pitch => _pitch;
+  int get roll => _roll;
+  int get throttle => _throttle;
   int get yaw => _yaw;
   bool get spray => _spray;
   bool get armed => _armed;
@@ -70,7 +71,7 @@ class DroneUdpService {
     debugNotifier.value = '已停止发送';
   }
 
-  /// 发送循环：50Hz高频发送，无变化时降频保活
+  /// 发送循环
   void _sendLoop() {
     if (_socket == null) return;
 
@@ -89,9 +90,9 @@ class DroneUdpService {
     if (_socket == null) return;
 
     final cmd = 'ARM:${_armed ? 1 : 0};'
-        'THR:$_throttle;'
-        'ROL:$_roll;'
         'PIT:$_pitch;'
+        'ROL:$_roll;'
+        'THR:$_throttle;'
         'YAW:$_yaw;'
         'SPR:${_spray ? 1 : 0}\n';
 
@@ -103,9 +104,32 @@ class DroneUdpService {
     }
   }
 
-  /// 设置摇杆值（-100~100）
-  void setThrottle(int value) {
-    _throttle = value.clamp(-100, 100);
+  /// 发送一次性指令（一键起降等）
+  void _sendOneShot(String cmd) {
+    if (_socket == null) return;
+    final data = utf8.encode('$cmd\n');
+    try {
+      _socket!.send(data, InternetAddress(_droneIp), _dronePort);
+    } catch (e) {
+      debugNotifier.value = '发送失败: $e';
+    }
+  }
+
+  /// 一键起飞
+  void sendTakeoff() {
+    _sendOneShot('TAKEOFF:1');
+    _dirty = true;
+  }
+
+  /// 一键降落
+  void sendLand() {
+    _sendOneShot('LAND:1');
+    _dirty = true;
+  }
+
+  // ========== 左摇杆：俯仰(前后) / 横滚(左右)，双轴回中 ==========
+  void setPitch(int value) {
+    _pitch = value.clamp(-100, 100);
     _dirty = true;
   }
 
@@ -114,8 +138,9 @@ class DroneUdpService {
     _dirty = true;
   }
 
-  void setPitch(int value) {
-    _pitch = value.clamp(-100, 100);
+  // ========== 右摇杆：油门(上下, sticky) / 偏航(旋转, 回中) ==========
+  void setThrottle(int value) {
+    _throttle = value.clamp(-100, 100);
     _dirty = true;
   }
 
@@ -124,7 +149,7 @@ class DroneUdpService {
     _dirty = true;
   }
 
-  /// 设置喷洒
+  /// 喷洒
   void setSpray(bool value) {
     _spray = value;
     _dirty = true;
@@ -140,12 +165,12 @@ class DroneUdpService {
     _armed = value;
     _dirty = true;
     if (!_armed) {
-      // 上锁时重置所有值
       _throttle = 0;
-      _roll = 0;
       _pitch = 0;
+      _roll = 0;
       _yaw = 0;
       _spray = false;
+      flightStateNotifier.value = FlightState.landed;
     }
   }
 
@@ -160,6 +185,7 @@ class DroneUdpService {
     _socket = null;
     statusNotifier.dispose();
     debugNotifier.dispose();
+    flightStateNotifier.dispose();
   }
 }
 
@@ -168,4 +194,11 @@ enum DroneStatus {
   ready,
   connected,
   error,
+}
+
+enum FlightState {
+  landed,     // 已降落
+  takingOff,  // 起飞中
+  flying,     // 飞行中
+  landing,    // 降落中
 }

@@ -3,20 +3,19 @@ import 'package:flutter/material.dart';
 
 /// 无人机虚拟摇杆组件
 /// 支持双轴操控，返回X(-100~100)和Y(-100~100)
+/// stickyY=true时Y轴松手保持位置（油门），false时双轴回中
 class DroneJoystick extends StatefulWidget {
-  final String labelX;
-  final String labelY;
   final double size;
   final Color? color;
+  final bool stickyY; // 油门轴松手保持位置
   final void Function(double x, double y)? onChanged;
   final void Function()? onReleased;
 
   const DroneJoystick({
     super.key,
-    this.labelX = 'X',
-    this.labelY = 'Y',
     this.size = 140,
     this.color,
+    this.stickyY = false,
     this.onChanged,
     this.onReleased,
   });
@@ -28,10 +27,6 @@ class DroneJoystick extends StatefulWidget {
 class _DroneJoystickState extends State<DroneJoystick> {
   double _x = 0;
   double _y = 0;
-  int _pointerId = -1;
-
-  int get _valueX => (_x * 100).round().clamp(-100, 100);
-  int get _valueY => (-_y * 100).round().clamp(-100, 100);
 
   @override
   Widget build(BuildContext context) {
@@ -40,58 +35,50 @@ class _DroneJoystickState extends State<DroneJoystick> {
     final outerColor = Colors.grey[850]!;
     final borderColor = Colors.grey[700]!;
 
+    // 用 GestureDetector 包裹整个摇杆区域，确保坐标相对于摇杆中心
     return SizedBox(
       width: widget.size,
       height: widget.size + 30,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // 外圈
-          Container(
-            width: widget.size,
-            height: widget.size,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: outerColor,
-              border: Border.all(color: borderColor, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: color.withValues(alpha: 0.15),
-                  blurRadius: 20,
-                  spreadRadius: 2,
-                ),
-              ],
+      child: GestureDetector(
+        onPanStart: (d) => _updatePosition(d.localPosition),
+        onPanUpdate: (d) => _updatePosition(d.localPosition),
+        onPanEnd: (_) => _onRelease(),
+        onPanCancel: _onRelease,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // 外圈
+            Container(
+              width: widget.size,
+              height: widget.size,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: outerColor,
+                border: Border.all(color: borderColor, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: color.withValues(alpha: 0.15),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
             ),
-          ),
-          // 十字线
-          CustomPaint(
-            size: Size(widget.size, widget.size),
-            painter: _CrosshairPainter(color: Colors.grey[700]!),
-          ),
-          // 中心点
-          Container(
-            width: 4,
-            height: 4,
-            decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.grey[600]),
-          ),
-          // 摇杆拇指
-          Positioned(
-            left: widget.size / 2 - thumbRadius + _x * (widget.size / 2 - thumbRadius),
-            top: widget.size / 2 - thumbRadius + _y * (widget.size / 2 - thumbRadius),
-            child: Listener(
-              onPointerDown: (e) {
-                _pointerId = e.pointer;
-                _updatePosition(e.localPosition);
-              },
-              onPointerMove: (e) {
-                if (e.pointer == _pointerId) _updatePosition(e.localPosition);
-              },
-              onPointerUp: (e) {
-                if (e.pointer == _pointerId) { _pointerId = -1; _resetPosition(); }
-              },
-              onPointerCancel: (e) {
-                if (e.pointer == _pointerId) { _pointerId = -1; _resetPosition(); }
-              },
+            // 十字线
+            CustomPaint(
+              size: Size(widget.size, widget.size),
+              painter: _CrosshairPainter(color: Colors.grey[700]!),
+            ),
+            // 中心点
+            Container(
+              width: 4,
+              height: 4,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: Colors.grey[600]),
+            ),
+            // 摇杆拇指（只负责渲染，不处理触摸）
+            Positioned(
+              left: widget.size / 2 - thumbRadius + _x * (widget.size / 2 - thumbRadius),
+              top: widget.size / 2 - thumbRadius + _y * (widget.size / 2 - thumbRadius),
               child: Container(
                 width: thumbRadius * 2,
                 height: thumbRadius * 2,
@@ -106,21 +93,21 @@ class _DroneJoystickState extends State<DroneJoystick> {
                 ),
               ),
             ),
-          ),
-          // 中心十字虚线
-          Positioned(
-            left: 0,
-            right: 0,
-            top: widget.size / 2 - 0.5,
-            child: Container(height: 1, color: Colors.grey[700]!.withValues(alpha: 0.5)),
-          ),
-          Positioned(
-            top: 0,
-            bottom: 0,
-            left: widget.size / 2 - 0.5,
-            child: Container(width: 1, color: Colors.grey[700]!.withValues(alpha: 0.5)),
-          ),
-        ],
+            // 中心十字虚线
+            Positioned(
+              left: 0,
+              right: 0,
+              top: widget.size / 2 - 0.5,
+              child: Container(height: 1, color: Colors.grey[700]!.withValues(alpha: 0.5)),
+            ),
+            Positioned(
+              top: 0,
+              bottom: 0,
+              left: widget.size / 2 - 0.5,
+              child: Container(width: 1, color: Colors.grey[700]!.withValues(alpha: 0.5)),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -149,10 +136,17 @@ class _DroneJoystickState extends State<DroneJoystick> {
     widget.onChanged?.call(_x * 100, -_y * 100);
   }
 
-  void _resetPosition() {
-    setState(() { _x = 0; _y = 0; });
+  void _onRelease() {
+    if (widget.stickyY) {
+      // 油门轴保持位置，仅横滚轴回中
+      setState(() { _x = 0; });
+      widget.onChanged?.call(0, -_y * 100);
+    } else {
+      // 双轴回中
+      setState(() { _x = 0; _y = 0; });
+      widget.onChanged?.call(0, 0);
+    }
     widget.onReleased?.call();
-    widget.onChanged?.call(0, 0);
   }
 }
 
