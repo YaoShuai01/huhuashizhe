@@ -119,52 +119,71 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.grey[900],
+      isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (ctx) {
         final current = _udp.sprayLevel;
         return SafeArea(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Text(
-                  '选择喷洒力度',
-                  style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+          child: ConstrainedBox(
+            // 横屏高度有限，限制弹窗最大高度，超出可滚动
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.8,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    '选择喷洒力度',
+                    style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+                  ),
                 ),
-              ),
-              const Divider(color: Colors.grey, height: 1),
-              ...levels.map((lvl) {
-                final (level, title, desc) = lvl;
-                final selected = level == current;
-                return ListTile(
-                  dense: true,
-                  leading: Icon(
-                    selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-                    color: selected ? AppColors.warning : Colors.grey,
+                const Divider(color: Colors.grey, height: 1),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    children: [
+                      ...levels.map((lvl) {
+                        final (level, title, desc) = lvl;
+                        final selected = level == current;
+                        return ListTile(
+                          dense: true,
+                          visualDensity: VisualDensity.compact,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+                          leading: Icon(
+                            selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                            color: selected ? AppColors.warning : Colors.grey,
+                            size: 20,
+                          ),
+                          // 单行紧凑显示，横屏下 6 挡可全部呈现，超出一屏仍可滚动
+                          title: Text(
+                            '$title  $desc',
+                            style: TextStyle(
+                              color: selected ? AppColors.warning : Colors.white,
+                              fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                              fontSize: 13,
+                            ),
+                          ),
+                          trailing: selected
+                              ? const Icon(Icons.check, color: AppColors.warning, size: 20)
+                              : null,
+                          onTap: () {
+                            _udp.setSprayLevel(level); // 喷洒中实时切换力度
+                            Navigator.pop(ctx);
+                            setState(() {});
+                          },
+                        );
+                      }),
+                    ],
                   ),
-                  title: Text(
-                    title,
-                    style: TextStyle(
-                      color: selected ? AppColors.warning : Colors.white,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-                    ),
-                  ),
-                  subtitle: Text(desc, style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                  trailing: selected
-                      ? const Icon(Icons.check, color: AppColors.warning, size: 20)
-                      : null,
-                  onTap: () {
-                    _udp.setSprayLevel(level); // 喷洒中实时切换力度
-                    Navigator.pop(ctx);
-                    setState(() {});
-                  },
-                );
-              }),
-              const SizedBox(height: 8),
-            ],
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
           ),
         );
       },

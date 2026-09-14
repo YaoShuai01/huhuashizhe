@@ -687,6 +687,14 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.3.1',
+        'date': '2026-09-14',
+        'content': [
+          '修复喷洒力度列表在横屏下显示不完整的问题，6挡位可全部呈现，超出一屏可滑动选择',
+          '焊接图纸系统总线连接图优化：补全端子连接点与跨线标识',
+        ],
+      },
+      {
         'version': 'v2.3.0',
         'date': '2026-09-14',
         'content': [
