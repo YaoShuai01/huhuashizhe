@@ -106,10 +106,75 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
     );
   }
 
+  /// 喷洒力度选择 (6挡, 底部弹出列表)
+  void _showSprayLevelPicker() {
+    const levels = [
+      (1, '1挡', '弱喷 · 45%'),
+      (2, '2挡', '较弱 · 55%'),
+      (3, '3挡', '中等 · 65%'),
+      (4, '4挡', '较强 · 75%'),
+      (5, '5挡', '强喷 · 88%'),
+      (6, '6挡', '最强 · 100%'),
+    ];
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.grey[900],
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        final current = _udp.sprayLevel;
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  '选择喷洒力度',
+                  style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w600),
+                ),
+              ),
+              const Divider(color: Colors.grey, height: 1),
+              ...levels.map((lvl) {
+                final (level, title, desc) = lvl;
+                final selected = level == current;
+                return ListTile(
+                  dense: true,
+                  leading: Icon(
+                    selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                    color: selected ? AppColors.warning : Colors.grey,
+                  ),
+                  title: Text(
+                    title,
+                    style: TextStyle(
+                      color: selected ? AppColors.warning : Colors.white,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                    ),
+                  ),
+                  subtitle: Text(desc, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                  trailing: selected
+                      ? const Icon(Icons.check, color: AppColors.warning, size: 20)
+                      : null,
+                  onTap: () {
+                    _udp.setSprayLevel(level); // 喷洒中实时切换力度
+                    Navigator.pop(ctx);
+                    setState(() {});
+                  },
+                );
+              }),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final armed = _udp.armed;
-    final spray = _udp.spray;
+    final spray = _udp.spray; // 0=关, 1~6=力度挡位
     final screenSize = MediaQuery.of(context).size;
     final joystickSize = (screenSize.height * 0.55).clamp(100.0, 160.0);
 
@@ -306,7 +371,7 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
     );
   }
 
-  Widget _buildBottomBar(bool armed, bool spray) {
+  Widget _buildBottomBar(bool armed, int spray) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
@@ -402,9 +467,31 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
             ),
           ),
           const SizedBox(width: 8),
+          // 喷洒力度按钮 (6挡)
+          SizedBox(
+            width: 56,
+            height: 36,
+            child: ElevatedButton(
+              onPressed: () => _showSprayLevelPicker(),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.warning.withValues(alpha: 0.25),
+                foregroundColor: AppColors.warning,
+                padding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  side: BorderSide(color: AppColors.warning.withValues(alpha: 0.5)),
+                ),
+              ),
+              child: Text(
+                '力度${_udp.sprayLevel}',
+                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
           // 喷洒按钮
           SizedBox(
-            width: 64,
+            width: 56,
             height: 36,
             child: ElevatedButton(
               onPressed: () {
@@ -412,13 +499,13 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
                 setState(() {});
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: spray ? AppColors.info : Colors.grey[700],
+                backgroundColor: spray > 0 ? AppColors.info : Colors.grey[700],
                 foregroundColor: Colors.white,
                 padding: EdgeInsets.zero,
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
               child: Text(
-                spray ? '停喷' : '喷洒',
+                spray > 0 ? '停喷' : '喷洒',
                 style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
               ),
             ),

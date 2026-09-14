@@ -21,7 +21,8 @@ class DroneUdpService {
   int _roll = 0;     // -100 ~ 100 (左摇杆X: 左右移动)
   int _throttle = 0; // -100 ~ 100 (右摇杆Y: 上下升降, sticky)
   int _yaw = 0;      // -100 ~ 100 (右摇杆X: 左右旋转)
-  bool _spray = false;
+  int _spray = 0;    // 喷洒: 0=关, 1~6=力度挡位
+  int _sprayLevel = 3; // 当前选中的喷洒力度挡位 (1~6)
   bool _armed = false;
 
   bool _dirty = false; // 是否有未发送的变更
@@ -36,7 +37,8 @@ class DroneUdpService {
   int get roll => _roll;
   int get throttle => _throttle;
   int get yaw => _yaw;
-  bool get spray => _spray;
+  int get spray => _spray;
+  int get sprayLevel => _sprayLevel;
   bool get armed => _armed;
 
   /// 初始化UDP socket
@@ -94,7 +96,7 @@ class DroneUdpService {
         'ROL:$_roll;'
         'THR:$_throttle;'
         'YAW:$_yaw;'
-        'SPR:${_spray ? 1 : 0}\n';
+        'SPR:$_spray\n';
 
     final data = utf8.encode(cmd);
     try {
@@ -149,14 +151,24 @@ class DroneUdpService {
     _dirty = true;
   }
 
-  /// 喷洒
-  void setSpray(bool value) {
-    _spray = value;
+  /// 喷洒开关：打开用当前力度挡位，关闭置0
+  void toggleSpray() {
+    _spray = (_spray == 0) ? _sprayLevel : 0;
     _dirty = true;
   }
 
-  void toggleSpray() {
-    _spray = !_spray;
+  /// 直接设置喷洒挡位 (0=关, 1~6=力度)
+  void setSpray(int level) {
+    _spray = level.clamp(0, 6);
+    _dirty = true;
+  }
+
+  /// 切换喷洒力度挡位 (1~6)，正在喷洒时实时生效
+  void setSprayLevel(int level) {
+    _sprayLevel = level.clamp(1, 6);
+    if (_spray > 0) {
+      _spray = _sprayLevel; // 喷洒中实时切换力度
+    }
     _dirty = true;
   }
 
@@ -169,7 +181,7 @@ class DroneUdpService {
       _pitch = 0;
       _roll = 0;
       _yaw = 0;
-      _spray = false;
+      _spray = 0;
       flightStateNotifier.value = FlightState.landed;
     }
   }

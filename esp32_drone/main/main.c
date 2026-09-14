@@ -1,12 +1,19 @@
 /**
- * 护花使者 - 无人机验证平台 (ESP32-S3) v2
+ * 护花使者 - 无人机验证平台 (ESP32-S3) v3
  * 功能：WiFi AP + UDP 遥控 + 飞行状态机 + 高度模拟 + 矢量混控
+ * 硬件：2212 920KV无刷电机 ×4 + 30A模拟PWM电调 ×4 + 11.1V 3S电池
+ *       + 12V高压薄膜水泵(经MOS管) + 降压模块(11.1V→5V, 走板载LDO)
+ *
  * 引脚定义：
- *   GPIO1  = 前右电机 (Front-Right)
- *   GPIO4  = 前左电机 (Front-Left)
- *   GPIO21 = 后右电机 (Back-Right)
- *   GPIO12 = 后左电机 (Back-Left)
- *   GPIO18 = 喷洒装置 (Spray)
+ *   GPIO1  = 前右电机 (Front-Right)  → 电调信号线
+ *   GPIO4  = 前左电机 (Front-Left)   → 电调信号线
+ *   GPIO21 = 后右电机 (Back-Right)   → 电调信号线
+ *   GPIO12 = 后左电机 (Back-Left)    → 电调信号线
+ *   GPIO18 = 喷洒水泵 (Spray)        → MOS管栅极(经1kΩ), 控制12V水泵
+ *
+ * 电调信号规格 (模拟PWM)：
+ *   50Hz, 14bit分辨率, 脉宽1ms(停)~2ms(最大)
+ *   上电必须输出1ms最低油门，否则电调进入校准/编程模式
  *
  * 通信协议 (UDP 端口 8888)：
  *   ARM:0/1    - 解锁/上锁
@@ -14,12 +21,12 @@
  *   ROL:-100~100 - 横滚（左右移动）
  *   THR:-100~100 - 油门（上下升降，sticky）
  *   YAW:-100~100 - 偏航（左右旋转）
- *   SPR:0/1    - 喷洒开关
+ *   SPR:0~6    - 喷洒挡位 (0=关, 1~6=力度递增)
  *   TAKEOFF:1  - 一键起飞
  *   LAND:1     - 一键降落
  *
  * 飞行状态机：
- *   IDLE → ARMED → TAKING_OFF(0→35亮度,2s) → HOVERING(0.5m)
+ *   IDLE → ARMED → TAKING_OFF(0→35油门,2s) → HOVERING(0.5m)
  *   HOVERING ↔ FLYING(油门控制高度)
  *   FLYING/HOVERING → LANDING(降至0.5m) → LANDING_FINAL(降至地面)
  *   LANDING_FINAL(低于0.5m松手) → 自动爬升回HOVERING
@@ -61,6 +68,19 @@ static const char *TAG = "DRONE";
 #define LEDC_CH_BL  LEDC_CHANNEL_3
 #define LEDC_CH_SP  LEDC_CHANNEL_4
 
+// ==================== 电调 PWM (模拟信号) ====================
+// 50Hz 周期20ms, 14bit分辨率(16384): 1ms=819, 2ms=1638
+#define ESC_FREQ_HZ      50
+#define ESC_DUTY_RES     14
+#define ESC_PULSE_MIN    819    // 1.0ms = 最低油门(停转)
+#define ESC_PULSE_MAX    1638   // 2.0ms = 最大油门
+#define ESC_FULL_DUTY    ((1 << ESC_DUTY_RES) - 1)   // 16383
+
+// ==================== 喷洒水泵 PWM ====================
+// 独立定时器: 5kHz, 8bit (MOS管调速)
+#define PUMP_FREQ_HZ     5000
+#define PUMP_DUTY_RES    8
+
 // ==================== WiFi AP 配置 ====================
 #define WIFI_SSID      "HuHuaShiZhe-Drone"
 #define WIFI_PASSWORD  ""
@@ -99,7 +119,11 @@ static int  g_pitch = 0;      // -100 ~ 100 (俯仰)
 static int  g_roll = 0;       // -100 ~ 100 (横滚)
 static int  g_throttle = 0;   // -100 ~ 100 (油门, sticky)
 static int  g_yaw = 0;        // -100 ~ 100 (偏航)
-static bool g_spray = false;
+static int  g_spray = 0;      // 喷洒挡位: 0=关, 1~6=力度
+
+// 喷洒力度挡位 → 水泵PWM占空比 (8bit)
+// 12V隔膜泵低占空比无法启动，1挡从45%起步
+static const int SPRAY_LEVEL_DUTY[7] = {0, 115, 140, 166, 191, 224, 255};
 
 // 高度模拟
 static int   g_altitude = 0;          // 当前高度 (0=地面, 50=0.5m悬停, 200=2m)
@@ -137,14 +161,25 @@ static void ledc_init(void)
     gpio_set_level(PIN_SPRAY, 0);
     ESP_LOGI(TAG, "GPIO initialized: FR=1, FL=4, BR=21, BL=12, SP=18");
 
-    ledc_timer_config_t ledc_timer = {
+    // 电调定时器: 50Hz, 14bit (电机通道)
+    ledc_timer_config_t esc_timer = {
         .speed_mode       = LEDC_LOW_SPEED_MODE,
-        .duty_resolution  = LEDC_TIMER_8_BIT,
+        .duty_resolution  = ESC_DUTY_RES,
         .timer_num        = LEDC_TIMER_0,
-        .freq_hz          = 5000,
+        .freq_hz          = ESC_FREQ_HZ,
         .clk_cfg          = LEDC_AUTO_CLK
     };
-    ESP_ERROR_CHECK(ledc_timer_config(&ledc_timer));
+    ESP_ERROR_CHECK(ledc_timer_config(&esc_timer));
+
+    // 水泵定时器: 5kHz, 8bit (独立, 喷洒通道)
+    ledc_timer_config_t pump_timer = {
+        .speed_mode       = LEDC_LOW_SPEED_MODE,
+        .duty_resolution  = PUMP_DUTY_RES,
+        .timer_num        = LEDC_TIMER_1,
+        .freq_hz          = PUMP_FREQ_HZ,
+        .clk_cfg          = LEDC_AUTO_CLK
+    };
+    ESP_ERROR_CHECK(ledc_timer_config(&pump_timer));
 
     ledc_channel_config_t channels[] = {
         {.gpio_num = PIN_FRONT_RIGHT, .speed_mode = LEDC_LOW_SPEED_MODE,
@@ -164,7 +199,7 @@ static void ledc_init(void)
          .duty = 0, .hpoint = 0, .intr_type = LEDC_INTR_DISABLE,
          .flags = {.output_invert = 0}},
         {.gpio_num = PIN_SPRAY, .speed_mode = LEDC_LOW_SPEED_MODE,
-         .channel = LEDC_CH_SP, .timer_sel = LEDC_TIMER_0,
+         .channel = LEDC_CH_SP, .timer_sel = LEDC_TIMER_1,
          .duty = 0, .hpoint = 0, .intr_type = LEDC_INTR_DISABLE,
          .flags = {.output_invert = 0}},
     };
@@ -172,7 +207,27 @@ static void ledc_init(void)
         ESP_ERROR_CHECK(ledc_channel_config(&channels[i]));
     }
     ledc_fade_func_install(0);
-    ESP_LOGI(TAG, "LEDC PWM initialized (5 channels, 5kHz, 8-bit)");
+
+    // 上电立即输出最低油门(1ms)到所有电调通道
+    // 重要: 电调上电时必须收到1ms低油门信号，否则进入校准/编程模式
+    for (int i = 0; i < 4; i++) {
+        ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CH_FR + i, ESC_PULSE_MIN);
+        ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CH_FR + i);
+    }
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CH_SP, 0);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CH_SP);
+
+    ESP_LOGI(TAG, "PWM initialized: ESC=50Hz/14bit(1-2ms), Pump=5kHz/8bit");
+}
+
+// ==================== 油门值→电调脉宽转换 ====================
+// 输入: 0~255 内部油门值 (对应原LED亮度)
+// 输出: 电调duty (819=1ms停转 ~ 1638=2ms最大)
+static inline int esc_duty_from_pwm(int pwm)
+{
+    if (pwm < 0) pwm = 0;
+    if (pwm > 255) pwm = 255;
+    return ESC_PULSE_MIN + pwm * (ESC_PULSE_MAX - ESC_PULSE_MIN) / 255;
 }
 
 // ==================== 矢量电机混合 ====================
@@ -311,12 +366,13 @@ static void update_motors(void)
     if (bl < 0) bl = 0;
     if (bl > 255) bl = 255;
 
-    // 更新PWM
-    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CH_FR, fr);
-    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CH_FL, fl);
-    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CH_BR, br);
-    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CH_BL, bl);
-    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CH_SP, g_spray ? 255 : 0);
+    // 更新PWM: 内部油门值(0~255) → 电调脉宽(1ms~2ms)
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CH_FR, esc_duty_from_pwm(fr));
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CH_FL, esc_duty_from_pwm(fl));
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CH_BR, esc_duty_from_pwm(br));
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CH_BL, esc_duty_from_pwm(bl));
+    // 水泵: 5kHz/8bit, 按挡位力度输出 (0=关, 1~6对应45%~100%)
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CH_SP, SPRAY_LEVEL_DUTY[g_spray]);
 
     ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CH_FR);
     ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CH_FL);
@@ -327,8 +383,11 @@ static void update_motors(void)
     // 调试日志（每2秒）
     static int log_counter = 0;
     if (++log_counter % 100 == 0) {
-        ESP_LOGI(TAG, "State:%d Alt:%d PWM:%d FR:%d FL:%d BR:%d BL:%d SP:%d",
-                 g_state, g_altitude, base_pwm, fr, fl, br, bl, g_spray ? 255 : 0);
+        ESP_LOGI(TAG, "State:%d Alt:%d THR:%d ESC[%dus] FR:%dus FL:%dus BR:%dus BL:%dus SP:%d",
+                 g_state, g_altitude, base_pwm, 1000 + base_pwm * 1000 / 255,
+                 1000 + fr * 1000 / 255, 1000 + fl * 1000 / 255,
+                 1000 + br * 1000 / 255, 1000 + bl * 1000 / 255,
+                 SPRAY_LEVEL_DUTY[g_spray]);
     }
 }
 
@@ -438,7 +497,7 @@ static void parse_command(const char *buf, int len)
                     g_altitude = 0;
                     g_target_altitude = 0;
                     g_pitch = 0; g_roll = 0; g_throttle = 0; g_yaw = 0;
-                    g_spray = false;
+                    g_spray = 0;
                     g_onekey_takeoff = false;
                     g_onekey_landing = false;
                     g_throttle_held = false;
@@ -454,7 +513,8 @@ static void parse_command(const char *buf, int len)
         } else if (strcmp(key, "YAW") == 0) {
             g_yaw = (v < -100) ? -100 : ((v > 100) ? 100 : v);
         } else if (strcmp(key, "SPR") == 0) {
-            g_spray = (v != 0);
+            // 喷洒: 0=关, 1~6=力度挡位
+            g_spray = (v < 0) ? 0 : ((v > 6) ? 6 : v);
         } else if (strcmp(key, "TAKEOFF") == 0 && v != 0) {
             g_onekey_takeoff = true;
             ESP_LOGI(TAG, "收到一键起飞指令");
@@ -495,7 +555,7 @@ static void heartbeat_task(void *pvParameters)
             g_altitude = 0;
             g_target_altitude = 0;
             g_pitch = 0; g_roll = 0; g_throttle = 0; g_yaw = 0;
-            g_spray = false;
+            g_spray = 0;
             g_onekey_takeoff = false;
             g_onekey_landing = false;
             update_motors();
@@ -566,7 +626,7 @@ static void wifi_event_handler(void *arg, esp_event_base_t event_base,
         g_altitude = 0;
         g_target_altitude = 0;
         g_pitch = 0; g_roll = 0; g_throttle = 0; g_yaw = 0;
-        g_spray = false;
+        g_spray = 0;
         g_onekey_takeoff = false;
         g_onekey_landing = false;
         update_motors();
@@ -603,34 +663,31 @@ static void wifi_init_ap(void)
     ESP_LOGI(TAG, "WiFi AP 已启动: SSID=%s, 信道=%d", WIFI_SSID, WIFI_CHANNEL);
 }
 
-// ==================== LED自检 ====================
-static void led_self_test(void)
+// ==================== 电调信号自检 ====================
+// 安全说明: 只输出1ms最低油门(停转), 确认信号链路正常
+// 电调上电后会响"哔-哔"提示音, 但电机不会转
+static void esc_self_test(void)
 {
-    ESP_LOGI(TAG, "========== LED自检开始 ==========");
-    const char *test_names[] = {"FR(GPIO1)", "FL(GPIO4)", "BR(GPIO21)", "BL(GPIO12)", "SP(GPIO18)"};
+    ESP_LOGI(TAG, "========== 电调信号自检开始 ==========");
+    const char *test_names[] = {"FR(GPIO1)", "FL(GPIO4)", "BR(GPIO21)", "BL(GPIO12)"};
 
-    for (int i = 0; i < 5; i++) {
-        ESP_LOGI(TAG, "自检: 点亮 %s", test_names[i]);
-        ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CH_FR + i, 255);
-        ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CH_FR + i);
-        vTaskDelay(pdMS_TO_TICKS(500));
-        ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CH_FR + i, 0);
+    for (int i = 0; i < 4; i++) {
+        ESP_LOGI(TAG, "自检: %s 输出最低油门 1.0ms (停转)", test_names[i]);
+        ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CH_FR + i, ESC_PULSE_MIN);
         ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CH_FR + i);
         vTaskDelay(pdMS_TO_TICKS(200));
     }
 
-    ESP_LOGI(TAG, "自检: 全部点亮");
-    for (int i = 0; i < 5; i++) {
-        ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CH_FR + i, 255);
-        ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CH_FR + i);
-    }
-    vTaskDelay(pdMS_TO_TICKS(500));
-    for (int i = 0; i < 5; i++) {
-        ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CH_FR + i, 0);
-        ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CH_FR + i);
+    // 全部通道确认输出最低油门
+    for (int i = 0; i < 4; i++) {
+        uint32_t duty = ledc_get_duty(LEDC_LOW_SPEED_MODE, LEDC_CH_FR + i);
+        int tenths = (int)(duty * 20 / 1638);   // 换算为0.1ms单位
+        ESP_LOGI(TAG, "自检: %s duty=%lu (%d.%dms)", test_names[i],
+                 (unsigned long)duty, tenths / 10, tenths % 10);
     }
 
-    ESP_LOGI(TAG, "========== LED自检完成 ==========");
+    ESP_LOGI(TAG, "========== 电调信号自检完成 ==========");
+    ESP_LOGI(TAG, "警告: 请确认未安装螺旋桨! 解锁后电机将转动");
 }
 
 // ==================== 主函数 ====================
@@ -645,7 +702,7 @@ void app_main(void)
 
     ledc_init();
     update_motors();
-    led_self_test();
+    esc_self_test();
 
     wifi_init_ap();
 
@@ -654,8 +711,10 @@ void app_main(void)
     xTaskCreate(udp_server_task, "udp_server", 4096, NULL, 5, NULL);
     xTaskCreate(heartbeat_task, "heartbeat", 2048, NULL, 3, NULL);
 
-    ESP_LOGI(TAG, "护花使者 v2 - 无人机验证平台已就绪");
+    ESP_LOGI(TAG, "护花使者 v3 - 无刷电机验证平台已就绪");
+    ESP_LOGI(TAG, "硬件: 2212 920KV电机 + 30A模拟PWM电调 + 11.1V 3S电池");
     ESP_LOGI(TAG, "飞行状态机: IDLE→ARMED→TAKEOFF→HOVERING→FLYING");
-    ESP_LOGI(TAG, "四旋翼引脚: FR=GPIO1, FL=GPIO4, BR=GPIO21, BL=GPIO12");
+    ESP_LOGI(TAG, "电调引脚: FR=GPIO1, FL=GPIO4, BR=GPIO21, BL=GPIO12");
+    ESP_LOGI(TAG, "警告: 解锁前务必确认螺旋桨已拆下");
     ESP_LOGI(TAG, "请用手机连接WiFi: %s", WIFI_SSID);
 }
