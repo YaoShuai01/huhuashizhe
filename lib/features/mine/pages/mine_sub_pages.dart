@@ -389,7 +389,7 @@ class AboutPage extends ConsumerWidget {
                       border: Border.all(color: AppColors.primaryLight, width: 2),
                     ),
                     clipBehavior: Clip.antiAlias,
-                    child: Image.asset('assets/images/logo.jpg', fit: BoxFit.cover),
+                    child: Image.asset('assets/images/icom.png', fit: BoxFit.cover),
                   ),
                   const SizedBox(height: 16),
                   const Text('护花使者', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
@@ -686,6 +686,15 @@ class VersionInfoPage extends ConsumerWidget {
 
   List<Widget> _buildUpdateHistory() {
     final histories = [
+      {
+        'version': 'v2.3.2',
+        'date': '2026-09-24',
+        'content': [
+          '启用全新品牌Logo：应用内（闪屏页、我的页、关于页）统一更换为新Logo',
+          '全平台应用启动图标统一更换（Android/iOS/Web/Windows/macOS）',
+          '闪屏页文字更换为「护花使者团队」',
+        ],
+      },
       {
         'version': 'v2.3.1',
         'date': '2026-09-14',
