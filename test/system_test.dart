@@ -60,7 +60,7 @@ void main() {
         // 验证Logo图片存在
         expect(find.byType(Image), findsOneWidget);
         // 验证文字
-        expect(find.text('欢迎报考湖北职业技术学院'), findsOneWidget);
+        expect(find.text('护花使者团队'), findsOneWidget);
         // 图片和文字居中
         expect(find.byType(Center), findsOneWidget);
       });
@@ -316,7 +316,10 @@ void main() {
         await tester.pumpWidget(providerScope(const VersionInfoPage()));
         await tester.pumpAndSettle();
         expect(find.text('v1.2.0'), findsAtLeastNWidgets(1));
-        // 点击展开v1.2.0（更新日志中的版本号）
+        // 滚动到v1.2.0后点击展开
+        await tester.scrollUntilVisible(find.text('v1.2.0').last, 300,
+            scrollable: find.byType(Scrollable).first);
+        await tester.pumpAndSettle();
         await tester.tap(find.text('v1.2.0').last);
         await tester.pumpAndSettle();
         expect(find.textContaining('新增AI植保助手'), findsOneWidget);
@@ -328,7 +331,7 @@ void main() {
       testWidgets('欢迎页渲染', (tester) async {
         await tester.pumpWidget(providerScope(const AiChatPage()));
         await tester.pump();
-        expect(find.text('AI 植保助手'), findsAtLeastNWidgets(1));
+        expect(find.text('AI助手'), findsAtLeastNWidgets(1));
         expect(find.textContaining('我是护花使者的智能助手'), findsOneWidget);
         // 快速提问
         expect(find.text('水稻叶片发黄怎么办？'), findsOneWidget);
@@ -360,21 +363,21 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text('小课堂'), findsOneWidget);
         expect(find.byType(TextField), findsOneWidget); // 搜索框
-        expect(find.text('当前季节推荐'), findsOneWidget);
-        expect(find.text('水稻病虫害防治指南'), findsOneWidget);
+        expect(find.text('油菜专题推荐'), findsOneWidget);
+        expect(find.text('油菜病虫害防治指南'), findsOneWidget);
         // 分类筛选（作物名可能出现在筛选标签和课程卡片中）
         expect(find.text('推荐'), findsOneWidget);
+        expect(find.text('油菜'), findsAtLeastNWidgets(1));
         expect(find.text('水稻'), findsAtLeastNWidgets(1));
         expect(find.text('小麦'), findsAtLeastNWidgets(1));
-        expect(find.text('玉米'), findsAtLeastNWidgets(1));
       });
 
       testWidgets('课程列表渲染', (tester) async {
         await tester.pumpWidget(providerScope(const ClassroomPage()));
         await tester.pumpAndSettle();
         // ListView.builder只渲染可见项，验证前两个课程
-        expect(find.text('水稻稻飞虱防治技术要点'), findsOneWidget);
-        expect(find.text('小麦赤霉病综合防治方案'), findsOneWidget);
+        expect(find.text('油菜菌核病综合防治技术'), findsOneWidget);
+        expect(find.text('油菜蚜虫绿色防控方案'), findsOneWidget);
       });
     });
 

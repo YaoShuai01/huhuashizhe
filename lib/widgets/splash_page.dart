@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// 闪屏页：Logo居中 + 欢迎报考湖北职业技术学院
+/// 闪屏页：Logo居中 + 护花使者团队
 class SplashPage extends StatelessWidget {
   const SplashPage({super.key});
 
@@ -13,13 +13,14 @@ class SplashPage extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Image.asset(
-              'assets/images/logo.jpg',
+              'assets/images/icom.png',
               width: 120,
               height: 120,
+              fit: BoxFit.contain,
             ),
             const SizedBox(height: 24),
             const Text(
-              '欢迎报考湖北职业技术学院',
+              '护花使者团队',
               style: TextStyle(
                 fontSize: 16,
                 color: Color(0xFF333333),

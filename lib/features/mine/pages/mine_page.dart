@@ -25,7 +25,7 @@ class MinePage extends StatelessWidget {
                   CircleAvatar(
                     radius: 40,
                     backgroundColor: Colors.white,
-                    backgroundImage: const AssetImage('assets/images/logo.jpg'),
+                    backgroundImage: const AssetImage('assets/images/icom.png'),
                   ),
                   const SizedBox(height: 12),
                   const Text('未设置昵称', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
