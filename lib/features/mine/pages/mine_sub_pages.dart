@@ -687,6 +687,13 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.3.4',
+        'date': '2026-09-24',
+        'content': [
+          '紧急修复：v2.3.3因构建时漏打包原生代码(MainActivity.kt)导致启动闪退，本次重新完整构建',
+        ],
+      },
+      {
         'version': 'v2.3.3',
         'date': '2026-09-24',
         'content': [
