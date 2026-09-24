@@ -687,6 +687,13 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.3.3',
+        'date': '2026-09-24',
+        'content': [
+          '紧急修复：v2.3.2安装包因构建路径问题缺失渲染资源，导致图标不显示、定位失效，改用纯英文真实路径重新构建',
+        ],
+      },
+      {
         'version': 'v2.3.2',
         'date': '2026-09-24',
         'content': [
