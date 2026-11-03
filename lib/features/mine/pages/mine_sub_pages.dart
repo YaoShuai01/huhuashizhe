@@ -420,6 +420,15 @@ class AboutPage extends ConsumerWidget {
             ),
             const Divider(),
             const SizedBox(height: 16),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24),
+              child: Text(
+                '本应用地图数据来源于国内互联网地图服务，版权归相应服务提供方所有，仅用于非商业教学演示用途。',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: AppColors.textHint, fontSize: 12, height: 1.5),
+              ),
+            ),
+            const SizedBox(height: 8),
             const Text('Copyright 2025 护花使者团队',
                 style: TextStyle(color: AppColors.textHint, fontSize: 12)),
             const SizedBox(height: 40),
@@ -686,6 +695,13 @@ class VersionInfoPage extends ConsumerWidget {
 
   List<Widget> _buildUpdateHistory() {
     final histories = [
+      {
+        'version': 'v2.3.5',
+        'date': '2026-11-03',
+        'content': [
+          '关于页新增地图数据版权与用途声明，规范非商业教学演示使用边界',
+        ],
+      },
       {
         'version': 'v2.3.4',
         'date': '2026-09-24',
