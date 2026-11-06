@@ -26,11 +26,16 @@ class LocalDatabase {
     final dataDir = await _getDataDir();
     final dir = Directory(dataDir);
     if (!await dir.exists()) await dir.create(recursive: true);
-    // 预热缓存：从文件加载到内存
-    for (final key in ['presets', 'missions', 'favorites', 'settings', 'ai_chat_history']) {
-      final file = File(_filePath(key));
-      if (await file.exists()) {
-        _cache[key] = await file.readAsString();
+    // 预热缓存：加载目录下全部 .json 数据文件（含数据管理各模块与生长检测记录），
+    // 避免仅预热固定key导致其余模块数据在重启后丢失
+    await for (final entity in dir.list()) {
+      if (entity is File && entity.path.endsWith('.json')) {
+        final key = entity.uri.pathSegments.last.replaceAll('.json', '');
+        try {
+          _cache[key] = await entity.readAsString();
+        } catch (_) {
+          // 单个文件损坏不影响其他数据加载
+        }
       }
     }
   }

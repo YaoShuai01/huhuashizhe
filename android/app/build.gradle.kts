@@ -42,3 +42,8 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // tflite_flutter 0.11.0 的 GpuDelegateV2 引用 GPU API 类但插件未携带，需显式补充
+    implementation("org.tensorflow:tensorflow-lite-gpu-api:2.11.0")
+}

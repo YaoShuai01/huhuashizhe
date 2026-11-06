@@ -5,12 +5,14 @@ import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'data/local_database.dart';
 import 'providers/update_provider.dart';
+import 'services/ai_suggestion_worker.dart';
 import 'widgets/update_dialog.dart';
 import 'widgets/splash_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await LocalDatabase().init(); // 初始化本地数据持久化
+  AiSuggestionWorker().start(); // 生长检测AI建议：启动离线补全监听
   runApp(
     const ProviderScope(
       child: HuHuaShiZheApp(),

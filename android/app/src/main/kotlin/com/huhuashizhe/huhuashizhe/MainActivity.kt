@@ -39,6 +39,7 @@ import java.io.File
 
 class MainActivity : FlutterActivity() {
     private val INSTALLER_CHANNEL = "com.huhuashizhe/apk_installer"
+    private val GALLERY_CHANNEL = "com.huhuashizhe/gallery"
     private val LOCATION_CHANNEL = "com.huhuashizhe/location"
     private val BLUETOOTH_CHANNEL = "com.huhuashizhe/bluetooth"
     private val BLUETOOTH_EVENT_CHANNEL = "com.huhuashizhe/bluetooth_events"
@@ -64,6 +65,14 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        // 相册导出通道（生长检测图片保存到系统相册）
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, GALLERY_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "saveImageToGallery" -> saveImageToGallery(call.argument("path") ?: "", call.argument("displayName") ?: "", result)
+                else -> result.notImplemented()
+            }
+        }
 
         // APK安装通道
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, INSTALLER_CHANNEL).setMethodCallHandler { call, result ->
@@ -120,6 +129,50 @@ class MainActivity : FlutterActivity() {
         } else {
             // 回退到外部存储的下载目录
             result.success(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).absolutePath)
+        }
+    }
+
+    /// 将图片文件保存到系统相册（MediaStore），返回保存后的URI字符串
+    private fun saveImageToGallery(path: String, displayName: String, result: MethodChannel.Result) {
+        try {
+            val file = File(path)
+            if (!file.exists()) {
+                result.error("FILE_NOT_FOUND", "图片文件不存在: $path", null)
+                return
+            }
+            val name = if (displayName.isNotBlank()) displayName else file.name
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val values = android.content.ContentValues().apply {
+                    put(android.provider.MediaStore.Images.Media.DISPLAY_NAME, name)
+                    put(android.provider.MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                    put(android.provider.MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/护花使者")
+                    put(android.provider.MediaStore.Images.Media.IS_PENDING, 1)
+                }
+                val resolver = contentResolver
+                val uri = resolver.insert(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                    ?: throw IllegalStateException("MediaStore插入失败")
+                resolver.openOutputStream(uri)?.use { out ->
+                    file.inputStream().use { it.copyTo(out) }
+                } ?: throw IllegalStateException("无法写入MediaStore")
+                values.clear()
+                values.put(android.provider.MediaStore.Images.Media.IS_PENDING, 0)
+                resolver.update(uri, values, null, null)
+                result.success(uri.toString())
+            } else {
+                // Android 9及以下：直接写入公共Pictures目录
+                val picturesDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES + "/护花使者")
+                if (!picturesDir.exists()) picturesDir.mkdirs()
+                val dest = File(picturesDir, name)
+                file.copyTo(dest, overwrite = true)
+                // 通知相册扫描
+                val scanIntent = Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE)
+                scanIntent.data = Uri.fromFile(dest)
+                sendBroadcast(scanIntent)
+                result.success(Uri.fromFile(dest).toString())
+            }
+        } catch (e: Exception) {
+            result.error("SAVE_FAILED", "保存到相册失败: ${e.message}", null)
         }
     }
 

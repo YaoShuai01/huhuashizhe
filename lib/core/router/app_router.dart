@@ -16,6 +16,8 @@ import '../../features/data_center/pages/data_center_page.dart';
 import '../../features/data_center/pages/data_list_page.dart';
 import '../../features/data_center/data_module_config.dart';
 import '../../features/remote_control/pages/remote_control_page.dart';
+import '../../features/model_test/pages/model_test_page.dart';
+import '../../features/model_test/pages/growth_records_page.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -186,6 +188,16 @@ final appRouter = GoRouter(
       path: '/ai-chat',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const AiChatPage(),
+    ),
+    GoRoute(
+      path: '/model-test',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const ModelTestPage(),
+    ),
+    GoRoute(
+      path: '/growth-records',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const GrowthRecordsPage(),
     ),
     GoRoute(
       path: '/data-center/list',
