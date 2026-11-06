@@ -1,0 +1,15 @@
+# 训练器依赖（Python 3.10~3.12）
+ultralytics>=8.3.0
+PySide6>=6.6.0
+matplotlib>=3.8.0
+numpy>=1.24.0
+pillow>=10.0.0
+onnx>=1.14.0
+onnxruntime>=1.16.0
+
+# PyTorch 建议单独安装：
+#   NVIDIA 显卡：pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+#   无显卡：    pip install torch torchvision
+#
+# 导出 TFLite 时需要（约 600MB，可训练完再装）：
+#   pip install tensorflow

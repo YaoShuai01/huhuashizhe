@@ -1,0 +1,3 @@
+healthy
+insect_damage
+disease_spot
