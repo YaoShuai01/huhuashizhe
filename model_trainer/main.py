@@ -325,6 +325,7 @@ class TrainMonitorPage(QWidget):
             c.hide()
         for c, *_ in self._classify_widgets:
             c.hide()
+        self.canvas_lr.hide()  # 学习率图暂不参与布局，必须显式隐藏，否则会叠在网格左上角
         lay.addWidget(self.grid_host, 1)
 
         tips = QLabel(
@@ -344,10 +345,11 @@ class TrainMonitorPage(QWidget):
 
     def set_mode(self, task):
         self._mode = task
-        for c, cols in (self._detect_widgets if task == "detect" else self._classify_widgets):
-            c.show()
-        for c, cols in (self._classify_widgets if task == "detect" else self._detect_widgets):
-            c.hide()
+        # box/vloss 两图在检测与分类列表中共用，必须按"是否属于当前模式"一次性
+        # 决定显隐，否则第二个循环会把第一个循环刚 show 的共用图再 hide 掉
+        active = {c for c, _ in (self._detect_widgets if task == "detect" else self._classify_widgets)}
+        for c, _ in self._detect_widgets + self._classify_widgets:
+            c.setVisible(c in active)
         self._reflow()
 
     def _reflow(self):
