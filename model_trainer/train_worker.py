@@ -6,6 +6,7 @@
 - 训练结束/出错通过信号通知
 """
 import os
+import shutil
 import sys
 import time
 import threading
@@ -93,12 +94,17 @@ class _WorkerBase(QObject):
             self._thread.join(timeout)
 
 
+class _TrainAborted(Exception):
+    """用户请求停止训练时在回调中抛出，用于中断训练循环"""
+
+
 class TrainWorker(_WorkerBase):
     """后台训练线程"""
     log_line = Signal(str)          # 一行训练日志
     metrics = Signal(dict)          # 最新一批指标（每个 epoch 一条）
     finished_ok = Signal(str)       # 训练完成，参数为 best.pt 路径
     failed = Signal(str)            # 训练失败，参数为错误信息
+    stopped = Signal()              # 用户停止并已清理半成品数据
 
     def __init__(self, task, model_size, data_root, project_dir, name,
                  epochs, imgsz, batch, device, parent=None):
@@ -117,9 +123,19 @@ class TrainWorker(_WorkerBase):
         self._sent_rows = 0
 
     def stop(self):
-        """请求停止（训练循环内配合 ultralytics 回调中断比较复杂，
-        这里直接杀死进程由外部 bat 控制，故仅提示）"""
+        """请求停止：标志位由训练回调在每个 batch 结束时检查，秒级生效。
+        中断后自动删除 runs/<本次训练名> 目录下的半成品数据。"""
         self._stop_flag = True
+
+    def _check_abort(self):
+        if self._stop_flag:
+            raise _TrainAborted()
+
+    def _cleanup_run(self):
+        """删除本次训练的输出目录（含半成品权重、曲线、日志）"""
+        run_dir = os.path.join(os.path.abspath(self.project_dir), self.name)
+        shutil.rmtree(run_dir, ignore_errors=True)
+        self.best_pt = None
 
     # ---------- 数据集准备 ----------
     def _prepare_detection_data(self):
@@ -198,10 +214,20 @@ class TrainWorker(_WorkerBase):
             else:
                 data, _ = self._prepare_classify_data()
                 self.log_line.emit("分类数据集就绪")
+            self._check_abort()
 
             model_name = _resolve_model_path(self.model_size, self.task)
             self.log_line.emit(f"加载基础模型：{model_name}")
             model = YOLO(model_name)
+            self._check_abort()
+
+            # 停止机制：每个 batch/epoch 边界检查停止标志，立即中断训练
+            def _abort_on_event(trainer):
+                self._check_abort()
+
+            for evt in ("on_train_start", "on_train_epoch_start",
+                        "on_train_batch_end", "on_fit_epoch_end", "on_train_end"):
+                model.add_callback(evt, _abort_on_event)
 
             args = dict(
                 data=data,
@@ -249,6 +275,10 @@ class TrainWorker(_WorkerBase):
             self.log_line.emit(f"训练完成，最优权重：{self.best_pt}")
             self.finished_ok.emit(self.best_pt)
 
+        except _TrainAborted:
+            self._cleanup_run()
+            self.log_line.emit("=== 训练已停止，半成品数据已清除 ===")
+            self.stopped.emit()
         except Exception:
             err = traceback.format_exc()
             self.log_line.emit("训练出错，详见错误信息")
