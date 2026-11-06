@@ -288,6 +288,13 @@ class HomePage extends ConsumerWidget {
           color: const Color(0xFFE65100),
           onTap: () => context.push('/remote-control'),
         ),
+        _buildActionCard(
+          icon: Icons.center_focus_strong,
+          title: '模型测试',
+          subtitle: '摄像头实时作物问题识别',
+          color: const Color(0xFF00897B),
+          onTap: () => context.push('/model-test'),
+        ),
       ],
     );
   }
