@@ -153,7 +153,7 @@ class TrainWorker(_WorkerBase):
                 env=env, cwd=os.path.dirname(runner),
             )
 
-            # 日志转发线程：子进程 stdout → 界面日志框
+            # 日志转发线程：子进程 stdout → 界面日志框 + 控制台（bat 窗口）
             def _read_out():
                 for line in self._proc.stdout:
                     ln = line.rstrip()
@@ -161,6 +161,10 @@ class TrainWorker(_WorkerBase):
                         continue
                     if ln.startswith("BEST_PT "):
                         self.best_pt = ln[8:].strip()
+                    try:
+                        print(ln, flush=True)
+                    except OSError:
+                        pass
                     self.log_line.emit(ln)
 
             t_out = threading.Thread(target=_read_out, daemon=True)
@@ -215,9 +219,9 @@ class TrainWorker(_WorkerBase):
 
 
 class InferWorker(_WorkerBase):
-    """试跑线程：对单张图片或整个文件夹做推理"""
+    """试跑线程：对单张图片或整个文件夹做推理（自动适配检测/分类模型）"""
     log_line = Signal(str)
-    one_result = Signal(str, int)   # (图片路径, 检出目标数 或 -1)
+    one_result = Signal(str, str)   # (图片路径, 结果描述)
     finished_ok = Signal(str)       # 输出目录
     failed = Signal(str)
 
@@ -247,9 +251,17 @@ class InferWorker(_WorkerBase):
             out_dir = os.path.join(os.path.abspath(self.save_dir), "predict")
             for r in results:
                 img_path = getattr(r, "path", "")
-                boxes = getattr(r, "boxes", None)
-                n = 0 if boxes is None else len(boxes)
-                self.one_result.emit(img_path, n)
+                probs = getattr(r, "probs", None)
+                if probs is not None:
+                    # 分类模型：整图类别 + 置信度
+                    top1 = r.names[int(probs.top1)]
+                    label = f"{top1}  {float(probs.top1conf) * 100:.1f}%"
+                else:
+                    # 检测模型：目标框数量
+                    boxes = getattr(r, "boxes", None)
+                    n = 0 if boxes is None else len(boxes)
+                    label = f"检出 {n} 个目标"
+                self.one_result.emit(img_path, label)
             self.finished_ok.emit(out_dir)
         except Exception:
             self.failed.emit(traceback.format_exc())
