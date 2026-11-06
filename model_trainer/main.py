@@ -295,18 +295,19 @@ class TrainMonitorPage(QWidget):
         lay.addLayout(srow)
 
         # 指标图（检测 6 图 / 分类 3 图）
-        self.canvas_box = MetricCanvas("训练损失 Loss", "loss", "#3d8bff")
-        self.canvas_map50 = MetricCanvas("mAP@0.5（核心指标，越高越好）", "mAP50", "#2ecc71")
-        self.canvas_map = MetricCanvas("mAP@0.5:0.95（严格指标）", "mAP", "#9b59b6")
-        self.canvas_p = MetricCanvas("精确率 Precision（误报越少越高）", "precision", "#e67e22")
-        self.canvas_r = MetricCanvas("召回率 Recall（漏检越少越高）", "recall", "#f1c40f")
-        self.canvas_lr = MetricCanvas("学习率", "lr", "#95a5a6")
-        self.canvas_acc = MetricCanvas("分类准确率 Top-1", "acc", "#2ecc71")
-        self.canvas_vloss = MetricCanvas("验证损失（越低越好）", "val loss", "#e74c3c")
-
+        # 先建宿主容器并把画布挂到它名下，避免无父级的画布变成独立悬浮窗口
         self.grid_host = QWidget()
         self.grid = QGridLayout(self.grid_host)
         self.grid.setSpacing(10)
+        self.canvas_box = MetricCanvas("训练损失 Loss", "loss", "#3d8bff", parent=self.grid_host)
+        self.canvas_map50 = MetricCanvas("mAP@0.5（核心指标，越高越好）", "mAP50", "#2ecc71", parent=self.grid_host)
+        self.canvas_map = MetricCanvas("mAP@0.5:0.95（严格指标）", "mAP", "#9b59b6", parent=self.grid_host)
+        self.canvas_p = MetricCanvas("精确率 Precision（误报越少越高）", "precision", "#e67e22", parent=self.grid_host)
+        self.canvas_r = MetricCanvas("召回率 Recall（漏检越少越高）", "recall", "#f1c40f", parent=self.grid_host)
+        self.canvas_lr = MetricCanvas("学习率", "lr", "#95a5a6", parent=self.grid_host)
+        self.canvas_acc = MetricCanvas("分类准确率 Top-1", "acc", "#2ecc71", parent=self.grid_host)
+        self.canvas_vloss = MetricCanvas("验证损失（越低越好）", "val loss", "#e74c3c", parent=self.grid_host)
+
         self._detect_widgets = [
             (self.canvas_box, ("train/box_loss", "train/cls_loss")),
             (self.canvas_vloss, ("val/box_loss", "val/cls_loss")),
@@ -350,7 +351,7 @@ class TrainMonitorPage(QWidget):
         self._reflow()
 
     def _reflow(self):
-        widgets = [w for w, cols in (self._detect_widgets if self._mode == "detect" else self._classify_widgets) if not w.hidden]
+        widgets = [w for w, cols in (self._detect_widgets if self._mode == "detect" else self._classify_widgets) if not w.isHidden()]
         while self.grid.count():
             self.grid.takeAt(0)
         per = 3
