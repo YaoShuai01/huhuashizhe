@@ -94,6 +94,35 @@ def prepare_classify_data(root):
     return root, 0
 
 
+def _disable_pin_memory():
+    """关闭 DataLoader 的 pinned memory（cudaHostRegister）。
+    本机 WDDM 环境实测会出现 CUDA "resource already mapped" 崩溃（驱动层固定内存映射冲突），
+    对训练速度影响极小（多进程喂数补偿），关闭更稳。"""
+    import functools
+    import importlib
+    import ultralytics.data.build as _ub
+
+    orig = _ub.build_dataloader
+
+    @functools.wraps(orig)
+    def _wrapped(*a, **kw):
+        kw["pin_memory"] = False
+        return orig(*a, **kw)
+
+    _ub.build_dataloader = _wrapped
+    for mod_name in ("ultralytics.models.yolo.classify.train",
+                     "ultralytics.models.yolo.detect.train",
+                     "ultralytics.models.yolo.segment.train",
+                     "ultralytics.models.yolo.pose.train",
+                     "ultralytics.models.yolo.obb.train"):
+        try:
+            mod = importlib.import_module(mod_name)
+            if getattr(mod, "build_dataloader", None) is not None:
+                mod.build_dataloader = _wrapped
+        except Exception:
+            pass
+
+
 def main():
     if len(sys.argv) < 2:
         print("用法: python train_runner.py <config.json>")
@@ -104,6 +133,8 @@ def main():
     task = cfg["task"]
     print("正在初始化训练环境（首次运行会自动下载预训练权重）...", flush=True)
     from ultralytics import YOLO
+
+    _disable_pin_memory()
 
     if task == "detect":
         data, ncls = prepare_detection_data(cfg["data_root"])
