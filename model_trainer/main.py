@@ -207,9 +207,9 @@ class TrainConfigPage(QWidget):
         f3.addWidget(self.epochs, 0, 1)
         f3.addWidget(QLabel("图像尺寸 imgsz"), 0, 2)
         self.imgsz = QComboBox()
-        for s in (320, 416, 640):
+        for s in (224, 320, 416, 640):
             self.imgsz.addItem(str(s), s)
-        self.imgsz.setCurrentIndex(2)
+        self.imgsz.setCurrentIndex(1)
         f3.addWidget(self.imgsz, 0, 3)
         f3.addWidget(QLabel("批大小 batch（-1 自动）"), 1, 0)
         self.batch = QSpinBox(); self.batch.setRange(-1, 128); self.batch.setValue(-1)
