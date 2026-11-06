@@ -268,6 +268,23 @@ class TrainConfigPage(QWidget):
         if not cfg["data"] or not os.path.isdir(cfg["data"]):
             QMessageBox.warning(self, "缺少数据集", "请先选择有效的数据集根目录")
             return
+        # 任务类型自动识别：按数据集结构纠正（images+labels=检测，类别文件夹=分类），
+        # 避免任务类型选错导致 FileNotFoundError
+        tr = os.path.join(cfg["data"], "train")
+        if os.path.isdir(tr):
+            subdirs = [d for d in os.listdir(tr) if os.path.isdir(os.path.join(tr, d))]
+            has_detect = os.path.isdir(os.path.join(tr, "images"))
+            has_classify = any(d.lower() not in ("images", "labels") for d in subdirs)
+            auto = "detect" if has_detect else ("classify" if has_classify else None)
+            if auto and auto != cfg["task"]:
+                idx = 0 if auto == "detect" else 1
+                self.task.setCurrentIndex(idx)
+                cfg["task"] = auto
+                QMessageBox.information(
+                    self, "已自动纠正任务类型",
+                    f"检测到该数据集是{'目标检测' if auto == 'detect' else '图像分类'}结构，"
+                    f"任务类型已自动切换，直接点开始训练即可。"
+                )
         self.on_start(cfg)
 
 
