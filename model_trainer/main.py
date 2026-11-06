@@ -552,9 +552,8 @@ class InferPage(QWidget):
         self._worker.failed.connect(self._on_fail)
         self._worker.start()
 
-    def _on_one(self, path, n):
-        label = f"{os.path.basename(path)}   ·   {'检出 %d 个目标' % n if n >= 0 else ''}"
-        it = QListWidgetItem(label)
+    def _on_one(self, path, label):
+        it = QListWidgetItem(f"{os.path.basename(path)}   ·   {label}")
         self._items[it] = path
         self.listw.addItem(it)
 
