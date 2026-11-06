@@ -8,12 +8,13 @@
 import os
 import sys
 import time
+import threading
 import traceback
 
 # 中文路径下 Python JSON 解码兜底
 os.environ.setdefault("PYTHONUTF8", "1")
 
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import QObject, Signal
 
 # 检测任务 results.csv 的标准列（Ultralytics 8.x）
 DETECT_COLUMNS = [
@@ -32,17 +33,19 @@ CLASSIFY_COLUMNS = [
 ]
 
 
-def _resolve_model_path(model_size):
+def _resolve_model_path(model_size, task="detect"):
     """优先使用工具目录内自带的预训练权重（避免运行时从 GitHub 下载被 403 限流），
-    找不到本地权重时回退为裸名称，由 ultralytics 自行下载。"""
+    找不到本地权重时回退为裸名称，由 ultralytics 自行下载。
+    分类任务必须用 -cls 后缀权重，否则 ultralytics 会按检测训练器跑报数据集 YAML 错误。"""
+    suffix = "-cls" if task == "classify" else ""
     base = os.path.dirname(os.path.abspath(__file__))
     for cand in (
-        os.path.join(base, f"yolo11{model_size}.pt"),
-        os.path.join(base, "weights", f"yolo11{model_size}.pt"),
+        os.path.join(base, f"yolo11{model_size}{suffix}.pt"),
+        os.path.join(base, "weights", f"yolo11{model_size}{suffix}.pt"),
     ):
         if os.path.isfile(cand):
             return cand
-    return f"yolo11{model_size}.pt"
+    return f"yolo11{model_size}{suffix}.pt"
 
 
 def _read_csv_rows(csv_path):
@@ -67,7 +70,30 @@ def _read_csv_rows(csv_path):
     return header, rows
 
 
-class TrainWorker(QThread):
+class _WorkerBase(QObject):
+    """线程基类：用普通 Python 线程代替 QThread。
+    实测 QThread 内跑 PyTorch/ultralytics 会随机触发 0xC0000409 原生崩溃
+    （主线程与纯 threading.Thread 均稳定，仅 QThread 必崩），
+    而 Python 线程发出的 Signal 会自动按队列连接投递回主线程，行为不变。"""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._thread = None
+
+    def start(self):
+        self._thread = threading.Thread(target=self.run, daemon=True)
+        self._thread.start()
+
+    def isRunning(self):
+        t = self._thread
+        return bool(t and t.is_alive())
+
+    def wait(self, timeout=None):
+        if self._thread:
+            self._thread.join(timeout)
+
+
+class TrainWorker(_WorkerBase):
     """后台训练线程"""
     log_line = Signal(str)          # 一行训练日志
     metrics = Signal(dict)          # 最新一批指标（每个 epoch 一条）
@@ -173,7 +199,7 @@ class TrainWorker(QThread):
                 data, _ = self._prepare_classify_data()
                 self.log_line.emit("分类数据集就绪")
 
-            model_name = _resolve_model_path(self.model_size)
+            model_name = _resolve_model_path(self.model_size, self.task)
             self.log_line.emit(f"加载基础模型：{model_name}")
             model = YOLO(model_name)
 
@@ -186,7 +212,7 @@ class TrainWorker(QThread):
                 name=self.name,
                 exist_ok=True,
                 device=None if self.device in ("", "auto") else self.device,
-                workers=2,           # Windows 下多进程 dataloader 易卡死，保守取 2
+                workers=0,           # 禁用多进程数据加载：GUI 内多进程与 Qt DLL 冲突风险高，0 最稳
                 plots=True,
                 patience=50,
             )
@@ -229,7 +255,7 @@ class TrainWorker(QThread):
             self.failed.emit(err)
 
 
-class InferWorker(QThread):
+class InferWorker(_WorkerBase):
     """试跑线程：对单张图片或整个文件夹做推理"""
     log_line = Signal(str)
     one_result = Signal(str, int)   # (图片路径, 检出目标数 或 -1)
@@ -270,7 +296,7 @@ class InferWorker(QThread):
             self.failed.emit(traceback.format_exc())
 
 
-class ExportWorker(QThread):
+class ExportWorker(_WorkerBase):
     """导出线程：把 best.pt 导出为 tflite int8 / onnx"""
     log_line = Signal(str)
     finished_ok = Signal(str)   # 导出文件路径
