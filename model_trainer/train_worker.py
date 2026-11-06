@@ -34,21 +34,6 @@ CLASSIFY_COLUMNS = [
 ]
 
 
-def _resolve_model_path(model_size, task="detect"):
-    """优先使用工具目录内自带的预训练权重（避免运行时从 GitHub 下载被 403 限流），
-    找不到本地权重时回退为裸名称，由 ultralytics 自行下载。
-    分类任务必须用 -cls 后缀权重，否则 ultralytics 会按检测训练器跑报数据集 YAML 错误。"""
-    suffix = "-cls" if task == "classify" else ""
-    base = os.path.dirname(os.path.abspath(__file__))
-    for cand in (
-        os.path.join(base, f"yolo11{model_size}{suffix}.pt"),
-        os.path.join(base, "weights", f"yolo11{model_size}{suffix}.pt"),
-    ):
-        if os.path.isfile(cand):
-            return cand
-    return f"yolo11{model_size}{suffix}.pt"
-
-
 def _read_csv_rows(csv_path):
     """读取 results.csv，返回 (columns, rows[list[list[float|str]]])"""
     import csv
@@ -94,10 +79,6 @@ class _WorkerBase(QObject):
             self._thread.join(timeout)
 
 
-class _TrainAborted(Exception):
-    """用户请求停止训练时在回调中抛出，用于中断训练循环"""
-
-
 class TrainWorker(_WorkerBase):
     """后台训练线程"""
     log_line = Signal(str)          # 一行训练日志
@@ -119,17 +100,18 @@ class TrainWorker(_WorkerBase):
         self.batch = batch
         self.device = device            # 'cpu' | '0' | ''
         self._stop_flag = False
+        self._proc = None               # 训练子进程（train_runner.py）
+        self._cfg_path = None
         self.best_pt = None
         self._sent_rows = 0
 
     def stop(self):
-        """请求停止：标志位由训练回调在每个 batch 结束时检查，秒级生效。
-        中断后自动删除 runs/<本次训练名> 目录下的半成品数据。"""
+        """请求停止：立即终止训练子进程树（taskkill /T），并清除半成品输出目录。"""
         self._stop_flag = True
-
-    def _check_abort(self):
-        if self._stop_flag:
-            raise _TrainAborted()
+        p = self._proc
+        if p is not None and p.poll() is None:
+            subprocess.run(["taskkill", "/PID", str(p.pid), "/T", "/F"],
+                           capture_output=True)
 
     def _cleanup_run(self):
         """删除本次训练的输出目录（含半成品权重、曲线、日志）"""
@@ -137,117 +119,55 @@ class TrainWorker(_WorkerBase):
         shutil.rmtree(run_dir, ignore_errors=True)
         self.best_pt = None
 
-    # ---------- 数据集准备 ----------
-    def _prepare_detection_data(self):
-        """检测数据集：约定根目录下 train/images、train/labels、val/images、val/labels，
-        类别名从根目录 classes.txt 读取（每行一个）。生成 data.yaml。"""
-        import yaml  # ultralytics 依赖里带 pyyaml
-
-        root = os.path.abspath(self.data_root)
-        tr_img = os.path.join(root, "train", "images")
-        tr_lbl = os.path.join(root, "train", "labels")
-        va_img = os.path.join(root, "val", "images")
-        va_lbl = os.path.join(root, "val", "labels")
-        for d in (tr_img, va_img):
-            if not os.path.isdir(d):
-                raise FileNotFoundError(
-                    f"检测数据集目录不完整：缺少 {d}\n"
-                    f"请按  根目录/train/images、根目录/train/labels、"
-                    f"根目录/val/images、根目录/val/labels 组织"
-                )
-        cls_file = os.path.join(root, "classes.txt")
-        names = {}
-        if os.path.isfile(cls_file):
-            with open(cls_file, "r", encoding="utf-8") as f:
-                names = {i: ln.strip() for i, ln in enumerate(f) if ln.strip()}
-        else:
-            # 未提供 classes.txt 时，从标签文件扫描最大类别 id
-            max_id = -1
-            for d in (tr_lbl, va_lbl):
-                if not os.path.isdir(d):
-                    continue
-                for fn in os.listdir(d):
-                    if not fn.lower().endswith(".txt"):
-                        continue
-                    with open(os.path.join(d, fn), "r", encoding="utf-8") as f:
-                        for line in f:
-                            parts = line.split()
-                            if parts:
-                                try:
-                                    max_id = max(max_id, int(parts[0]))
-                                except ValueError:
-                                    pass
-            names = {i: f"class_{i}" for i in range(max_id + 1)} if max_id >= 0 else {0: "object"}
-        yaml_path = os.path.join(root, "data.yaml")
-        with open(yaml_path, "w", encoding="utf-8") as f:
-            yaml.safe_dump({
-                "path": root,
-                "train": os.path.join("train", "images"),
-                "val": os.path.join("val", "images"),
-                "names": names,
-            }, f, allow_unicode=True)
-        return yaml_path, len(names)
-
-    def _prepare_classify_data(self):
-        """分类数据集：约定根目录下 train/<类别名>/*.图片、val/<类别名>/*.图片"""
-        root = os.path.abspath(self.data_root)
-        for sub in ("train", "val"):
-            d = os.path.join(root, sub)
-            if not os.path.isdir(d) or not any(
-                os.path.isdir(os.path.join(d, c)) for c in os.listdir(d)
-            ):
-                raise FileNotFoundError(
-                    f"分类数据集目录不完整：缺少 {d}\\<类别名>\\图片\n"
-                    f"请按  根目录/train/类别A/xx.jpg、根目录/val/类别A/xx.jpg 组织"
-                )
-        return root, 0
-
     # ---------- 主流程 ----------
     def run(self):
         try:
-            self.log_line.emit("正在初始化训练环境（首次运行会自动下载预训练权重）...")
-            from ultralytics import YOLO
+            import json as _json
+            import subprocess
 
-            if self.task == "detect":
-                data, ncls = self._prepare_detection_data()
-                self.log_line.emit(f"检测数据集就绪：{ncls} 个类别")
-            else:
-                data, _ = self._prepare_classify_data()
-                self.log_line.emit("分类数据集就绪")
-            self._check_abort()
-
-            model_name = _resolve_model_path(self.model_size, self.task)
-            self.log_line.emit(f"加载基础模型：{model_name}")
-            model = YOLO(model_name)
-            self._check_abort()
-
-            # 停止机制：每个 batch/epoch 边界检查停止标志，立即中断训练
-            def _abort_on_event(trainer):
-                self._check_abort()
-
-            for evt in ("on_train_start", "on_train_epoch_start",
-                        "on_train_batch_end", "on_fit_epoch_end", "on_train_end"):
-                model.add_callback(evt, _abort_on_event)
-
-            args = dict(
-                data=data,
+            self.log_line.emit("正在启动训练子进程...")
+            cfg = dict(
+                task=self.task,
+                model_size=self.model_size,
+                data_root=os.path.abspath(self.data_root),
                 epochs=int(self.epochs),
                 imgsz=int(self.imgsz),
-                batch=int(self.batch) if int(self.batch) > 0 else -1,  # -1 自动批大小
-                project=os.path.abspath(self.project_dir),
+                batch=int(self.batch),
+                device=self.device,
                 name=self.name,
-                exist_ok=True,
-                device=None if self.device in ("", "auto") else self.device,
-                workers=0,           # 禁用多进程数据加载：GUI 内多进程与 Qt DLL 冲突风险高，0 最稳
-                plots=True,
-                patience=50,
+                project_dir=os.path.abspath(self.project_dir),
             )
-            self.log_line.emit(f"开始训练：epochs={args['epochs']}, imgsz={args['imgsz']}, batch={args['batch']}")
+            self._cfg_path = os.path.join(os.path.abspath(self.project_dir), f"{self.name}_cfg.json")
+            os.makedirs(os.path.abspath(self.project_dir), exist_ok=True)
+            with open(self._cfg_path, "w", encoding="utf-8") as f:
+                _json.dump(cfg, f, ensure_ascii=False)
 
-            import threading
+            runner = os.path.join(os.path.dirname(os.path.abspath(__file__)), "train_runner.py")
+            env = os.environ.copy()
+            env["PYTHONUTF8"] = "1"
+            env["PYTHONIOENCODING"] = "utf-8"
+            self._proc = subprocess.Popen(
+                [sys.executable, runner, self._cfg_path],
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, encoding="utf-8", errors="replace",
+                env=env, cwd=os.path.dirname(runner),
+            )
 
+            # 日志转发线程：子进程 stdout → 界面日志框
+            def _read_out():
+                for line in self._proc.stdout:
+                    ln = line.rstrip()
+                    if not ln:
+                        continue
+                    if ln.startswith("BEST_PT "):
+                        self.best_pt = ln[8:].strip()
+                    self.log_line.emit(ln)
+
+            t_out = threading.Thread(target=_read_out, daemon=True)
+            t_out.start()
+
+            # 指标轮询：results.csv 新增行 → 界面曲线
             def _poll_metrics():
-                """轮询 results.csv，把新增行发给界面"""
                 run_dir = os.path.join(os.path.abspath(self.project_dir), self.name)
                 csv_path = os.path.join(run_dir, "results.csv")
                 while not self._stop_flag and self.isRunning():
@@ -256,33 +176,42 @@ class TrainWorker(_WorkerBase):
                             header, rows = _read_csv_rows(csv_path)
                             for row in rows[self._sent_rows:]:
                                 self._sent_rows += 1
-                                m = dict(zip(header, row))
-                                self.metrics.emit(m)
-                    except Exception as e:  # 轮询失败不影响训练
+                                self.metrics.emit(dict(zip(header, row)))
+                    except Exception as e:
                         self.log_line.emit(f"[指标轮询] {e}")
                     time.sleep(2)
 
-            t = threading.Thread(target=_poll_metrics, daemon=True)
-            t.start()
+            t_metrics = threading.Thread(target=_poll_metrics, daemon=True)
+            t_metrics.start()
 
-            results = model.train(**args)
+            code = self._proc.wait()
+            self._proc = None
+            try:
+                if self._cfg_path and os.path.isfile(self._cfg_path):
+                    os.remove(self._cfg_path)
+            except OSError:
+                pass
 
-            # best 权重路径
-            run_dir = os.path.join(os.path.abspath(self.project_dir), self.name)
-            self.best_pt = os.path.join(run_dir, "weights", "best.pt")
-            if not os.path.isfile(self.best_pt):
-                self.best_pt = str(getattr(model, "trainer", None) and model.trainer.best or self.best_pt)
-            self.log_line.emit(f"训练完成，最优权重：{self.best_pt}")
-            self.finished_ok.emit(self.best_pt)
-
-        except _TrainAborted:
-            self._cleanup_run()
-            self.log_line.emit("=== 训练已停止，半成品数据已清除 ===")
-            self.stopped.emit()
+            if self._stop_flag:
+                self._cleanup_run()
+                self.log_line.emit("=== 训练已停止，半成品数据已清除 ===")
+                self.stopped.emit()
+                return
+            if code == 0:
+                run_dir = os.path.join(os.path.abspath(self.project_dir), self.name)
+                fallback = os.path.join(run_dir, "weights", "best.pt")
+                if not (self.best_pt and os.path.isfile(self.best_pt)) and os.path.isfile(fallback):
+                    self.best_pt = fallback
+                if self.best_pt and os.path.isfile(self.best_pt):
+                    self.log_line.emit(f"训练完成，最优权重：{self.best_pt}")
+                    self.finished_ok.emit(self.best_pt)
+                else:
+                    self.failed.emit("训练进程正常退出，但未找到 best.pt 权重文件")
+            else:
+                self.failed.emit(f"训练进程异常退出（退出码 {code}），详见上方日志")
         except Exception:
-            err = traceback.format_exc()
             self.log_line.emit("训练出错，详见错误信息")
-            self.failed.emit(err)
+            self.failed.emit(traceback.format_exc())
 
 
 class InferWorker(_WorkerBase):
