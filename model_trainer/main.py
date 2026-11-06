@@ -307,8 +307,17 @@ class TrainMonitorPage(QWidget):
         self.lbl_status = QLabel("等待开始训练…")
         self.lbl_status.setObjectName("stat")
         self.progress = QProgressBar(); self.progress.setRange(0, 100)
+        self.btn_stop = QPushButton("■ 停止训练")
+        self.btn_stop.setToolTip("立即停止当前训练，并清除训练到一半的数据")
+        self.btn_stop.setStyleSheet(
+            "QPushButton{background:#c0392b;color:#fff;border:none;border-radius:6px;padding:8px 18px;font-weight:bold;}"
+            "QPushButton:hover{background:#e74c3c;}"
+            "QPushButton:disabled{background:#4a3230;color:#7a6a68;}")
+        self.btn_stop.setEnabled(False)
+        self.btn_stop.clicked.connect(self._request_stop)
         srow.addWidget(self.lbl_status, 1)
         srow.addWidget(self.progress, 2)
+        srow.addWidget(self.btn_stop)
         lay.addLayout(srow)
 
         # 指标图（检测 6 图 / 分类 3 图）
@@ -359,6 +368,11 @@ class TrainMonitorPage(QWidget):
         lay.addWidget(self.log)
 
         self._mode = "detect"
+        self.stop_requested = None  # 由 MainWindow 注入回调
+
+    def _request_stop(self):
+        if self.stop_requested:
+            self.stop_requested()
 
     def set_mode(self, task):
         self._mode = task
@@ -418,6 +432,7 @@ class TrainMonitorPage(QWidget):
             c.x, c.y, c.y2 = [], [], []
             c.update_data([], [])
         self.lbl_status.setText("训练中…")
+        self.btn_stop.setEnabled(True)
         self.append_log("=== 训练开始 ===")
 
     def on_tick(self, ep):
@@ -426,12 +441,22 @@ class TrainMonitorPage(QWidget):
     def on_done(self, best_pt):
         self.progress.setValue(self.progress.maximum())
         self.lbl_status.setText(f"✔ 训练完成 · best.pt 已生成")
+        self.btn_stop.setEnabled(False)
         self.append_log(f"=== 训练完成 ===\n最优权重：{best_pt}")
 
     def on_failed(self, err):
         self.lbl_status.setText("✖ 训练失败")
+        self.btn_stop.setEnabled(False)
         self.append_log("=== 出错 ===")
         self.append_log(err[-2000:])
+
+    def on_stopped(self):
+        self.progress.setValue(0)
+        self.lbl_status.setText("■ 已停止，半成品数据已清除")
+        self.btn_stop.setEnabled(False)
+        for c, cols in self._detect_widgets + self._classify_widgets:
+            c.x, c.y, c.y2 = [], [], []
+            c.update_data([], [])
 
 
 class InferPage(QWidget):
@@ -641,6 +666,7 @@ class MainWindow(QMainWindow):
 
         self.page_cfg = TrainConfigPage(self._start_train)
         self.page_mon = TrainMonitorPage()
+        self.page_mon.stop_requested = self._stop_train  # 停止按钮回调注入
         self.page_inf = InferPage()
         self.page_exp = ExportPage()
         tabs.addTab(self.page_cfg, "  ① 训练配置  ")
@@ -680,6 +706,7 @@ class MainWindow(QMainWindow):
         self.train_worker.metrics.connect(self.page_mon.on_metrics)
         self.train_worker.finished_ok.connect(self._train_done)
         self.train_worker.failed.connect(self.page_mon.on_failed)
+        self.train_worker.stopped.connect(self._train_stopped)
         self.page_cfg.btn_start.setEnabled(False)
         self.train_worker.start()
 
@@ -688,7 +715,7 @@ class MainWindow(QMainWindow):
         self._ep_timer.timeout.connect(self._tick_epoch)
         self._ep_timer.start(2000)
 
-    def _tick_epoch(self):
+    def _tick_epoch(self, *args):
         csv_path = os.path.join(RUNS_DIR, getattr(self, "_current_run_name", ""), "results.csv")
         try:
             with open(csv_path, "r", encoding="utf-8") as f:
@@ -696,6 +723,23 @@ class MainWindow(QMainWindow):
             self.page_mon.on_tick(max(0, n - 1))
         except OSError:
             pass
+
+    def _stop_train(self):
+        w = self.train_worker
+        if not w or not w.isRunning():
+            self.page_mon.btn_stop.setEnabled(False)
+            return
+        r = QMessageBox.question(self, "停止训练",
+                                 "确定停止当前训练？\n训练到一半的数据将被清除，且无法恢复。")
+        if r != QMessageBox.Yes:
+            return
+        self.page_mon.append_log("正在停止训练…")
+        w.stop()
+
+    def _train_stopped(self):
+        self.page_cfg.btn_start.setEnabled(True)
+        self.page_mon.on_stopped()
+        self._ep_timer.stop()
 
     def _train_done(self, best_pt):
         self.page_cfg.btn_start.setEnabled(True)
