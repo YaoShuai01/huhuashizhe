@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../services/ai_chat_service.dart';
 import '../../../services/ai_suggestion_worker.dart';
 import '../../../services/growth_record_store.dart';
 import '../../../services/ys_image_store.dart';
@@ -378,14 +379,14 @@ class _GrowthRecordDetailPageState extends State<GrowthRecordDetailPage> {
               ],
             ),
           ),
-          // 建议正文（完整展示，不截断）
+          // 建议正文（完整展示，不截断；去除Markdown标记兼容旧数据）
           if (record.aiSuggestion != null && record.aiSuggestion!.isNotEmpty)
             Padding(
               padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
               child: Text(
                 record.chat.isNotEmpty
-                    ? '${record.aiSuggestion ?? ''}\n\n（已有${record.chat.length}条追问对话，点击下方按钮查看完整对话）'
-                    : (record.aiSuggestion ?? ''),
+                    ? '${AiChatService.stripMarkdown(record.aiSuggestion ?? '')}\n\n（已有${record.chat.length}条追问对话，点击下方按钮查看完整对话）'
+                    : AiChatService.stripMarkdown(record.aiSuggestion ?? ''),
                 style: const TextStyle(
                     fontSize: 14, color: AppColors.textPrimary, height: 1.6),
               ),
@@ -496,12 +497,25 @@ class _AiSuggestionDialogState extends State<_AiSuggestionDialog> {
   @override
   Widget build(BuildContext context) {
     final history = <Map<String, dynamic>>[];
+    // 显示层统一去除Markdown标记（兼容历史已入库的带*数据）
     if (_record.aiSuggestion != null && _record.aiSuggestion!.isNotEmpty) {
-      history.add({'role': 'assistant', 'content': _record.aiSuggestion!});
+      history.add({
+        'role': 'assistant',
+        'content': AiChatService.stripMarkdown(_record.aiSuggestion!),
+      });
     }
-    history.addAll(_record.chat);
+    for (final c in _record.chat) {
+      history.add({
+        'role': c['role']?.toString() ?? 'user',
+        'content':
+            AiChatService.stripMarkdown(c['content']?.toString() ?? ''),
+      });
+    }
     if (_streaming && _streamBuffer.isNotEmpty) {
-      history.add({'role': 'assistant', 'content': '$_streamBuffer▌'});
+      history.add({
+        'role': 'assistant',
+        'content': '${AiChatService.stripMarkdown(_streamBuffer)}▌',
+      });
     }
 
     return Dialog(

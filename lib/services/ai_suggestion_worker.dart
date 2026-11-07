@@ -57,7 +57,7 @@ class AiSuggestionWorker {
       final hasResult = suggestion.isNotEmpty &&
           !suggestion.contains('网络连接出现问题');
       if (hasResult) {
-        record.aiSuggestion = suggestion;
+        record.aiSuggestion = AiChatService.stripMarkdown(suggestion);
         record.aiPending = false;
         _store.update(record);
         return true;
@@ -125,7 +125,7 @@ class AiSuggestionWorker {
       replyBuffer.write(chunk);
       yield chunk;
     }
-    // 持久化本轮对话
+    // 持久化本轮对话（回复去除Markdown标记）
     final fresh = _store.getById(recordId);
     if (fresh != null) {
       fresh.chat.add({
@@ -135,7 +135,7 @@ class AiSuggestionWorker {
       });
       fresh.chat.add({
         'role': 'assistant',
-        'content': replyBuffer.toString(),
+        'content': AiChatService.stripMarkdown(replyBuffer.toString()),
         'ts': DateTime.now().toIso8601String(),
       });
       _store.update(fresh);

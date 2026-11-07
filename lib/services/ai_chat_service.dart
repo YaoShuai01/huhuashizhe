@@ -51,11 +51,25 @@ class AiChatService {
 5. 作业规划：根据地块面积估算作业时间和药剂用量
 
 回答规则：
+- 使用纯文本回答，禁止使用任何Markdown格式标记（如**、*、#、`等）
 - 每次回答控制在200字以内，简洁专业
 - 涉及到具体用药时，必须提醒"请以当地农技部门指导为准"
 - 如果用户问无关问题，引导回植保话题
 - 使用中文回答，适当使用专业术语但需解释
 ''';
+
+  /// 去除AI回复中的Markdown格式标记（**、*、#、`等），所有对话入口统一调用
+  static String stripMarkdown(String text) {
+    return text
+        .replaceAll(RegExp(r'\*+'), '') // 去除任意数量的 *
+        .replaceAll(RegExp(r'#{1,6}\s'), '') // 去除 # 标题标记
+        .replaceAll(RegExp(r'`{1,3}'), '') // 去除 ` 代码标记
+        .replaceAll(RegExp(r'~~~?\s*\w*'), '') // 去除 ~~~ 代码块标记
+        .replaceAll(RegExp(r'_{1,3}'), '') // 去除 _ 斜体/粗体标记
+        .replaceAll(RegExp(r'^\s*[-+]\s', multiLine: true), '• ') // 无序列表转圆点
+        .replaceAll(RegExp(r'^\s*\d+\.\s', multiLine: true), '') // 有序列表去序号
+        .trim();
+  }
 
   final Dio _dio = Dio(BaseOptions(
     baseUrl: _baseUrl,
