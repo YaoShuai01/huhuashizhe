@@ -696,6 +696,14 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.4.5',
+        'date': '2026-11-07',
+        'content': [
+          '修复AI对话中出现*号等Markdown标记：病虫害AI建议/追问、首页AI助手全链路清理',
+          '系统提示词要求模型输出纯文本，历史已入库的带*记录在显示时自动清理',
+        ],
+      },
+      {
         'version': 'v2.4.4',
         'date': '2026-11-07',
         'content': [
