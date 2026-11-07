@@ -4,7 +4,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../services/growth_record_store.dart';
 import 'growth_record_detail_page.dart';
 
-/// 生长检测模块：以列表卡形式展示每一次识别记录
+/// 病虫害记录：以列表卡形式展示每一次模型测试识别记录
 /// 卡片命名：地区（某某市某某县/区）+ 时间戳
 class GrowthRecordsPage extends StatefulWidget {
   const GrowthRecordsPage({super.key});
@@ -30,16 +30,15 @@ class _GrowthRecordsPageState extends State<GrowthRecordsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('生长检测')),
+      appBar: AppBar(title: const Text('病虫害记录')),
       body: _records.isEmpty
           ? Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: const [
-                  Icon(Icons.monitor_heart_outlined,
-                      size: 64, color: AppColors.textDisabled),
+                  Icon(Icons.bug_report, size: 64, color: AppColors.textDisabled),
                   SizedBox(height: 12),
-                  Text('暂无检测记录',
+                  Text('暂无病虫害记录',
                       style: TextStyle(color: AppColors.textHint, fontSize: 15)),
                   SizedBox(height: 4),
                   Text('在首页进入"模型测试"进行一次实时识别后自动同步',

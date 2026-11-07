@@ -30,7 +30,7 @@ class AiChatMessage {
 /// 小米MiMo大模型AI对话服务（OpenAI兼容格式）
 class AiChatService {
   static const _baseUrl = 'https://api.xiaomimimo.com/v1';
-  static const _model = 'mimo-v2.5';
+  static const _model = 'mimo-v2.6-flash'; // v2.5已下线（平台2026-11升级到v2.6系列）
   static const _apiKey = 'sk-cmg9hlk0p32xk3zvwlx3q1ui4q4b5qql3qua554jfl5lshef';
 
   /// 护花使者智能体系统提示词
@@ -88,7 +88,7 @@ class AiChatService {
         data: {
           'model': _model,
           'messages': messages,
-          'max_tokens': 512,
+          'max_tokens': 1024, // v2.6为推理模型，需预留reasoning_content的token
           'temperature': 0.7,
           'top_p': 0.95,
           'stream': true,
@@ -100,6 +100,8 @@ class AiChatService {
 
       final stream = response.data.stream as Stream<List<int>>;
       String buffer = '';
+      String reasoningBuffer = ''; // v2.6推理模型的思维链（默认不展示）
+      bool yieldedAny = false;
 
       await for (final chunk in stream) {
         final text = utf8.decode(chunk);
@@ -113,7 +115,13 @@ class AiChatService {
 
           if (line.startsWith('data: ')) {
             final data = line.substring(6);
-            if (data == '[DONE]') return;
+            if (data == '[DONE]') {
+              // 兜底：模型只输出了思维链没有任何正文时，才展示思维链
+              if (!yieldedAny && reasoningBuffer.isNotEmpty) {
+                yield reasoningBuffer;
+              }
+              return;
+            }
 
             try {
               final json = jsonDecode(data) as Map<String, dynamic>;
@@ -122,9 +130,11 @@ class AiChatService {
                 final delta = choices[0]['delta'] as Map<String, dynamic>?;
                 final content = delta?['content'] as String?;
                 final reasoning = delta?['reasoning_content'] as String?;
-                final output = (content != null && content.isNotEmpty) ? content : reasoning;
-                if (output != null && output.isNotEmpty) {
-                  yield output;
+                if (content != null && content.isNotEmpty) {
+                  yieldedAny = true;
+                  yield content;
+                } else if (reasoning != null && reasoning.isNotEmpty) {
+                  reasoningBuffer += reasoning;
                 }
               }
             } catch (_) {
@@ -132,6 +142,10 @@ class AiChatService {
             }
           }
         }
+      }
+      // 流结束无[DONE]标记时的兜底
+      if (!yieldedAny && reasoningBuffer.isNotEmpty) {
+        yield reasoningBuffer;
       }
     } catch (e) {
       debugPrint('[AI] 流式请求异常: $e');
@@ -173,7 +187,7 @@ class AiChatService {
         data: {
           'model': _model,
           'messages': messages,
-          'max_tokens': 512,
+          'max_tokens': 1024,
           'temperature': 0.7,
           'top_p': 0.95,
           'stream': false,
@@ -211,7 +225,7 @@ class AiChatService {
         data: {
           'model': _model,
           'messages': messages,
-          'max_tokens': 512,
+          'max_tokens': 1024,
           'temperature': 0.7,
           'top_p': 0.95,
           'stream': false,
