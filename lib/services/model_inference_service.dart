@@ -115,6 +115,9 @@ class ModelInferenceService {
     } else if (msg is _Reply) {
       final cb = _pending.remove(msg.id);
       if (cb != null) cb(msg.result);
+    } else if (msg is _Error) {
+      // 推理失败：丢弃该帧回调即可，保持_pending清空让后续帧继续
+      _pending.remove(msg.id);
     }
   }
 
@@ -173,11 +176,16 @@ class ModelInferenceService {
 
       final numClasses = interpreter.getOutputTensor(0).shape.last;
       final output = [List<double>.filled(numClasses, 0)];
+      // 输入张量必须匹配模型输入形状[1,224,224,3]：4层嵌套（含batch维）
       final input = List.generate(
-        _inputSize,
+        1,
         (_) => List.generate(
           _inputSize,
-          (_) => List.filled(3, 0.0, growable: false),
+          (_) => List.generate(
+            _inputSize,
+            (_) => List.filled(3, 0.0, growable: false),
+            growable: false,
+          ),
           growable: false,
         ),
         growable: false,
@@ -193,7 +201,7 @@ class ModelInferenceService {
           for (var i = 0; i < n; i++) {
             final row = i ~/ _inputSize;
             final col = i % _inputSize;
-            final px = input[row][col];
+            final px = input[0][row][col];
             final o = i * 3;
             px[0] = rgb[o] / 255.0;
             px[1] = rgb[o + 1] / 255.0;
@@ -204,6 +212,8 @@ class ModelInferenceService {
           init.replyPort.send(_Reply(msg.id, result));
         } catch (e) {
           debugPrint('[Inference] 推理异常: $e');
+          // 关键：异常也必须回复，否则主线程_pending永久占用，后续帧全部被跳过
+          init.replyPort.send(_Error(msg.id, e.toString()));
         }
       });
     } catch (e) {
@@ -274,6 +284,12 @@ class _Reply {
   final int id;
   final InferenceResult result;
   const _Reply(this.id, this.result);
+}
+
+class _Error {
+  final int id;
+  final String message;
+  const _Error(this.id, this.message);
 }
 
 /// YUV420 相机帧 → RGB888，最近邻缩放到目标尺寸（纯函数）
