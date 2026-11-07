@@ -53,9 +53,6 @@ class DataCenterPage extends StatelessWidget {
             const SizedBox(height: 20),
             _buildSectionTitle('监测数据'),
             const SizedBox(height: 8),
-            // 生长检测（模型测试同步记录，专属列表卡页面）
-            _buildGrowthDetectCard(context),
-            const SizedBox(height: 12),
             _buildModuleGrid(context, DataModules.allModules.sublist(3, 5)),
             const SizedBox(height: 20),
             _buildSectionTitle('作业数据'),
@@ -67,53 +64,6 @@ class DataCenterPage extends StatelessWidget {
             _buildModuleGrid(context, DataModules.allModules.sublist(8, 11)),
             const SizedBox(height: 24),
           ],
-        ),
-      ),
-    );
-  }
-
-  /// 生长检测模块入口卡（模型测试同步记录）
-  Widget _buildGrowthDetectCard(BuildContext context) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: () => context.push('/growth-records'),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF8BC34A).withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(Icons.monitor_heart,
-                    color: Color(0xFF8BC34A), size: 26),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text('生长检测',
-                        style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary)),
-                    SizedBox(height: 3),
-                    Text('模型测试识别记录与AI处理建议',
-                        style: TextStyle(
-                            fontSize: 12, color: AppColors.textHint)),
-                  ],
-                ),
-              ),
-              const Icon(Icons.chevron_right, color: AppColors.textHint),
-            ],
-          ),
         ),
       ),
     );
@@ -158,6 +108,11 @@ class DataCenterPage extends StatelessWidget {
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: () {
+          // 病虫害记录模块：模型测试识别记录（专属列表卡页面）
+          if (module.moduleKey == 'pest') {
+            context.push('/growth-records');
+            return;
+          }
           Navigator.of(context, rootNavigator: true).push(
             MaterialPageRoute(
               builder: (_) => DataListPage(config: module),

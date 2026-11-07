@@ -236,11 +236,12 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
 
   // ==================== 退出同步 ====================
 
-  /// 退出页面：本次数据自动同步到 生长检测 模块
+  /// 退出页面：本次数据自动同步到 病虫害记录 模块
+  ///
+  /// 注意：仅由 _onBack 调用（其负责 _syncing 防重入），此处不再自查，
+  /// 否则标志位先被置位会导致同步被跳过（v2.4.0 同步失效根因）。
   Future<void> _syncSessionOnExit() async {
     if (_sessionGroups.isEmpty) return;
-    if (_syncing) return;
-    _syncing = true;
     try {
       final location =
           ref.read(weatherProvider).valueOrNull?.locationName ?? '未知地区';
