@@ -38,12 +38,14 @@ class WeatherData {
   bool get isRainWarning => precipitationProbability > 60;
 
   String get weatherIcon {
+    // WMO天气码：0晴 1-3多云/阴 45-48雾 51-57毛毛雨 61-67雨(含冻雨)
+    // 71-77雪 80-82阵雨 85-86阵雪 95+雷暴
     if (weatherCode <= 3) return '☀️';
     if (weatherCode <= 48) return '☁️';
-    if (weatherCode <= 57) return '🌧️';
-    if (weatherCode <= 67) return '🌨️';
-    if (weatherCode <= 77) return '❄️';
-    if (weatherCode <= 82) return '🌧️';
+    if (weatherCode <= 67) return '🌧️'; // 毛毛雨/雨/冻雨（原误用🌨️雪云）
+    if (weatherCode <= 77) return '❄️'; // 雪
+    if (weatherCode <= 82) return '🌧️'; // 阵雨
+    if (weatherCode <= 86) return '❄️'; // 阵雪
     return '⛈️';
   }
 }

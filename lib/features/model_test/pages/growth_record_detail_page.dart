@@ -177,21 +177,19 @@ class _GrowthRecordDetailPageState extends State<GrowthRecordDetailPage> {
             style: const TextStyle(fontSize: 12, color: AppColors.textHint),
           ),
           const SizedBox(height: 12),
-          // 各问题卡片
-          ...record.problems.map(_buildProblemCard),
+          // AI处理建议（提前展示，完整不截断）
+          _buildAiCard(record),
+          const SizedBox(height: 16),
+          // 问题卡片
           if (record.problems.isEmpty)
             Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.surface,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Text('本次未识别到作物问题，生长状况良好。',
-                  style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
-            ),
-          const SizedBox(height: 16),
-          // AI建议入口
-          _buildAiCard(record),
+              padding: const EdgeInsets.symmetric(vertical: 32),
+              alignment: Alignment.center,
+              child: const Text('本条记录没有采集到问题图像',
+                  style: TextStyle(fontSize: 13, color: AppColors.textHint)),
+            )
+          else
+            ...record.problems.map(_buildProblemCard),
           const SizedBox(height: 16),
         ],
       ),
@@ -336,54 +334,70 @@ class _GrowthRecordDetailPageState extends State<GrowthRecordDetailPage> {
         record.chat.isNotEmpty;
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.surfaceVariant),
+        color: AppColors.primaryLight.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+            color: AppColors.primary.withValues(alpha: 0.35), width: 1.2),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
+          // 标题栏（浅色底，突出层级）
+          Container(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+            decoration: BoxDecoration(
+              color: AppColors.primary.withValues(alpha: 0.08),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(13)),
+            ),
             child: Row(
               children: [
-                const Icon(Icons.auto_awesome, color: AppColors.accent, size: 20),
+                const Icon(Icons.auto_awesome, color: AppColors.primary, size: 20),
                 const SizedBox(width: 8),
                 const Expanded(
                   child: Text('AI处理建议',
                       style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
                           color: AppColors.textPrimary)),
                 ),
                 if (record.aiPending && record.chat.isEmpty)
-                  const Text('生成中/待联网...',
-                      style: TextStyle(fontSize: 11, color: AppColors.accent)),
+                  const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(strokeWidth: 1.6),
+                      ),
+                      SizedBox(width: 6),
+                      Text('生成中/待联网...',
+                          style: TextStyle(fontSize: 11, color: AppColors.accent)),
+                    ],
+                  ),
               ],
             ),
           ),
-          if (hasAi || record.aiSuggestion != null) ...[
+          // 建议正文（完整展示，不截断）
+          if (record.aiSuggestion != null && record.aiSuggestion!.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 4),
               child: Text(
                 record.chat.isNotEmpty
-                    ? '已有${record.chat.length}条对话，点击查看完整对话'
+                    ? '${record.aiSuggestion ?? ''}\n\n（已有${record.chat.length}条追问对话，点击下方按钮查看完整对话）'
                     : (record.aiSuggestion ?? ''),
                 style: const TextStyle(
-                    fontSize: 13, color: AppColors.textSecondary, height: 1.5),
-                maxLines: 4,
-                overflow: TextOverflow.ellipsis,
+                    fontSize: 14, color: AppColors.textPrimary, height: 1.6),
               ),
             ),
-          ],
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 12),
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
                 onPressed: _showAiDialog,
                 icon: const Icon(Icons.chat_bubble_outline, size: 18),
-                label: Text(record.chat.isEmpty ? '查看AI建议' : '查看对话/继续追问'),
+                label: Text(hasAi ? '查看对话/继续追问' : '查看AI建议'),
               ),
             ),
           ),
