@@ -172,20 +172,16 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
       return;
     }
     _lastInference = now;
-    if (!_inference.isLoaded) return;
+    if (!_inference.isLoaded || _inference.isBusy) return;
 
-    // 相机帧→isolate中转换RGB（纯字节数据可跨isolate复制）
+    // 相机帧快照（仅主线程拷贝字节），YUV转换+推理全部在常驻后台isolate完成，
+    // 主线程不阻塞，消除周期性卡顿
     final snapshot = FrameSnapshot.fromCameraImage(image);
-    unawaited(compute(_convertFrame, snapshot).then((rgb) {
+    _inference.inferAsync(snapshot, (result) {
       if (!mounted || _camera == null) return;
-      final result = _inference.infer(rgb);
-      if (mounted) {
-        setState(() => _lastResult = result);
-        _maybeCapture(result);
-      }
-    }).catchError((e) {
-      debugPrint('[ModelTest] 帧处理异常: $e');
-    }));
+      setState(() => _lastResult = result);
+      _maybeCapture(result);
+    });
   }
 
   /// 命中问题类→采集入库（按类别节流，同一类3秒最多1张）
@@ -562,7 +558,3 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
     );
   }
 }
-
-/// isolate帧转换入口（顶层纯函数）
-Uint8List _convertFrame(FrameSnapshot snapshot) =>
-    snapshot.toRgbResized(ModelInferenceService.inputSize);

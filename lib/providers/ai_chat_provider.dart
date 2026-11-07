@@ -112,7 +112,8 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
     }
   }
 
-  Future<void> sendMessageStream(String content) async {
+  /// 流式发送（与病虫害记录AI追问一致的逐句输出体验）
+  Future<void> sendMessageStream(String content, {WeatherData? weather}) async {
     if (content.trim().isEmpty || state.isLoading) return;
 
     final userMsg = AiChatMessage(
@@ -136,8 +137,13 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
 
     state = state.copyWith(messages: [...state.messages, assistantMsg]);
 
+    // 发送给API的历史不包含空占位消息
+    final historyForApi =
+        state.messages.sublist(0, state.messages.length - 1);
+
     try {
-      final stream = _service.sendMessageStream(state.messages);
+      final stream =
+          _service.sendMessageStream(historyForApi, weather: weather);
       String fullReply = '';
 
       await for (final chunk in stream) {
@@ -166,7 +172,7 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
     _db.remove('ai_chat_history');
   }
 
-  /// 删除最后一条AI回复，重新回答（保留上一条用户消息重新发送）
+  /// 删除最后一条AI回复，流式重新回答（保留上一条用户消息重新发送）
   Future<void> removeLastAndRetry({WeatherData? weather}) async {
     if (state.messages.length < 2) return;
     final messages = [...state.messages];
@@ -181,17 +187,34 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
       error: null,
     );
 
+    // 追加流式占位消息
+    final placeholder = AiChatMessage(
+      role: 'assistant',
+      content: '',
+      timestamp: DateTime.now(),
+    );
+    state = state.copyWith(messages: [...state.messages, placeholder]);
+    // 发送给API的历史不包含空占位消息
+    final historyForApi =
+        state.messages.sublist(0, state.messages.length - 1);
+
     try {
-      final reply = await _service.sendMessage(messages, weather: weather);
-      final assistantMsg = AiChatMessage(
-        role: 'assistant',
-        content: _stripMarkdown(reply),
-        timestamp: DateTime.now(),
-      );
-      state = state.copyWith(
-        messages: [...state.messages, assistantMsg],
-        isLoading: false,
-      );
+      final stream =
+          _service.sendMessageStream(historyForApi, weather: weather);
+      String fullReply = '';
+
+      await for (final chunk in stream) {
+        fullReply += chunk;
+        final updatedMessages = [...state.messages];
+        updatedMessages[updatedMessages.length - 1] = AiChatMessage(
+          role: 'assistant',
+          content: _stripMarkdown(fullReply),
+          timestamp: DateTime.now(),
+        );
+        state = state.copyWith(messages: updatedMessages);
+      }
+
+      state = state.copyWith(isLoading: false);
       _saveHistory();
     } catch (e) {
       state = state.copyWith(

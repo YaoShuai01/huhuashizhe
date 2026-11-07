@@ -1,6 +1,10 @@
+import 'dart:async';
+import 'dart:isolate';
 import 'dart:math' as math;
+
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 
 /// 分类模型推理结果
@@ -38,58 +42,138 @@ class DetectionBox {
   });
 }
 
-/// TFLite 分类推理服务（YOLO11s-cls, 39类作物问题, 输入224x224 float32 0~1）
+/// YUV→RGB帧转换+TFLite推理常驻后台isolate引擎
+///
+/// v2.4.1性能优化：此前每帧在主线程执行推理（CPU 100~300ms），导致
+/// 摄像头开启后出现周期性卡顿。现改为单常驻isolate：
+///   主线程只拷贝相机帧字节 → 后台isolate完成YUV转换与推理 → 回调返回结果。
+/// 主线程在整帧处理期间完全不阻塞，消除周期性卡顿。
 class ModelInferenceService {
   static const String _modelAsset = 'assets/models/classify_39.tflite';
   static const int _inputSize = 224;
 
-  Interpreter? _interpreter;
-  List<List<List<List<double>>>>? _input;
-  List<List<double>>? _output;
-  int _numClasses = 0;
+  Isolate? _isolate;
+  SendPort? _toIsolate;
+  ReceivePort? _fromIsolate;
+  ReceivePort? _errorPort;
+  Completer<bool>? _initCompleter;
+  final Map<int, void Function(InferenceResult)> _pending = {};
+  int _reqId = 0;
   bool _loaded = false;
+  bool _loading = false;
 
   bool get isLoaded => _loaded;
+  bool get isBusy => _pending.isNotEmpty; // 上一帧未算完时跳过新帧
   bool get hasBoxOutput => false; // 检测模型升级后返回true
 
-  /// 加载模型（优先GPU/NNAPI加速，失败回退CPU多线程）
+  static int get inputSize => _inputSize;
+
+  /// 加载模型并启动常驻推理isolate
   Future<bool> load() async {
     if (_loaded) return true;
-    Interpreter? interpreter;
-    // 1) 尝试 GPU 加速
+    if (_loading) return false;
+    _loading = true;
     try {
-      final options = InterpreterOptions()..threads = 4;
-      options.addDelegate(GpuDelegateV2());
-      interpreter = await Interpreter.fromAsset(_modelAsset, options: options);
-      debugPrint('[Inference] GPU加速已启用');
-    } catch (_) {
-      interpreter = null;
+      // 主isolate读取asset字节（rootBundle仅主isolate可用），buffer跨isolate传递
+      final data = await rootBundle.load(_modelAsset);
+      final bytes = Uint8List.view(data.buffer, data.offsetInBytes, data.lengthInBytes);
+
+      _fromIsolate = ReceivePort();
+      _errorPort = ReceivePort();
+      _fromIsolate!.listen(_onMessage);
+      _errorPort!.listen((msg) {
+        debugPrint('[Inference] isolate错误: $msg');
+      });
+      _initCompleter = Completer<bool>();
+      _isolate = await Isolate.spawn(
+        _isolateMain,
+        _IsolateInit(bytes, _fromIsolate!.sendPort),
+        onError: _errorPort!.sendPort,
+        errorsAreFatal: false,
+      );
+      _loaded = await _initCompleter!.future
+          .timeout(const Duration(seconds: 30), onTimeout: () => false);
+      debugPrint('[Inference] 后台推理isolate就绪: $_loaded');
+      return _loaded;
+    } catch (e) {
+      debugPrint('[Inference] 加载失败: $e');
+      _loaded = false;
+      return false;
+    } finally {
+      _loading = false;
     }
-    // 2) 尝试 NNAPI 加速
-    if (interpreter == null) {
+  }
+
+  void _onMessage(dynamic msg) {
+    if (msg is _Ready) {
+      _toIsolate = msg.port;
+      _initCompleter?.complete(true);
+    } else if (msg is _InitFailed) {
+      if (!(_initCompleter?.isCompleted ?? true)) {
+        _initCompleter?.complete(false);
+      }
+    } else if (msg is _Reply) {
+      final cb = _pending.remove(msg.id);
+      if (cb != null) cb(msg.result);
+    }
+  }
+
+  /// 提交一帧（YUV快照），在后台isolate完成转换+推理，结果回调返回。
+  /// 上一帧未完成时直接跳过本帧（防积压）。
+  void inferAsync(FrameSnapshot snapshot, void Function(InferenceResult) onDone) {
+    if (!_loaded || _toIsolate == null) return;
+    if (_pending.isNotEmpty) return;
+    final id = _reqId++;
+    _pending[id] = onDone;
+    _toIsolate!.send(_Request(id, snapshot));
+  }
+
+  void dispose() {
+    _isolate?.kill(priority: Isolate.beforeNextEvent);
+    _isolate = null;
+    _fromIsolate?.close();
+    _errorPort?.close();
+    _fromIsolate = null;
+    _errorPort = null;
+    _toIsolate = null;
+    _pending.clear();
+    _loaded = false;
+  }
+
+  // ---------------- 后台isolate侧 ----------------
+
+  static Future<void> _isolateMain(_IsolateInit init) async {
+    try {
+      // 后台isolate内启用GPU/NNAPI，失败回退CPU
+      Interpreter? interpreter;
       try {
-        final options = InterpreterOptions()
-          ..threads = 4
-          ..useNnApiForAndroid = true;
-        interpreter = await Interpreter.fromAsset(_modelAsset, options: options);
-        debugPrint('[Inference] NNAPI加速已启用');
+        final options = InterpreterOptions()..threads = 4;
+        options.addDelegate(GpuDelegateV2());
+        interpreter = Interpreter.fromBuffer(init.modelBytes, options: options);
+        debugPrint('[Inference] isolate内GPU加速已启用');
       } catch (_) {
         interpreter = null;
       }
-    }
-    // 3) 兜底 CPU
-    interpreter ??= await Interpreter.fromAsset(
-      _modelAsset,
-      options: InterpreterOptions()..threads = 4,
-    );
-    debugPrint('[Inference] 使用CPU多线程推理');
-    _interpreter = interpreter;
+      if (interpreter == null) {
+        try {
+          final options = InterpreterOptions()
+            ..threads = 4
+            ..useNnApiForAndroid = true;
+          interpreter = Interpreter.fromBuffer(init.modelBytes, options: options);
+          debugPrint('[Inference] isolate内NNAPI加速已启用');
+        } catch (_) {
+          interpreter = null;
+        }
+      }
+      interpreter ??= Interpreter.fromBuffer(
+        init.modelBytes,
+        options: InterpreterOptions()..threads = 4,
+      );
+      debugPrint('[Inference] isolate内CPU多线程推理');
 
-    _numClasses = _interpreter!.getOutputTensor(0).shape.last;
-    _output = [List<double>.filled(_numClasses, 0)];
-    _input = List.generate(
-      1,
-      (_) => List.generate(
+      final numClasses = interpreter.getOutputTensor(0).shape.last;
+      final output = [List<double>.filled(numClasses, 0)];
+      final input = List.generate(
         _inputSize,
         (_) => List.generate(
           _inputSize,
@@ -97,40 +181,37 @@ class ModelInferenceService {
           growable: false,
         ),
         growable: false,
-      ),
-      growable: false,
-    );
-    _loaded = true;
-    return true;
-  }
+      );
 
-  /// 释放
-  void dispose() {
-    _interpreter?.close();
-    _interpreter = null;
-    _loaded = false;
-  }
-
-  /// 对RGB字节(尺寸224x224, RGB888)执行推理，返回softmax概率结果
-  InferenceResult infer(Uint8List rgb) {
-    if (!_loaded) throw StateError('模型未加载');
-    final input = _input!;
-    final n = _inputSize * _inputSize;
-    for (var i = 0; i < n; i++) {
-      final row = i ~/ _inputSize;
-      final col = i % _inputSize;
-      final px = input[0][row][col];
-      final o = i * 3;
-      px[0] = rgb[o] / 255.0;
-      px[1] = rgb[o + 1] / 255.0;
-      px[2] = rgb[o + 2] / 255.0;
+      final port = ReceivePort();
+      init.replyPort.send(_Ready(port.sendPort));
+      port.listen((msg) {
+        if (msg is! _Request) return;
+        try {
+          final rgb = msg.snapshot.toRgbResized(_inputSize);
+          final n = _inputSize * _inputSize;
+          for (var i = 0; i < n; i++) {
+            final row = i ~/ _inputSize;
+            final col = i % _inputSize;
+            final px = input[row][col];
+            final o = i * 3;
+            px[0] = rgb[o] / 255.0;
+            px[1] = rgb[o + 1] / 255.0;
+            px[2] = rgb[o + 2] / 255.0;
+          }
+          interpreter!.run(input, output);
+          final result = _postProcess(output[0]);
+          init.replyPort.send(_Reply(msg.id, result));
+        } catch (e) {
+          debugPrint('[Inference] 推理异常: $e');
+        }
+      });
+    } catch (e) {
+      init.replyPort.send(_InitFailed(e.toString()));
     }
-    final output = _output!;
-    _interpreter!.run(input, output);
-    return _postProcess(output[0]);
   }
 
-  InferenceResult _postProcess(List<double> raw) {
+  static InferenceResult _postProcess(List<double> raw) {
     var sum = 0.0;
     for (final v in raw) {
       sum += v;
@@ -163,11 +244,39 @@ class ModelInferenceService {
       probabilities: probs,
     );
   }
-
-  static int get inputSize => _inputSize;
 }
 
-/// YUV420 相机帧 → RGB888，最近邻缩放到目标尺寸（纯函数，可在isolate中执行）
+// ---------------- isolate消息载体（纯数据） ----------------
+
+class _IsolateInit {
+  final Uint8List modelBytes;
+  final SendPort replyPort;
+  const _IsolateInit(this.modelBytes, this.replyPort);
+}
+
+class _Ready {
+  final SendPort port;
+  const _Ready(this.port);
+}
+
+class _InitFailed {
+  final String error;
+  const _InitFailed(this.error);
+}
+
+class _Request {
+  final int id;
+  final FrameSnapshot snapshot;
+  const _Request(this.id, this.snapshot);
+}
+
+class _Reply {
+  final int id;
+  final InferenceResult result;
+  const _Reply(this.id, this.result);
+}
+
+/// YUV420 相机帧 → RGB888，最近邻缩放到目标尺寸（纯函数）
 Uint8List convertYuvToRgbResized({
   required Uint8List yPlane,
   required Uint8List uPlane,

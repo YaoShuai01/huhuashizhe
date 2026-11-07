@@ -5,7 +5,6 @@ import '../../../core/theme/app_theme.dart';
 import '../../../providers/ai_chat_provider.dart';
 import '../../../providers/weather_provider.dart';
 import '../../../services/ai_chat_service.dart';
-import '../../../services/weather_service.dart';
 
 class AiChatPage extends ConsumerStatefulWidget {
   const AiChatPage({super.key});
@@ -53,6 +52,18 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
       _hasAutoScrolled = true;
       _scrollToBottom(immediate: true);
     }
+
+    // 流式回复期间：AI最后一条消息内容变化时自动跟随滚动到底部
+    ref.listen<AiChatState>(aiChatProvider, (prev, next) {
+      if (prev == null || next.messages.isEmpty) return;
+      final last = next.messages.last;
+      final prevLast =
+          prev.messages.isNotEmpty ? prev.messages.last : null;
+      if (last.role == 'assistant' &&
+          (prevLast == null || prevLast.content.length != last.content.length)) {
+        _scrollToBottom();
+      }
+    });
 
     return Scaffold(
       appBar: AppBar(
@@ -102,7 +113,9 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
                     },
                   ),
           ),
-          if (state.isLoading)
+          if (state.isLoading &&
+              (state.messages.isEmpty ||
+                  state.messages.last.content.isEmpty))
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
@@ -344,7 +357,8 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
     if (text.isEmpty) return;
     _controller.clear();
     final weather = ref.read(weatherProvider).valueOrNull;
-    ref.read(aiChatProvider.notifier).sendMessage(text, weather: weather);
+    // 流式输出：与病虫害记录AI追问一致的逐句体验
+    ref.read(aiChatProvider.notifier).sendMessageStream(text, weather: weather);
     _scrollToBottom();
   }
 }
