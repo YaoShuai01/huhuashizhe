@@ -177,10 +177,7 @@ class _GrowthRecordDetailPageState extends State<GrowthRecordDetailPage> {
             style: const TextStyle(fontSize: 12, color: AppColors.textHint),
           ),
           const SizedBox(height: 12),
-          // AI处理建议（提前展示，完整不截断）
-          _buildAiCard(record),
-          const SizedBox(height: 16),
-          // 问题卡片
+          // 问题卡片（预警描述 + 采集图片）
           if (record.problems.isEmpty)
             Container(
               padding: const EdgeInsets.symmetric(vertical: 32),
@@ -190,6 +187,9 @@ class _GrowthRecordDetailPageState extends State<GrowthRecordDetailPage> {
             )
           else
             ...record.problems.map(_buildProblemCard),
+          const SizedBox(height: 16),
+          // AI处理建议（放最后，完整展示）
+          _buildAiCard(record),
           const SizedBox(height: 16),
         ],
       ),

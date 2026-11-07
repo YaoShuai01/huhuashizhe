@@ -696,6 +696,21 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.4.4',
+        'date': '2026-11-07',
+        'content': [
+          '病虫害详情页布局调整：预警描述→采集图片→AI处理建议（AI建议放最后完整展示）',
+        ],
+      },
+      {
+        'version': 'v2.4.3',
+        'date': '2026-11-07',
+        'content': [
+          '紧急修复：v2.4.2推理引擎迁移引入的bug导致开启摄像头后完全不识别',
+          '版本信息页更新日志补全v2.4.0~v2.4.2',
+        ],
+      },
+      {
         'version': 'v2.4.2',
         'date': '2026-11-07',
         'content': [
