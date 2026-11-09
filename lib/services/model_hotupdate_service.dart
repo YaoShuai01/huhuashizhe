@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../features/model_test/data/model_catalog.dart';
+import '../features/model_test/data/model_labels.dart';
 
 /// 模型热更新服务
 ///
@@ -34,7 +35,8 @@ class ModelHotupdateService {
 
   /// 模型二进制下载地址（Release 资产），同样镜像回退
   static List<String> _fileUrls(String file) {
-    const base = 'https://github.com/$_repo/releases/download/models/$file';
+    final base =
+        'https://github.com/$_repo/releases/download/models/$file';
     return [
       base,
       for (final p in const ['https://ghfast.top/', 'https://ghproxy.net/', 'https://gh-proxy.com/'])
@@ -207,12 +209,15 @@ class RemoteModelMeta {
       inputSize: (json['inputSize'] as num?)?.toInt() ?? 224,
       recordModuleKey: json['recordModuleKey'] as String?,
       labels: ((json['labels'] as List<dynamic>?) ?? [])
-          .map((e) => ModelLabel(
-                en: (e['en'] as String?) ?? '',
-                zh: (e['zh'] as String?) ?? '',
-                desc: (e['desc'] as String?) ?? '',
-                healthy: (e['healthy'] as bool?) ?? false,
-              ))
+          .map((e) {
+            final m = e as Map<String, dynamic>;
+            return ModelLabel(
+              en: (m['en'] as String?) ?? '',
+              zh: (m['zh'] as String?) ?? '',
+              desc: (m['desc'] as String?) ?? '',
+              healthy: (m['healthy'] as bool?) ?? false,
+            );
+          })
           .toList(),
     );
   }

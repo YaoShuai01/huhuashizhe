@@ -783,6 +783,14 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.6.0',
+        'date': '2026-11-09',
+        'content': [
+          '应用更新新增「后台更新」：下载期间可正常使用APP，进度显示在版本信息页，完成后仍自动弹窗安装',
+          '新增模型热更新：新训练的模型静默发布后，APP联网即自动下载，模型下拉列表自动出现新模型，无需更新APP',
+        ],
+      },
+      {
         'version': 'v2.5.2',
         'date': '2026-11-09',
         'content': [
