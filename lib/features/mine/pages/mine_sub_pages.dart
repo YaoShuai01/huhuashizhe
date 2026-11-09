@@ -696,6 +696,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.5.0',
+        'date': '2026-11-09',
+        'content': [
+          '新增多模型支持：模型测试页顶部下拉选择识别模型（当前内置农作物病虫害识别）',
+          '推理引擎支持动态切换模型，切换自动重启引擎并记忆上次选择',
+          '后续新模型（人物识别、人脸识别等）发布后在下拉列表即可选择使用',
+        ],
+      },
+      {
         'version': 'v2.4.5',
         'date': '2026-11-07',
         'content': [

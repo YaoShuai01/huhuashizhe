@@ -49,9 +49,6 @@ class DetectionBox {
 ///   主线程只拷贝相机帧字节 → 后台isolate完成YUV转换与推理 → 回调返回结果。
 /// 主线程在整帧处理期间完全不阻塞，消除周期性卡顿。
 class ModelInferenceService {
-  static const String _modelAsset = 'assets/models/classify_39.tflite';
-  static const int _inputSize = 224;
-
   Isolate? _isolate;
   SendPort? _toIsolate;
   ReceivePort? _fromIsolate;
@@ -61,21 +58,23 @@ class ModelInferenceService {
   int _reqId = 0;
   bool _loaded = false;
   bool _loading = false;
+  String? _loadedAsset;
 
   bool get isLoaded => _loaded;
   bool get isBusy => _pending.isNotEmpty; // 上一帧未算完时跳过新帧
   bool get hasBoxOutput => false; // 检测模型升级后返回true
 
-  static int get inputSize => _inputSize;
-
-  /// 加载模型并启动常驻推理isolate
-  Future<bool> load() async {
-    if (_loaded) return true;
+  /// 加载指定模型并启动常驻推理isolate。
+  /// 若已加载其他模型，会先销毁旧isolate再加载新模型（切换）。
+  Future<bool> load({required String assetPath, required int inputSize}) async {
+    if (_loaded && _loadedAsset == assetPath) return true;
     if (_loading) return false;
     _loading = true;
+    // 切换模型：先彻底清理旧引擎
+    dispose();
     try {
       // 主isolate读取asset字节（rootBundle仅主isolate可用），buffer跨isolate传递
-      final data = await rootBundle.load(_modelAsset);
+      final data = await rootBundle.load(assetPath);
       final bytes = Uint8List.view(data.buffer, data.offsetInBytes, data.lengthInBytes);
 
       _fromIsolate = ReceivePort();
@@ -87,17 +86,19 @@ class ModelInferenceService {
       _initCompleter = Completer<bool>();
       _isolate = await Isolate.spawn(
         _isolateMain,
-        _IsolateInit(bytes, _fromIsolate!.sendPort),
+        _IsolateInit(bytes, _fromIsolate!.sendPort, inputSize),
         onError: _errorPort!.sendPort,
         errorsAreFatal: false,
       );
       _loaded = await _initCompleter!.future
           .timeout(const Duration(seconds: 30), onTimeout: () => false);
-      debugPrint('[Inference] 后台推理isolate就绪: $_loaded');
+      _loadedAsset = _loaded ? assetPath : null;
+      debugPrint('[Inference] 后台推理isolate就绪: $_loaded ($assetPath)');
       return _loaded;
     } catch (e) {
       debugPrint('[Inference] 加载失败: $e');
       _loaded = false;
+      _loadedAsset = null;
       return false;
     } finally {
       _loading = false;
@@ -176,13 +177,14 @@ class ModelInferenceService {
 
       final numClasses = interpreter.getOutputTensor(0).shape.last;
       final output = [List<double>.filled(numClasses, 0)];
-      // 输入张量必须匹配模型输入形状[1,224,224,3]：4层嵌套（含batch维）
+      // 输入张量必须匹配模型输入形状[1,size,size,3]：4层嵌套（含batch维）
+      final size = init.inputSize;
       final input = List.generate(
         1,
         (_) => List.generate(
-          _inputSize,
+          size,
           (_) => List.generate(
-            _inputSize,
+            size,
             (_) => List.filled(3, 0.0, growable: false),
             growable: false,
           ),
@@ -196,11 +198,11 @@ class ModelInferenceService {
       port.listen((msg) {
         if (msg is! _Request) return;
         try {
-          final rgb = msg.snapshot.toRgbResized(_inputSize);
-          final n = _inputSize * _inputSize;
+          final rgb = msg.snapshot.toRgbResized(size);
+          final n = size * size;
           for (var i = 0; i < n; i++) {
-            final row = i ~/ _inputSize;
-            final col = i % _inputSize;
+            final row = i ~/ size;
+            final col = i % size;
             final px = input[0][row][col];
             final o = i * 3;
             px[0] = rgb[o] / 255.0;
@@ -261,7 +263,8 @@ class ModelInferenceService {
 class _IsolateInit {
   final Uint8List modelBytes;
   final SendPort replyPort;
-  const _IsolateInit(this.modelBytes, this.replyPort);
+  final int inputSize;
+  const _IsolateInit(this.modelBytes, this.replyPort, this.inputSize);
 }
 
 class _Ready {
