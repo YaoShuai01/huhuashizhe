@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:isolate';
 import 'dart:math' as math;
 
@@ -65,17 +66,30 @@ class ModelInferenceService {
   bool get hasBoxOutput => false; // 检测模型升级后返回true
 
   /// 加载指定模型并启动常驻推理isolate。
+  /// [assetPath] 内置模型 asset 路径；[filePath] 热更新模型本地文件路径，二选一。
   /// 若已加载其他模型，会先销毁旧isolate再加载新模型（切换）。
-  Future<bool> load({required String assetPath, required int inputSize}) async {
-    if (_loaded && _loadedAsset == assetPath) return true;
+  Future<bool> load({
+    String? assetPath,
+    String? filePath,
+    required int inputSize,
+  }) async {
+    assert((assetPath == null) != (filePath == null), 'assetPath 与 filePath 必须二选一');
+    final key = assetPath ?? filePath!;
+    if (_loaded && _loadedAsset == key) return true;
     if (_loading) return false;
     _loading = true;
     // 切换模型：先彻底清理旧引擎
     dispose();
     try {
-      // 主isolate读取asset字节（rootBundle仅主isolate可用），buffer跨isolate传递
-      final data = await rootBundle.load(assetPath);
-      final bytes = Uint8List.view(data.buffer, data.offsetInBytes, data.lengthInBytes);
+      Uint8List bytes;
+      if (filePath != null) {
+        // 热更新模型：直接读本地文件
+        bytes = await File(filePath).readAsBytes();
+      } else {
+        // 内置模型：主isolate读取asset（rootBundle仅主isolate可用），buffer跨isolate传递
+        final data = await rootBundle.load(assetPath!);
+        bytes = Uint8List.view(data.buffer, data.offsetInBytes, data.lengthInBytes);
+      }
 
       _fromIsolate = ReceivePort();
       _errorPort = ReceivePort();
@@ -92,8 +106,8 @@ class ModelInferenceService {
       );
       _loaded = await _initCompleter!.future
           .timeout(const Duration(seconds: 30), onTimeout: () => false);
-      _loadedAsset = _loaded ? assetPath : null;
-      debugPrint('[Inference] 后台推理isolate就绪: $_loaded ($assetPath)');
+      _loadedAsset = _loaded ? key : null;
+      debugPrint('[Inference] 后台推理isolate就绪: $_loaded ($key)');
       return _loaded;
     } catch (e) {
       debugPrint('[Inference] 加载失败: $e');

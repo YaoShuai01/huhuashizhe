@@ -621,6 +621,7 @@ class VersionInfoPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final updateState = ref.watch(updateProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('版本信息')),
       body: SingleChildScrollView(
@@ -631,6 +632,14 @@ class VersionInfoPage extends ConsumerWidget {
             _buildCurrentVersionCard(),
             const SizedBox(height: 16),
             _buildCheckUpdateButton(context, ref),
+            // 后台下载进度条（选择"后台更新"后显示在这里）
+            if (updateState.status == UpdateStatus.downloading)
+              _buildBackgroundDownloadCard(updateState),
+            if (updateState.status == UpdateStatus.downloaded)
+              _buildBackgroundDownloadCard(updateState),
+            if (updateState.status == UpdateStatus.error &&
+                updateState.background)
+              _buildBackgroundDownloadCard(updateState),
             const SizedBox(height: 24),
             const Text('更新日志', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
@@ -638,6 +647,84 @@ class VersionInfoPage extends ConsumerWidget {
             const SizedBox(height: 40),
           ],
         ),
+      ),
+    );
+  }
+
+  /// 后台更新下载状态卡片（进度 / 完成 / 失败）
+  Widget _buildBackgroundDownloadCard(UpdateState state) {
+    final info = state.updateInfo;
+    final downloading = state.status == UpdateStatus.downloading;
+    final failed = state.status == UpdateStatus.error;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: failed
+              ? AppColors.error.withValues(alpha: 0.4)
+              : AppColors.primary.withValues(alpha: 0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                failed
+                    ? Icons.error_outline
+                    : downloading
+                        ? Icons.cloud_download_outlined
+                        : Icons.check_circle_outline,
+                size: 18,
+                color: failed ? AppColors.error : AppColors.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  failed
+                      ? '更新下载失败'
+                      : downloading
+                          ? '正在后台下载 v${info?.versionName ?? ''}...'
+                          : 'v${info?.versionName ?? ''} 下载完成，正在安装...',
+                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+              ),
+              if (downloading)
+                Text(
+                  '${(state.progress * 100).toInt()}%',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+            ],
+          ),
+          if (downloading) ...[
+            const SizedBox(height: 10),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: state.progress,
+                minHeight: 6,
+                backgroundColor: AppColors.surfaceVariant,
+                valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+              ),
+            ),
+          ],
+          if (failed) ...[
+            const SizedBox(height: 8),
+            Text(
+              state.errorMessage,
+              style: const TextStyle(fontSize: 12, color: AppColors.textHint),
+            ),
+          ],
+        ],
       ),
     );
   }
