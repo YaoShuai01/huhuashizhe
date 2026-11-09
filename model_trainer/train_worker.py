@@ -5,8 +5,11 @@
 - 每 2 秒轮询 results.csv，把最新指标发给界面实时绘图
 - 训练结束/出错通过信号通知
 """
+import glob
 import os
+import re
 import shutil
+import subprocess
 import sys
 import time
 import threading
@@ -267,8 +270,18 @@ class InferWorker(_WorkerBase):
             self.failed.emit(traceback.format_exc())
 
 
+# onnx2tf 控制台里的 ANSI 颜色码
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
+
+
 class ExportWorker(_WorkerBase):
-    """导出线程：把 best.pt 导出为 tflite int8 / onnx"""
+    """导出线程：把 best.pt 导出为手机可用格式
+
+    TFLite 注意：ultralytics 8.4 起 TFLite/LiteRT 直连导出只支持 Linux x86 与 macOS，
+    Windows 上调用 model.export(format='tflite') 会抛
+    AssertionError: LiteRT export only supported on Linux x86 and macOS。
+    因此 Windows 改为两步：ONNX(opset 13) → onnx2tf → float32 TFLite。
+    """
     log_line = Signal(str)
     finished_ok = Signal(str)   # 导出文件路径
     failed = Signal(str)
@@ -281,10 +294,122 @@ class ExportWorker(_WorkerBase):
     def run(self):
         try:
             from ultralytics import YOLO
-            self.log_line.emit(f"开始导出 {self.fmt.upper()}（int8 量化，首次需几分钟）...")
             model = YOLO(self.weights)
-            path = model.export(format=self.fmt, int8=True, data=None)
-            self.log_line.emit(f"导出完成：{path}")
-            self.finished_ok.emit(str(path))
+            out_dir = os.path.dirname(os.path.abspath(self.weights))
+
+            if self.fmt == 'onnx':
+                self.log_line.emit("开始导出 ONNX（opset 13）...")
+                path = model.export(format='onnx', opset=13)
+                self.log_line.emit(f"导出完成：{path}")
+                self.finished_ok.emit(str(path))
+                return
+
+            self.log_line.emit("步骤 1/2：导出 ONNX（opset 13）...")
+            onnx_path = str(model.export(format='onnx', opset=13))
+            self.log_line.emit(f"ONNX 已生成：{onnx_path}")
+
+            self.log_line.emit("步骤 2/2：onnx2tf 转换为 TFLite（float32，首次较慢）...")
+            tflite_path = self._convert_to_tflite(onnx_path, out_dir)
+
+            self._write_labels(model, tflite_path)
+            self._check_tflite(tflite_path, len(model.names))
+
+            self.log_line.emit(f"导出完成：{tflite_path}")
+            self.finished_ok.emit(tflite_path)
         except Exception:
             self.failed.emit(traceback.format_exc())
+
+    def _convert_to_tflite(self, onnx_path, out_dir):
+        """调用 onnx2tf 把 ONNX 转成 float32 TFLite，返回生成的 .tflite 路径"""
+        tf_dir = os.path.join(out_dir, "tflite")
+        os.makedirs(tf_dir, exist_ok=True)
+
+        cmd = [sys.executable, "-m", "onnx2tf", "-i", onnx_path, "-o", tf_dir]
+        env = dict(os.environ)
+        env["TF_CPP_MIN_LOG_LEVEL"] = "2"
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            env=env,
+        )
+        last = ""
+        for raw in proc.stdout:
+            line = _ANSI_RE.sub("", raw).rstrip()
+            # 过滤 tqdm 进度条造成的刷屏（含 it/s 的刷新行）
+            if not line or "it/s" in line or "s/it" in line or line == last:
+                continue
+            last = line
+            self.log_line.emit(line)
+        proc.wait()
+        if proc.returncode != 0:
+            raise RuntimeError(
+                f"onnx2tf 转换失败（退出码 {proc.returncode}）。"
+                "请确认已 pip install onnx2tf tensorflow"
+            )
+
+        files = glob.glob(os.path.join(tf_dir, "**", "*.tflite"), recursive=True)
+        if not files:
+            raise RuntimeError(f"未在 {tf_dir} 找到生成的 .tflite 文件")
+        # 优先 float32（CPU 解释器对 float16 会 ALLOC_FAIL）
+        float32 = [f for f in files if "float32" in os.path.basename(f).lower()]
+        return max(float32 or files, key=os.path.getsize)
+
+    def _write_labels(self, model, tflite_path):
+        """把类别名按输出索引顺序写到 *_labels.txt，便于接入 App 模型注册表"""
+        names = model.names
+        if isinstance(names, dict):
+            pairs = sorted(names.items())
+        else:
+            pairs = list(enumerate(names))
+        lines = [str(v) for _, v in pairs]
+        label_path = os.path.splitext(tflite_path)[0] + "_labels.txt"
+        with open(label_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines))
+        self.log_line.emit(
+            f"类别标签已写入：{label_path}（共 {len(lines)} 类，行号顺序即模型输出索引）"
+        )
+
+    def _check_tflite(self, tflite_path, num_classes):
+        """子进程校验 TFLite 输入输出形状，避免污染 GUI 进程内存"""
+        code = (
+            "import sys, os\n"
+            "os.environ['TF_CPP_MIN_LOG_LEVEL']='3'\n"
+            "import tensorflow as tf\n"
+            # 用 model_content 读取，绕过 TF Lite C++ 层对中文路径打不开的问题
+            "data = open(sys.argv[1], 'rb').read()\n"
+            "i = tf.lite.Interpreter(model_content=data)\n"
+            "i.allocate_tensors()\n"
+            "a = i.get_input_details()[0]; b = i.get_output_details()[0]\n"
+            "print('IN ', a['shape'].tolist(), a['dtype'].__name__)\n"
+            "print('OUT', b['shape'].tolist(), b['dtype'].__name__)\n"
+        )
+        try:
+            r = subprocess.run(
+                [sys.executable, "-c", code, tflite_path],
+                capture_output=True, text=True, encoding="utf-8", errors="replace",
+                timeout=180,
+            )
+            if r.returncode != 0:
+                self.log_line.emit(f"（形状校验跳过：{(r.stderr or '').strip()[-200:]}）")
+                return
+            for line in (r.stdout or "").splitlines():
+                if line.strip():
+                    self.log_line.emit("校验 " + line.strip())
+            size_mb = os.path.getsize(tflite_path) / 1024 / 1024
+            self.log_line.emit(f"文件大小 {size_mb:.1f} MB，类别数 {num_classes}")
+
+            # 从输出里取出输入边长，提示 App 注册表要填的 inputSize
+            m = re.search(r"IN\s+\[1,\s*(\d+),\s*(\d+),\s*3\]", r.stdout or "")
+            if m:
+                side = m.group(1)
+                self.log_line.emit(
+                    f"接入 App 时，model_catalog.dart 中该模型的 inputSize 必须填 {side}"
+                )
+            if f"[1, {num_classes}]" not in (r.stdout or ""):
+                self.log_line.emit("提示：输出形状与类别数不一致，请在 App 端实测确认")
+        except Exception as e:
+            self.log_line.emit(f"（形状校验跳过：{e}）")

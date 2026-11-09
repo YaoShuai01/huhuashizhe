@@ -590,7 +590,7 @@ class ExportPage(QWidget):
 
         head = QLabel("导出部署")
         head.setObjectName("title")
-        sub = QLabel("训练完成后导出为 APP 可用的格式（TFLite int8 供手机端推理）")
+        sub = QLabel("训练完成后导出为 APP 可用的格式（TFLite float32 供手机端推理，Windows 经 ONNX→onnx2tf 转换）")
         sub.setObjectName("sub")
         lay.addWidget(head); lay.addWidget(sub)
 
@@ -604,7 +604,7 @@ class ExportPage(QWidget):
         f.addWidget(b, 0, 2)
         f.addWidget(QLabel("导出格式"), 1, 0)
         self.fmt = QComboBox()
-        self.fmt.addItem("TFLite int8（手机 APP 端推荐）", "tflite")
+        self.fmt.addItem("TFLite float32（手机 APP 端推荐）", "tflite")
         self.fmt.addItem("ONNX（通用中间格式）", "onnx")
         f.addWidget(self.fmt, 1, 1, 1, 2)
         self.btn = QPushButton("⬇  开始导出")

@@ -696,6 +696,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.5.2',
+        'date': '2026-11-09',
+        'content': [
+          '更换农作物病虫害识别模型：改用训练 100 轮的新模型，识别准确率提升',
+          '模型输入分辨率由 224 提升至 320，叶片细节识别更准',
+          '同步重排 39 个病虫害类别标签顺序，与新模型输出严格对应',
+        ],
+      },
+      {
         'version': 'v2.5.1',
         'date': '2026-11-09',
         'content': [

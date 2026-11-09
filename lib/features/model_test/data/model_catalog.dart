@@ -43,7 +43,7 @@ const List<AppModelEntry> kAppModels = [
     name: '农作物病虫害识别',
     assetPath: 'assets/models/classify_39.tflite',
     labels: kModelLabels,
-    inputSize: 224,
+    inputSize: 320,
     recordModuleKey: 'pest',
   ),
   // 后续模型在此追加，例如：

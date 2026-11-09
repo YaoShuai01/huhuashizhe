@@ -11,5 +11,5 @@ onnxruntime>=1.16.0
 #   NVIDIA 显卡：pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
 #   无显卡：    pip install torch torchvision
 #
-# 导出 TFLite 时需要（约 600MB，可训练完再装）：
-#   pip install tensorflow
+# 导出 TFLite 时需要（Windows 走 ONNX→onnx2tf，约 600MB，可训练完再装）：
+#   pip install onnx2tf tensorflow
