@@ -696,6 +696,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.5.1',
+        'date': '2026-11-09',
+        'content': [
+          '修复应用内更新一直提示下载失败：新增3个下载加速通道自动切换，直连被墙时自动走镜像',
+          '下载失败时清理残留半包文件，避免安装损坏的安装包',
+          '更新包下载只识别 .apk 资源，避免误选其他附件',
+        ],
+      },
+      {
         'version': 'v2.5.0',
         'date': '2026-11-09',
         'content': [

@@ -1,9 +1,18 @@
 import 'dart:async';
+import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../core/constants/app_version.dart' show appVersion;
 import 'apk_installer.dart';
 const String _githubReleaseApi = 'https://api.github.com/repos/YaoShuai01/huhuashizhe/releases/latest';
+
+/// GitHub 下载加速前缀（国内直连 release 文件服务器经常超时，按顺序回退）
+const List<String> _downloadMirrors = [
+  'https://ghfast.top/',
+  'https://ghproxy.net/',
+  'https://gh-proxy.com/',
+];
 
 class UpdateInfo {
   final String versionName;
@@ -22,9 +31,16 @@ class UpdateInfo {
 
   factory UpdateInfo.fromJson(Map<String, dynamic> json) {
     final assets = json['assets'] as List<dynamic>? ?? [];
-    final downloadUrl = assets.isNotEmpty
-        ? (assets[0]['browser_download_url'] as String? ?? '')
-        : '';
+    // 只取 .apk 资源，避免误选其他附件
+    String downloadUrl = '';
+    for (final a in assets) {
+      final name = (a['name'] as String? ?? '').toLowerCase();
+      final url = a['browser_download_url'] as String? ?? '';
+      if (name.endsWith('.apk') && url.isNotEmpty) {
+        downloadUrl = url;
+        break;
+      }
+    }
 
     return UpdateInfo(
       versionName: (json['tag_name'] as String?)?.replaceFirst('v', '') ?? '',
@@ -108,26 +124,58 @@ class UpdateService {
     return false;
   }
 
+  /// 上次下载失败的原因（供UI提示排查）
+  String lastError = '';
+
+  /// 下载更新包：依次尝试各加速通道，全部失败才算失败
+  ///
+  /// 国内直连 github.com 的 release 资源（会跳转到 objects.githubusercontent.com）
+  /// 经常连接超时，因此优先走镜像，最后再回退直连。
   Future<bool> downloadUpdate(
     String url,
     void Function(int received, int total) onProgress,
   ) async {
-    try {
-      final dir = await ApkInstaller.getDownloadDir();
-      final filePath = '$dir/huhuashizhe_update.apk';
-      _downloadPath = filePath;
+    lastError = '';
+    final dir = await ApkInstaller.getDownloadDir();
+    final filePath = '$dir/huhuashizhe_update.apk';
+    _downloadPath = filePath;
 
-      await _dio.download(
-        url,
-        filePath,
-        onReceiveProgress: onProgress,
-        options: Options(receiveTimeout: const Duration(minutes: 10)),
-      );
+    // 镜像优先，直连兜底
+    final candidates = <String>[
+      for (final prefix in _downloadMirrors) '$prefix$url',
+      url,
+    ];
 
-      return true;
-    } catch (e) {
-      return false;
+    for (var i = 0; i < candidates.length; i++) {
+      final source = candidates[i];
+      try {
+        // 清掉上一通道的残留半包，避免拼接成损坏文件
+        final f = File(filePath);
+        if (await f.exists()) await f.delete();
+        onProgress(0, 1); // 重置进度条
+
+        await _dio.download(
+          source,
+          filePath,
+          onReceiveProgress: onProgress,
+          options: Options(
+            receiveTimeout: const Duration(minutes: 10),
+            followRedirects: true,
+          ),
+        );
+
+        final size = await f.length();
+        if (size < 1024 * 1024) {
+          throw Exception('下载文件过小($size 字节)');
+        }
+        debugPrint('[Update] 下载成功，通道 ${i + 1}/${candidates.length}');
+        return true;
+      } catch (e) {
+        lastError = e.toString();
+        debugPrint('[Update] 通道 ${i + 1}/${candidates.length} 失败: $e');
+      }
     }
+    return false;
   }
 
   /// 获取下载文件路径
