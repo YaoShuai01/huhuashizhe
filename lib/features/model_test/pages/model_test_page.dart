@@ -9,11 +9,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../data/local_database.dart';
 import '../../../providers/weather_provider.dart';
 import '../../../services/ai_suggestion_worker.dart';
 import '../../../services/growth_record_store.dart';
 import '../../../services/model_inference_service.dart';
 import '../../../services/ys_image_store.dart';
+import '../data/model_catalog.dart';
 import '../data/model_labels.dart';
 import '../widgets/warning_detail_card.dart';
 
@@ -38,6 +40,11 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
   CameraController? _camera;
   final ModelInferenceService _inference = ModelInferenceService();
   final YsImageStore _ysStore = YsImageStore();
+
+  /// 当前选中模型（下拉可切换，本地记忆上次选择）
+  late AppModelEntry _model = modelEntryOf(
+      LocalDatabase().get('selected_model_id'));
+  bool _switchingModel = false;
 
   bool _cameraOn = false; // 开关状态（默认关闭）
   bool _switching = false; // 开关切换中
@@ -85,12 +92,40 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
 
   Future<void> _loadModel() async {
     setState(() => _statusText = '正在加载模型...');
-    final ok = await _inference.load();
+    final ok = await _inference.load(
+      assetPath: _model.assetPath,
+      inputSize: _model.inputSize,
+    );
     if (!mounted) return;
     setState(() {
       _modelReady = ok;
       _statusText = ok ? '' : '模型加载失败';
     });
+  }
+
+  /// 切换模型：停摄像头 → 重载推理引擎 → 清空实时结果
+  Future<void> _switchModel(AppModelEntry entry) async {
+    if (entry.id == _model.id || _switchingModel) return;
+    setState(() {
+      _switchingModel = true;
+      _model = entry;
+      _statusText = '正在加载模型...';
+    });
+    LocalDatabase().set('selected_model_id', entry.id);
+    await _stopCamera();
+    if (mounted) setState(() => _cameraOn = false);
+    final ok = await _inference.load(
+      assetPath: entry.assetPath,
+      inputSize: entry.inputSize,
+    );
+    if (!mounted) return;
+    setState(() {
+      _lastResult = null;
+      _modelReady = ok;
+      _statusText = ok ? '' : '模型加载失败';
+      _switchingModel = false;
+    });
+    _showSnack(ok ? '已切换：${entry.name}' : '模型加载失败');
   }
 
   // ==================== 摄像头开关 ====================
@@ -185,9 +220,12 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
   }
 
   /// 命中问题类→采集入库（按类别节流，同一类3秒最多1张）
+  /// 仅关联了记录模块的模型（如农作物模型）才采集；其他模型仅实时识别
   Future<void> _maybeCapture(InferenceResult result) async {
+    if (_model.recordModuleKey == null) return;
     final idx = result.topIndex;
-    if (!isProblemClass(idx)) return;
+    final labels = _model.labels;
+    if (idx < 0 || idx >= labels.length || labels[idx].healthy) return;
     if (result.topConfidence < _captureThreshold) return;
 
     final now = DateTime.now();
@@ -217,8 +255,8 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
         } else {
           _sessionGroups[idx] = ProblemGroup(
             labelIndex: idx.toString(),
-            zhName: zhLabelOf(idx),
-            desc: kModelLabels[idx].desc,
+            zhName: labels[idx].zh,
+            desc: labels[idx].desc,
             maxConfidence: result.topConfidence,
             hitCount: 1,
             imagePaths: [ysPath],
@@ -294,10 +332,64 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('模型测试'),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: _onBack,
+          ),
+          // 模型下拉选择：显示当前模型名，点击弹出全部可用模型
+          title: PopupMenuButton<AppModelEntry>(
+            initialValue: _model,
+            tooltip: '选择识别模型',
+            onSelected: (entry) => _switchModel(entry),
+            itemBuilder: (context) => [
+              for (final m in kAppModels)
+                PopupMenuItem<AppModelEntry>(
+                  value: m,
+                  child: Row(
+                    children: [
+                      Icon(
+                        m.id == _model.id
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
+                        size: 18,
+                        color: m.id == _model.id
+                            ? AppColors.primary
+                            : AppColors.textHint,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          m.name,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: m.id == _model.id
+                                ? AppColors.primary
+                                : AppColors.textPrimary,
+                            fontWeight: m.id == _model.id
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(
+                  child: Text(
+                    _model.name,
+                    style: const TextStyle(
+                        fontSize: 17, fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 4),
+                const Icon(Icons.arrow_drop_down, size: 22),
+              ],
+            ),
           ),
         ),
         body: Column(
@@ -371,9 +463,13 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
 
   /// 实时标注叠加条：问题类红色、健康类绿色
   Widget _buildOverlayLabel(InferenceResult result) {
-    final isProblem = isProblemClass(result.topIndex);
+    final idx = result.topIndex;
+    final labels = _model.labels;
+    final isProblem = idx >= 0 && idx < labels.length && !labels[idx].healthy;
     final color = isProblem ? AppColors.error : AppColors.success;
-    final label = zhLabelOf(result.topIndex);
+    final label = (idx >= 0 && idx < labels.length)
+        ? labels[idx].zh
+        : '未知';
     final conf = (result.topConfidence * 100).toStringAsFixed(1);
     return Positioned(
       top: 12,
