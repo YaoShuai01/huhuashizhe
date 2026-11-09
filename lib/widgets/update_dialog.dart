@@ -214,6 +214,19 @@ class UpdateDialog extends ConsumerWidget {
             ),
           ),
           Expanded(
+            child: TextButton(
+              onPressed: () {
+                // 后台更新：关闭对话框，下载继续，进度显示在版本信息页
+                Navigator.of(context).pop();
+                notifier.startDownload(background: true);
+              },
+              child: const Text(
+                '后台更新',
+                style: TextStyle(color: AppColors.primary),
+              ),
+            ),
+          ),
+          Expanded(
             flex: 2,
             child: ElevatedButton(
               onPressed: () => notifier.startDownload(),

@@ -13,11 +13,15 @@ class UpdateState {
   final UpdateInfo? updateInfo;
   final String errorMessage;
 
+  /// 是否处于后台下载模式（进度条显示在版本信息页，不弹对话框）
+  final bool background;
+
   const UpdateState({
     this.status = UpdateStatus.idle,
     this.progress = 0,
     this.updateInfo,
     this.errorMessage = '',
+    this.background = false,
   });
 
   UpdateState copyWith({
@@ -25,12 +29,14 @@ class UpdateState {
     double? progress,
     UpdateInfo? updateInfo,
     String? errorMessage,
+    bool? background,
   }) {
     return UpdateState(
       status: status ?? this.status,
       progress: progress ?? this.progress,
       updateInfo: updateInfo ?? this.updateInfo,
       errorMessage: errorMessage ?? this.errorMessage,
+      background: background ?? this.background,
     );
   }
 }
@@ -41,6 +47,11 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
   UpdateNotifier(this.ref) : super(const UpdateState());
 
   Future<void> checkForUpdate() async {
+    // 正在下载/已下载待安装时不要重新检测，避免覆盖后台下载进度
+    if (state.status == UpdateStatus.downloading ||
+        state.status == UpdateStatus.downloaded) {
+      return;
+    }
     state = state.copyWith(status: UpdateStatus.checking);
     final service = ref.read(updateServiceProvider);
     final (result, info) = await service.checkForUpdate();
@@ -62,7 +73,9 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
     }
   }
 
-  Future<void> startDownload() async {
+  /// 开始下载。[background]=true 时进入后台模式：
+  /// 下载继续进行，进度显示在版本信息页，完成后仍自动拉起系统安装器
+  Future<void> startDownload({bool background = false}) async {
     final info = state.updateInfo;
     if (info == null || info.downloadUrl.isEmpty) {
       state = state.copyWith(
@@ -75,6 +88,7 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
     state = state.copyWith(
       status: UpdateStatus.downloading,
       progress: 0,
+      background: background,
     );
 
     final service = ref.read(updateServiceProvider);

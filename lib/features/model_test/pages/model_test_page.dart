@@ -13,6 +13,7 @@ import '../../../data/local_database.dart';
 import '../../../providers/weather_provider.dart';
 import '../../../services/ai_suggestion_worker.dart';
 import '../../../services/growth_record_store.dart';
+import '../../../services/model_hotupdate_service.dart';
 import '../../../services/model_inference_service.dart';
 import '../../../services/ys_image_store.dart';
 import '../data/model_catalog.dart';
@@ -42,9 +43,17 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
   final YsImageStore _ysStore = YsImageStore();
 
   /// 当前选中模型（下拉可切换，本地记忆上次选择）
+  /// 页面加载时先并入选中的热更新模型，再异步加载完整模型列表
+  List<AppModelEntry> _models = kAppModels;
   late AppModelEntry _model = modelEntryOf(
       LocalDatabase().get('selected_model_id'));
   bool _switchingModel = false;
+
+  /// 模型热更新状态（静默下载新模型时显示横幅）
+  HotupdatePhase _hotPhase = HotupdatePhase.idle;
+  double _hotProgress = 0;
+  String _hotName = '';
+  final List<String> _hotAdded = [];
 
   bool _cameraOn = false; // 开关状态（默认关闭）
   bool _switching = false; // 开关切换中
@@ -68,7 +77,46 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
   void initState() {
     super.initState();
     SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-    _loadModel();
+    _initModels();
+  }
+
+  /// 初始化：并入选中的热更新模型 → 加载引擎 → 静默检查新模型
+  Future<void> _initModels() async {
+    final all = await loadAllModels();
+    if (mounted) {
+      setState(() {
+        _models = all;
+        _model = modelEntryOf(LocalDatabase().get('selected_model_id'), all);
+      });
+    }
+    await _loadModel();
+    _checkHotupdate();
+  }
+
+  /// 静默检查模型热更新：有新模型后台下载，完成后自动进下拉列表
+  Future<void> _checkHotupdate() async {
+    final svc = ModelHotupdateService.instance;
+    await svc.checkAndDownload();
+    if (!mounted) return;
+    setState(() {
+      _hotPhase = svc.phase;
+      _hotProgress = svc.progress;
+      _hotName = svc.currentName;
+      _hotAdded
+        ..clear()
+        ..addAll(svc.newlyAdded);
+    });
+    if (svc.newlyAdded.isNotEmpty) {
+      final all = await loadAllModels();
+      if (!mounted) return;
+      setState(() => _models = all);
+    }
+    // 5秒后收起"已完成"横幅
+    if (_hotPhase == HotupdatePhase.done && _hotAdded.isNotEmpty) {
+      Future.delayed(const Duration(seconds: 5), () {
+        if (mounted) setState(() => _hotPhase = HotupdatePhase.idle);
+      });
+    }
   }
 
   @override
@@ -93,7 +141,8 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
   Future<void> _loadModel() async {
     setState(() => _statusText = '正在加载模型...');
     final ok = await _inference.load(
-      assetPath: _model.assetPath,
+      assetPath: _model.assetPath.isEmpty ? null : _model.assetPath,
+      filePath: _model.filePath,
       inputSize: _model.inputSize,
     );
     if (!mounted) return;
@@ -115,7 +164,8 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
     await _stopCamera();
     if (mounted) setState(() => _cameraOn = false);
     final ok = await _inference.load(
-      assetPath: entry.assetPath,
+      assetPath: entry.assetPath.isEmpty ? null : entry.assetPath,
+      filePath: entry.filePath,
       inputSize: entry.inputSize,
     );
     if (!mounted) return;
@@ -342,7 +392,7 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
             tooltip: '选择识别模型',
             onSelected: (entry) => _switchModel(entry),
             itemBuilder: (context) => [
-              for (final m in kAppModels)
+              for (final m in _models)
                 PopupMenuItem<AppModelEntry>(
                   value: m,
                   child: Row(
@@ -394,6 +444,9 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
         ),
         body: Column(
           children: [
+            // 模型热更新横幅（静默下载完成后短暂提示）
+            if (_hotPhase == HotupdatePhase.done && _hotAdded.isNotEmpty)
+              _buildHotupdateBanner(),
             // 摄像头预览区
             _buildCameraArea(),
             // 开关与状态
@@ -403,6 +456,33 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
             Expanded(child: _buildWarningList(groups)),
           ],
         ),
+      ),
+    );
+  }
+
+  /// 模型热更新完成横幅：提示新增了哪些模型
+  Widget _buildHotupdateBanner() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.success.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AppColors.success.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.new_releases_outlined,
+              size: 16, color: AppColors.success),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '已自动更新模型：${_hotAdded.join('、')}，下拉模型名即可选择',
+              style: const TextStyle(fontSize: 12, color: AppColors.success),
+            ),
+          ),
+        ],
       ),
     );
   }
