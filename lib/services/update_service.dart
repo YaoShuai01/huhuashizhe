@@ -127,7 +127,33 @@ class UpdateService {
   /// 上次下载失败的原因（供UI提示排查）
   String lastError = '';
 
-  /// 下载更新包：依次尝试各加速通道，全部失败才算失败
+  /// 并行探测各通道，返回最先成功响应的URL（竞速选最快通道）
+  ///
+  /// 之前顺序回退：镜像挂了就白白等超时，下载前排队很久。
+  /// 现在所有通道同时发 HEAD 请求，谁先响应 200 就用谁，全部失败返回 null。
+  Future<String?> _probeFastest(List<String> candidates) async {
+    String? fastest;
+    await Future.wait(candidates.map((source) async {
+      try {
+        final resp = await _dio.head(
+          source,
+          options: Options(
+            sendTimeout: const Duration(seconds: 5),
+            receiveTimeout: const Duration(seconds: 5),
+            followRedirects: true,
+          ),
+        );
+        if (resp.statusCode == 200 && fastest == null) {
+          fastest = source;
+        }
+      } catch (_) {
+        // 该通道不可用，忽略
+      }
+    }));
+    return fastest;
+  }
+
+  /// 下载更新包：并行竞速选出最快通道，失败时再按顺序回退其余通道
   ///
   /// 国内直连 github.com 的 release 资源（会跳转到 objects.githubusercontent.com）
   /// 经常连接超时，因此优先走镜像，最后再回退直连。
@@ -140,11 +166,16 @@ class UpdateService {
     final filePath = '$dir/huhuashizhe_update.apk';
     _downloadPath = filePath;
 
-    // 镜像优先，直连兜底
-    final candidates = <String>[
+    // 镜像 + 直连全部候选
+    final all = <String>[
       for (final prefix in _downloadMirrors) '$prefix$url',
       url,
     ];
+
+    // 先竞速挑最快的通道排到最前面，其余保持原顺序作回退
+    final fastest = await _probeFastest(all);
+    final candidates = fastest == null ? all : [fastest, ...all.where((c) => c != fastest)];
+    debugPrint('[Update] 竞速通道: ${fastest ?? '全部探测失败，按原顺序回退'}');
 
     for (var i = 0; i < candidates.length; i++) {
       final source = candidates[i];

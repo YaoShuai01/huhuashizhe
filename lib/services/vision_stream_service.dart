@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 
 /// 视觉板UDP图传客户端
@@ -41,6 +40,7 @@ class VisionStreamService {
     _socket?.close();
     _sub?.cancel();
     _socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
+    _socket!.broadcastEnabled = true;
     _sub = _socket!.listen((event) {
       if (event == RawSocketEvent.read) {
         final dg = _socket!.receive();
@@ -66,16 +66,26 @@ class VisionStreamService {
     _pending.clear();
   }
 
-  /// 发送任意文本命令
+  /// 发送任意文本命令（UDP广播——无需知道视觉板IP，
+  /// 板子收到后自动把画面回发到本socket的来源地址）
   void sendCommand(String cmd) {
     final sock = _socket;
     if (sock == null) {
       statusNotifier.value = '未初始化';
       return;
     }
-    final dg = sock.send(cmd.codeUnits, InternetAddress(visionIp), visionPort);
-    if (dg == null) {
-      statusNotifier.value = '发送失败：请确认已连接 HuHuaShiZhe-Drone 热点';
+    // 优先广播（覆盖手机DHCP地址变动/多热点场景）
+    bool sent = false;
+    try {
+      sent = sock.send(cmd.codeUnits, InternetAddress('255.255.255.255'), visionPort) > 0;
+    } catch (_) {
+      // 部分网络环境禁止广播
+    }
+    // 广播不可用时退回单播默认地址
+    if (!sent) {
+      try {
+        sock.send(cmd.codeUnits, InternetAddress(visionIp), visionPort);
+      } catch (_) {}
     }
   }
 

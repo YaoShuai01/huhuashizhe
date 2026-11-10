@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:go_router/go_router.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/drone_udp_service.dart';
+import '../../../services/vision_stream_service.dart';
 import '../widgets/drone_joystick.dart';
 
 class RemoteControlPage extends StatefulWidget {
@@ -14,6 +16,9 @@ class RemoteControlPage extends StatefulWidget {
 
 class _RemoteControlPageState extends State<RemoteControlPage> {
   final DroneUdpService _udp = DroneUdpService();
+  final VisionStreamService _vision = VisionStreamService();
+  static const _galleryChannel = MethodChannel('com.huhuashizhe/gallery');
+  Uint8List? _lastPhoto;
 
   @override
   void initState() {
@@ -24,6 +29,9 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
     ]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     _initUdp();
+    // 视觉板图传：进入遥控页自动开播，画面显示在中央预留区
+    _vision.start();
+    _vision.photoNotifier.addListener(_onPhoto);
   }
 
   @override
@@ -31,7 +39,47 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     _udp.dispose();
+    _vision.photoNotifier.removeListener(_onPhoto);
+    _vision.dispose();
     super.dispose();
+  }
+
+  void _onPhoto() {
+    final jpg = _vision.photoNotifier.value;
+    if (jpg == null || jpg == _lastPhoto) return;
+    _lastPhoto = jpg;
+    _saveToGallery(jpg);
+  }
+
+  Future<void> _saveToGallery(Uint8List jpg) async {
+    try {
+      final dir = await getTemporaryDirectory();
+      final path =
+          '${dir.path}/vision_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      await File(path).writeAsBytes(jpg);
+      await _galleryChannel.invokeMethod('saveImageToGallery', {
+        'path': path,
+        'displayName': '视觉板_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('照片已保存到相册'),
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('保存失败: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _initUdp() async {
@@ -236,17 +284,13 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
                 _buildBottomBar(armed, spray),
               ],
             ),
-            // 左上角：图传 + 设置 + 退出图标
+            // 左上角：设置 + 退出图标
             Positioned(
               top: 4,
               left: 8,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  _buildIconButton(Icons.videocam, '图传', () {
-                    context.push('/vision-stream');
-                  }),
-                  const SizedBox(width: 4),
                   _buildIconButton(Icons.settings, '设置', _showSettings),
                   const SizedBox(width: 4),
                   _buildIconButton(Icons.exit_to_app, '退出', _showExitConfirm),
@@ -347,35 +391,123 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
     );
   }
 
+  /// 中央监控画面：视觉板实时图传（未出画面时显示占位提示）
   Widget _buildCameraView() {
     return Container(
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: Colors.grey[900],
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.grey[800]!, width: 1),
       ),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.videocam_off_outlined, size: 40, color: Colors.grey[700]),
-            const SizedBox(height: 8),
-            Text('摄像头未连接', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-            const SizedBox(height: 4),
-            Text('FPV画面将在此显示', style: TextStyle(color: Colors.grey[800], fontSize: 10)),
-            const SizedBox(height: 12),
-            ValueListenableBuilder<String>(
-              valueListenable: _udp.debugNotifier,
-              builder: (context, debug, _) {
-                return Text(
-                  debug,
-                  style: TextStyle(color: Colors.green[700], fontSize: 9, fontFamily: 'monospace'),
-                  textAlign: TextAlign.center,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // 实时画面 / 占位提示
+          ValueListenableBuilder<Uint8List?>(
+            valueListenable: _vision.frameNotifier,
+            builder: (context, frame, _) {
+              if (frame == null) {
+                return Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.videocam_off_outlined, size: 40, color: Colors.grey[700]),
+                      const SizedBox(height: 8),
+                      ValueListenableBuilder<String>(
+                        valueListenable: _vision.statusNotifier,
+                        builder: (context, status, _) {
+                          return Text(
+                            '摄像头未连接 · $status',
+                            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                            textAlign: TextAlign.center,
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 4),
+                      Text('请确认飞控与视觉板均已上电\n手机已连接 HuHuaShiZhe-Drone 热点',
+                          style: TextStyle(color: Colors.grey[800], fontSize: 10, height: 1.5),
+                          textAlign: TextAlign.center),
+                      const SizedBox(height: 12),
+                      ValueListenableBuilder<String>(
+                        valueListenable: _udp.debugNotifier,
+                        builder: (context, debug, _) {
+                          return Text(
+                            debug,
+                            style: TextStyle(color: Colors.green[700], fontSize: 9, fontFamily: 'monospace'),
+                            textAlign: TextAlign.center,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              }
+              return Image.memory(
+                frame,
+                fit: BoxFit.contain,
+                gaplessPlayback: true,
+              );
+            },
+          ),
+          // 左上角：FPS + 状态角标
+          Positioned(
+            top: 4,
+            left: 8,
+            child: ValueListenableBuilder<int>(
+              valueListenable: _vision.fpsNotifier,
+              builder: (context, fps, _) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black54,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.videocam, size: 12, color: AppColors.primary),
+                      const SizedBox(width: 3),
+                      Text(
+                        '$fps fps',
+                        style: TextStyle(
+                          color: fps > 0 ? AppColors.primary : Colors.white38,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 );
               },
             ),
-          ],
-        ),
+          ),
+          // 右上角：暂停/恢复图传
+          Positioned(
+            top: 4,
+            right: 8,
+            child: ValueListenableBuilder<bool>(
+              valueListenable: _vision.streamingNotifier,
+              builder: (context, streaming, _) {
+                return _buildIconButton(
+                  streaming ? Icons.pause_circle_outline : Icons.play_circle_outline,
+                  streaming ? '暂停图传' : '恢复图传',
+                  () => streaming ? _vision.stop() : _vision.start(),
+                );
+              },
+            ),
+          ),
+          // 右下角：高清拍照
+          Positioned(
+            bottom: 6,
+            right: 8,
+            child: _buildIconButton(
+              Icons.photo_camera_outlined,
+              '高清拍照',
+              () => _vision.requestSnapshot(),
+            ),
+          ),
+        ],
       ),
     );
   }
