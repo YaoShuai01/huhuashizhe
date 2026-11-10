@@ -783,6 +783,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.7.0',
+        'date': '2026-11-10',
+        'content': [
+          '新增无人机图传：遥控页左上角新增「图传」入口，实时显示视觉板画面（XGA）',
+          '支持一键高清拍照，照片自动保存到手机相册',
+          '画面帧率实时显示，UDP分段重组协议抗丢包',
+        ],
+      },
+      {
         'version': 'v2.6.0',
         'date': '2026-11-09',
         'content': [
