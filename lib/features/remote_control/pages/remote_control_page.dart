@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/drone_udp_service.dart';
 import '../widgets/drone_joystick.dart';
@@ -235,13 +236,17 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
                 _buildBottomBar(armed, spray),
               ],
             ),
-            // 左上角：设置 + 退出图标
+            // 左上角：图传 + 设置 + 退出图标
             Positioned(
               top: 4,
               left: 8,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  _buildIconButton(Icons.videocam, '图传', () {
+                    context.push('/vision-stream');
+                  }),
+                  const SizedBox(width: 4),
                   _buildIconButton(Icons.settings, '设置', _showSettings),
                   const SizedBox(width: 4),
                   _buildIconButton(Icons.exit_to_app, '退出', _showExitConfirm),
