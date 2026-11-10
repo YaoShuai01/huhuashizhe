@@ -84,7 +84,10 @@ esp_err_t vision_cam_init(void)
         .ledc_channel = LEDC_CHANNEL_0,
 
         .pixel_format = PIXFORMAT_JPEG,
-        .frame_size   = k_cam_res[s_stream_res].fs,
+        // ★ 帧缓冲按最大分辨率(QSXGA 5MP)分配：esp32-camera 的缓冲大小在
+        //   初始化后固定，运行中 set_framesize 升档超过初始分配会出帧失败。
+        //   初始化完立刻降回推流分辨率，后续拍照升档才有缓冲可用。
+        .frame_size   = FRAMESIZE_QSXGA,
         .jpeg_quality = s_quality,
         .fb_count     = 2,
         .grab_mode    = CAMERA_GRAB_LATEST,
@@ -104,6 +107,8 @@ esp_err_t vision_cam_init(void)
     if (s) {
         ESP_LOGI(TAG, "传感器: %s PID=0x%04x",
                  (s->id.PID == 0x5640) ? "OV5640" : "其他", s->id.PID);
+        // 缓冲按QSXGA分配完毕，降回推流分辨率
+        s->set_framesize(s, k_cam_res[s_stream_res].fs);
         // OV5640 默认开自动曝光/AWB，白平衡稍慢可按需关
     }
     s_inited = true;

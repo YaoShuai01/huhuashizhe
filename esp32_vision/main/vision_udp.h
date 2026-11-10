@@ -46,3 +46,6 @@ esp_err_t vision_udp_start(void);
 
 /** 当前是否在推流（心跳日志用） */
 bool vision_udp_streaming(void);
+
+/** 设置推流开关，返回设置前的状态（拍照等操作暂停推流用） */
+bool vision_udp_set_streaming(bool on);
