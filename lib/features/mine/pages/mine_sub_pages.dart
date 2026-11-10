@@ -783,6 +783,16 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.7.1',
+        'date': '2026-11-10',
+        'content': [
+          '图传画面直接嵌入遥控器中央画面区，无需再跳转独立页面，支持暂停/恢复与高清拍照',
+          '修复看不到画面的问题：图传命令改为UDP广播，不再依赖视觉板固定IP',
+          '「后台更新」按钮移至下载进度界面：更新慢时可随时切后台，快则不用点',
+          '更新下载提速：多通道并行竞速，自动选用响应最快的服务器下载',
+        ],
+      },
+      {
         'version': 'v2.7.0',
         'date': '2026-11-10',
         'content': [

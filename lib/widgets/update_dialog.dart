@@ -127,8 +127,20 @@ class UpdateDialog extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              '正在下载更新...',
+              '正在下载更新... ${(state.progress * 100).toInt()}%',
               style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+            ),
+            const SizedBox(height: 12),
+            // 下载慢时可切后台：关闭弹窗，下载继续，进度显示在版本信息页
+            TextButton(
+              onPressed: () {
+                notifier.switchToBackground();
+                Navigator.of(context).pop();
+              },
+              child: const Text(
+                '后台下载',
+                style: TextStyle(color: AppColors.primary),
+              ),
             ),
           ],
         ),
@@ -210,19 +222,6 @@ class UpdateDialog extends ConsumerWidget {
               child: const Text(
                 '下次再说',
                 style: TextStyle(color: AppColors.textHint),
-              ),
-            ),
-          ),
-          Expanded(
-            child: TextButton(
-              onPressed: () {
-                // 后台更新：关闭对话框，下载继续，进度显示在版本信息页
-                Navigator.of(context).pop();
-                notifier.startDownload(background: true);
-              },
-              child: const Text(
-                '后台更新',
-                style: TextStyle(color: AppColors.primary),
               ),
             ),
           ),

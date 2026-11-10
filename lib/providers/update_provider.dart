@@ -113,6 +113,13 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
     }
   }
 
+  /// 下载中切换为后台模式：下载继续，进度条显示在版本信息页
+  void switchToBackground() {
+    if (state.status == UpdateStatus.downloading) {
+      state = state.copyWith(background: true);
+    }
+  }
+
   void dismiss() {
     state = const UpdateState();
   }
