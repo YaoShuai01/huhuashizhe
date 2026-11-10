@@ -273,3 +273,10 @@ bool vision_udp_streaming(void)
 {
     return s_streaming;
 }
+
+bool vision_udp_set_streaming(bool on)
+{
+    bool old = s_streaming;
+    s_streaming = on;
+    return old;
+}

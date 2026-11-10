@@ -18,6 +18,8 @@
 #include "vision_wifi.h"
 #include "vision_cam.h"
 #include "vision_udp.h"
+#include "vision_http.h"
+#include "vision_serial.h"
 
 static const char *TAG = "VISION";
 
@@ -57,12 +59,18 @@ void app_main(void)
     // UDP 图传服务
     vision_udp_start();
 
+    // 串口图传（USB线直连电脑看画面）
+    vision_serial_start();
+
+    // 浏览器图传窗口（MJPEG）
+    vision_http_start();
+
     // 等IP（最长25秒），拿到后打一条汇总
     if (vision_wifi_wait_ip(25)) {
         ESP_LOGI(TAG, "就绪！手机发送 VINFO 到 %s:%d 查询状态",
                  vision_wifi_ip_str(), VISION_UDP_PORT);
     } else {
-        ESP_LOGW(TAG, "25秒未接入飞控热点，请检查 HuHuaShiZhe-Drone 是否已开机");
+        ESP_LOGW(TAG, "25秒未接入飞控热点，浏览器图传仍可用: http://192.168.5.1");
     }
 
     xTaskCreate(heartbeat_task, "vheart", 4096, NULL, 3, NULL);
