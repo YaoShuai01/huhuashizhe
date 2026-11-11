@@ -783,6 +783,16 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.7.7',
+        'date': '2026-11-11',
+        'content': [
+          '修复高清档大面积花屏：固件分段偏移量整数溢出，超65KB的数据重复发送了文件开头',
+          '新增FEC前向纠错：每8个分段配1个校验段，丢1个分段也能自动还原整帧，有效帧率大幅提升',
+          '画面翻转改由摄像头执行，拍照结果与图传画面方向保持一致（切换分辨率后也不再丢失）',
+          '配合飞控热点升级至40MHz带宽（HT40），图传转发吞吐翻倍',
+        ],
+      },
+      {
         'version': 'v2.7.6',
         'date': '2026-11-11',
         'content': [
