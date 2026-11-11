@@ -19,6 +19,8 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
   final VisionStreamService _vision = VisionStreamService();
   static const _galleryChannel = MethodChannel('com.huhuashizhe/gallery');
   Uint8List? _lastPhoto;
+  bool _flipH = false;   // 画面水平翻转
+  bool _flipV = false;   // 画面垂直翻转
 
   @override
   void initState() {
@@ -443,43 +445,85 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
                   ),
                 );
               }
-              return Image.memory(
-                frame,
-                fit: BoxFit.contain,
-                gaplessPlayback: true,
+              // 解码时直接降采样到显示尺寸：720p全尺寸解码每帧要20-30ms，
+              // 降采样后CPU和内存带宽开销大幅下降，可渲染帧率明显提升
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  final dpr = MediaQuery.of(context).devicePixelRatio;
+                  final targetW =
+                      (constraints.maxWidth * dpr).round().clamp(320, 1920);
+                  return Transform(
+                    alignment: Alignment.center,
+                    transform: Matrix4.diagonal3Values(
+                      _flipH ? -1.0 : 1.0,
+                      _flipV ? -1.0 : 1.0,
+                      1.0,
+                    ),
+                    child: Image.memory(
+                      frame,
+                      fit: BoxFit.contain,
+                      gaplessPlayback: true,
+                      cacheWidth: targetW,
+                    ),
+                  );
+                },
               );
             },
           ),
-          // 左上角：FPS + 状态角标
+          // 左上角：FPS/码率 + 水平/垂直翻转
           Positioned(
             top: 4,
             left: 8,
-            child: ValueListenableBuilder<int>(
-              valueListenable: _vision.fpsNotifier,
-              builder: (context, fps, _) {
-                return Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.black54,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.videocam, size: 12, color: AppColors.primary),
-                      const SizedBox(width: 3),
-                      Text(
-                        '$fps fps',
-                        style: TextStyle(
-                          color: fps > 0 ? AppColors.primary : Colors.white38,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ValueListenableBuilder<int>(
+                  valueListenable: _vision.fpsNotifier,
+                  builder: (context, fps, _) {
+                    return ValueListenableBuilder<int>(
+                      valueListenable: _vision.kbpsNotifier,
+                      builder: (context, kbps, _) {
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.black54,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.videocam, size: 12, color: AppColors.primary),
+                              const SizedBox(width: 3),
+                              Text(
+                                fps > 0 ? '$fps fps · ${kbps}K/s' : '0 fps',
+                                style: TextStyle(
+                                  color: fps > 0 ? AppColors.primary : Colors.white38,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
+                ),
+                const SizedBox(width: 4),
+                _buildIconButton(
+                  Icons.swap_horiz,
+                  '水平翻转',
+                  () => setState(() => _flipH = !_flipH),
+                  active: _flipH,
+                ),
+                const SizedBox(width: 4),
+                _buildIconButton(
+                  Icons.swap_vert,
+                  '垂直翻转',
+                  () => setState(() => _flipV = !_flipV),
+                  active: _flipV,
+                ),
+              ],
             ),
           ),
           // 右上角：画质切换 + 暂停/恢复图传
@@ -614,16 +658,17 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
     );
   }
 
-  Widget _buildIconButton(IconData icon, String tooltip, VoidCallback onTap) {
+  Widget _buildIconButton(IconData icon, String tooltip, VoidCallback onTap,
+      {bool active = false}) {
     return Material(
-      color: Colors.black45,
+      color: active ? AppColors.primary.withValues(alpha: 0.45) : Colors.black45,
       borderRadius: BorderRadius.circular(6),
       child: InkWell(
         borderRadius: BorderRadius.circular(6),
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.all(6),
-          child: Icon(icon, color: Colors.white70, size: 18),
+          child: Icon(icon, color: active ? Colors.white : Colors.white70, size: 18),
         ),
       ),
     );

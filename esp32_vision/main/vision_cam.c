@@ -79,7 +79,7 @@ esp_err_t vision_cam_init(void)
         .pin_href  = CAM_PIN_HREF,
         .pin_pclk  = CAM_PIN_PCLK,
 
-        .xclk_freq_hz = 20000000,
+        .xclk_freq_hz = 24000000,   // 24MHz：OV5640支持6-27MHz，较20MHz提升约20%像素吞吐
         .ledc_timer   = LEDC_TIMER_0,
         .ledc_channel = LEDC_CHANNEL_0,
 
@@ -89,7 +89,7 @@ esp_err_t vision_cam_init(void)
         //   初始化完立刻降回推流分辨率，后续拍照升档才有缓冲可用。
         .frame_size   = FRAMESIZE_QSXGA,
         .jpeg_quality = s_quality,
-        .fb_count     = 2,
+        .fb_count     = 3,          // 3帧：采集与发送流水线重叠，避免互相等待
         .grab_mode    = CAMERA_GRAB_LATEST,
         .fb_location  = CAMERA_FB_IN_PSRAM,
         .sccb_i2c_port = 0,
@@ -142,7 +142,7 @@ int cam_set_stream_res(int res_idx)
 
 void cam_set_stream_params(int fps, int quality)
 {
-    if (fps >= 2 && fps <= 20)  s_fps = fps;
+    if (fps >= 2 && fps <= 30)  s_fps = fps;
     if (quality >= 6 && quality <= 25) s_quality = quality;
 
     sensor_t *s = esp_camera_sensor_get();

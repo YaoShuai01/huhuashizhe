@@ -783,6 +783,18 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.7.6',
+        'date': '2026-11-11',
+        'content': [
+          '图传性能大改：视觉板 PSRAM 由 40MHz 提升至 80MHz，JPEG 编码与帧缓冲带宽翻倍',
+          '采集与发送拆分为双核流水线，不再串行等待，实际帧率显著提升',
+          '摄像头 XCLK 提至 24MHz，WiFi 发送缓冲与 AMPDU 窗口加大',
+          '画面新增水平翻转、垂直翻转按钮，左上角实时显示帧率与码率',
+          '画面解码改为按显示尺寸降采样，降低手机 CPU 占用，提升可渲染帧率',
+          '画质档位调整：流畅 XGA 25fps / 均衡 720p 15fps / 高清 1600x1200 8fps',
+        ],
+      },
+      {
         'version': 'v2.7.5',
         'date': '2026-11-11',
         'content': [
