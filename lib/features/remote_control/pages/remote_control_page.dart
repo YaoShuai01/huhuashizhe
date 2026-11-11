@@ -418,7 +418,7 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
                         valueListenable: _vision.statusNotifier,
                         builder: (context, status, _) {
                           return Text(
-                            '摄像头未连接 · $status',
+                            status,
                             style: TextStyle(color: Colors.grey[600], fontSize: 12),
                             textAlign: TextAlign.center,
                           );

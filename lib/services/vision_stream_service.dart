@@ -71,23 +71,23 @@ class VisionStreamService {
     streamingNotifier.value = true;
     statusNotifier.value = '正在搜索视觉板...';
     _keepAlive?.cancel();
-    // 发现阶段500ms一跳单播探测；锁定地址后仅在断流时补发VSTART
+    // 发现阶段500ms一跳用VINFO探测（不触碰摄像头、无副作用）；
+    // 锁定地址后发一次VSTART即开始推流，稳态不再发周期命令——
+    // VSTART每到达一次板子都会重配传感器PLL（几百ms不出帧），高频补发会导致永远无画面
     _keepAlive = Timer.periodic(const Duration(milliseconds: 500), (_) {
       if (!streamingNotifier.value) return;
+      // 清理长时间未拼齐的残留分段（UDP丢段）
+      final cutoff = DateTime.now().subtract(const Duration(seconds: 8));
+      _pending.removeWhere((_, f) => f.createdAt.isBefore(cutoff));
       if (_discovering) {
         final target = _sweepTargets[_sweepIdx % _sweepTargets.length];
         _sweepIdx++;
         _lastSentTarget = target;
         final lastOctet = target.split('.').last;
         statusNotifier.value = '正在搜索视觉板(.$lastOctet)...';
-        _sendTo(target, 'VSTART');
+        _sendTo(target, 'VINFO');
       } else {
-        // 已锁定地址：板子会持续推流，只有2秒没收画面才补发VSTART
-        // （避免反复重配传感器造成周期性卡顿）
-        final frameStale =
-            DateTime.now().difference(_lastFrameAt).inSeconds >= 2;
-        if (frameStale) _sendTo(_boardIp!, 'VSTART');
-        // 9秒既无应答也无画面：板子可能掉线重连换了IP，重新搜索
+        // 已锁定：板子会持续推流，无需周期命令；9秒无任何信号才重新搜索
         if (DateTime.now().difference(_lastSignal).inSeconds > 9) {
           _discovering = true;
           _sweepIdx = 0;
@@ -136,6 +136,10 @@ class VisionStreamService {
     }
   }
 
+  /// 状态栏显示截断（应答文本可能较长）
+  static String _clip(String text, [int max = 46]) =>
+      text.length > max ? '${text.substring(0, max)}…' : text;
+
   /// 请求高清拍照（视觉板会暂停推流→换分辨率→回0x02帧→恢复）
   void requestSnapshot() {
     sendCommand('VSNAP');
@@ -167,14 +171,21 @@ class VisionStreamService {
       final text = utf8.decode(data, allowMalformed: true).trim();
       if (text.startsWith('VOK') || text.startsWith('VERR')) {
         _lastSignal = DateTime.now();
-        if (_discovering && _lastSentTarget != null) {
-          // 应答与最近一次单播探测配对 → 锁定板子地址
-          _boardIp = _lastSentTarget;
-          _discovering = false;
-          statusNotifier.value = '已连接视觉板 $_boardIp';
-        } else {
-          statusNotifier.value = '视觉板: $text';
+        // VINFO应答带有板子IP，直接精确锁定（比来源配对更可靠）
+        final ipMatch =
+            RegExp(r'ip=(\d+\.\d+\.\d+\.\d+)').firstMatch(text);
+        if (_discovering) {
+          final lockedIp = ipMatch?.group(1) ?? _lastSentTarget;
+          if (lockedIp != null) {
+            _boardIp = lockedIp;
+            _discovering = false;
+            statusNotifier.value = '已连接视觉板 $_boardIp';
+            // 锁定后只发一次VSTART启动推流
+            _sendTo(_boardIp!, 'VSTART');
+            return;
+          }
         }
+        statusNotifier.value = '视觉板: ${_clip(text)}';
       }
       return;
     }
@@ -185,7 +196,7 @@ class VisionStreamService {
     final segIdx = bd.getUint16(12, Endian.little);
     final segCnt = bd.getUint16(14, Endian.little);
     final segLen = bd.getUint16(20, Endian.little);
-    if (segCnt == 0 || segCnt > 64) return;
+    if (segCnt == 0 || segCnt > 4096) return;
     if (data.length < 22 + segLen) return;
 
     final key = (type << 32) | frameSeq;
