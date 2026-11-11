@@ -783,6 +783,14 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.7.3',
+        'date': '2026-11-11',
+        'content': [
+          '修复画面不出帧：探测改用无副作用的VINFO，锁定地址后仅启动一次推流，不再反复重配摄像头',
+          '连接后状态栏显示视觉板IP，链路状态更直观',
+        ],
+      },
+      {
         'version': 'v2.7.2',
         'date': '2026-11-11',
         'content': [
