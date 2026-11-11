@@ -783,6 +783,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.7.2',
+        'date': '2026-11-11',
+        'content': [
+          '修复遥控页收不到画面：图传命令改为对飞控子网逐一单播探测，自动锁定视觉板地址（softAP不保证转发广播）',
+          '画面区实时显示视觉板应答状态，链路通不通一目了然',
+          '断流自动重连：画面中断9秒后自动重新搜索视觉板',
+        ],
+      },
+      {
         'version': 'v2.7.1',
         'date': '2026-11-10',
         'content': [

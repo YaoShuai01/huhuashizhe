@@ -1,25 +1,43 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 /// 视觉板UDP图传客户端
 ///
 /// 协议对应 esp32_vision/main/vision_udp.h：
-/// 命令（文本）：VSTART/VSTOP/VSNAP/VINFO/VSET/VFLIP/VMIR → 192.168.4.2:8889
+/// 命令（文本）：VSTART/VSTOP/VSNAP/VINFO/VSET/VFLIP/VMIR → 端口8889
 /// 帧数据（二进制，22字节头）：
 ///   [0-1]='H''V' [2]=type(1流/2照片) [3]=flags
 ///   [4-7]=photo_id [8-11]=frame_seq [12-13]=seg_idx [14-15]=seg_cnt
 ///   [16-19]=total_len [20-21]=seg_len [22+]=payload
 /// UDP分段按 frame_seq 重组，收齐 seg_cnt 段拼出完整JPEG。
+///
+/// 地址发现：ESP32 softAP 不保证把手机的广播帧转发给其他客户端，
+/// 因此发现阶段对飞控子网 192.168.4.2~.9 逐一单播探测（客户端间单播必达），
+/// 收到板子应答后锁定其IP，之后所有命令单播直达；断流超时自动重新搜索。
 class VisionStreamService {
-  VisionStreamService({this.visionIp = '192.168.4.2', this.visionPort = 8889});
+  VisionStreamService({this.visionPort = 8889});
 
-  final String visionIp;
   final int visionPort;
+
+  /// 飞控子网候选地址（手机通常占.2，视觉板在其后）
+  static const List<String> _sweepTargets = [
+    '192.168.4.3', '192.168.4.2', '192.168.4.4', '192.168.4.5',
+    '192.168.4.6', '192.168.4.7', '192.168.4.8', '192.168.4.9',
+  ];
 
   RawDatagramSocket? _socket;
   StreamSubscription<RawSocketEvent>? _sub;
   Timer? _keepAlive;
+
+  // 发现状态
+  int _sweepIdx = 0;
+  bool _discovering = true;
+  String? _boardIp;          // 已锁定的视觉板地址
+  String? _lastSentTarget;   // 最近一次单播探测的目标（用于应答配对）
+  DateTime _lastFrameAt = DateTime.now();
+  DateTime _lastSignal = DateTime.now(); // 最后一次收到应答或画面
 
   // 分帧重组缓冲：key = frame_seq
   final Map<int, _PendingFrame> _pending = {};
@@ -47,13 +65,35 @@ class VisionStreamService {
         if (dg != null) _onData(dg);
       }
     });
-    sendCommand('VSTART');
+    _discovering = true;
+    _sweepIdx = 0;
+    _lastSignal = DateTime.now();
     streamingNotifier.value = true;
-    statusNotifier.value = '指令已发送，等待画面...';
+    statusNotifier.value = '正在搜索视觉板...';
     _keepAlive?.cancel();
-    // 周期重发VSTART：既是保活，也刷新板子"最近命令来源"地址
-    _keepAlive = Timer.periodic(const Duration(seconds: 3), (_) {
-      if (streamingNotifier.value) sendCommand('VSTART');
+    // 发现阶段500ms一跳单播探测；锁定地址后仅在断流时补发VSTART
+    _keepAlive = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      if (!streamingNotifier.value) return;
+      if (_discovering) {
+        final target = _sweepTargets[_sweepIdx % _sweepTargets.length];
+        _sweepIdx++;
+        _lastSentTarget = target;
+        final lastOctet = target.split('.').last;
+        statusNotifier.value = '正在搜索视觉板(.$lastOctet)...';
+        _sendTo(target, 'VSTART');
+      } else {
+        // 已锁定地址：板子会持续推流，只有2秒没收画面才补发VSTART
+        // （避免反复重配传感器造成周期性卡顿）
+        final frameStale =
+            DateTime.now().difference(_lastFrameAt).inSeconds >= 2;
+        if (frameStale) _sendTo(_boardIp!, 'VSTART');
+        // 9秒既无应答也无画面：板子可能掉线重连换了IP，重新搜索
+        if (DateTime.now().difference(_lastSignal).inSeconds > 9) {
+          _discovering = true;
+          _sweepIdx = 0;
+          statusNotifier.value = '画面中断，重新搜索视觉板...';
+        }
+      }
     });
   }
 
@@ -66,26 +106,33 @@ class VisionStreamService {
     _pending.clear();
   }
 
-  /// 发送任意文本命令（UDP广播——无需知道视觉板IP，
-  /// 板子收到后自动把画面回发到本socket的来源地址）
+  /// 发送文本命令：已锁定地址则单播直达，否则对全部候选地址发送
   void sendCommand(String cmd) {
     final sock = _socket;
     if (sock == null) {
       statusNotifier.value = '未初始化';
       return;
     }
-    // 优先广播（覆盖手机DHCP地址变动/多热点场景）
-    bool sent = false;
-    try {
-      sent = sock.send(cmd.codeUnits, InternetAddress('255.255.255.255'), visionPort) > 0;
-    } catch (_) {
-      // 部分网络环境禁止广播
+    if (!_discovering && _boardIp != null) {
+      _sendTo(_boardIp!, cmd);
+      return;
     }
-    // 广播不可用时退回单播默认地址
+    var sent = false;
+    for (final t in _sweepTargets) {
+      if (_sendTo(t, cmd)) sent = true;
+    }
     if (!sent) {
-      try {
-        sock.send(cmd.codeUnits, InternetAddress(visionIp), visionPort);
-      } catch (_) {}
+      statusNotifier.value = '发送失败：请确认已连接 HuHuaShiZhe-Drone 热点';
+    }
+  }
+
+  bool _sendTo(String ip, String cmd) {
+    final sock = _socket;
+    if (sock == null) return false;
+    try {
+      return sock.send(cmd.codeUnits, InternetAddress(ip), visionPort) > 0;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -115,17 +162,28 @@ class VisionStreamService {
 
   void _onData(Datagram dg) {
     final data = dg.data;
-    if (data.length < 22) return;
-    if (data[0] != 0x48 || data[1] != 0x56) return; // 'HV'
+    if (data.length < 22 || data[0] != 0x48 || data[1] != 0x56) {
+      // 非帧数据：板子的文本应答（VOK/VERR开头）
+      final text = utf8.decode(data, allowMalformed: true).trim();
+      if (text.startsWith('VOK') || text.startsWith('VERR')) {
+        _lastSignal = DateTime.now();
+        if (_discovering && _lastSentTarget != null) {
+          // 应答与最近一次单播探测配对 → 锁定板子地址
+          _boardIp = _lastSentTarget;
+          _discovering = false;
+          statusNotifier.value = '已连接视觉板 $_boardIp';
+        } else {
+          statusNotifier.value = '视觉板: $text';
+        }
+      }
+      return;
+    }
 
     final bd = ByteData.sublistView(data);
     final type = data[2];
-    // final flags = data[3];
-    // final photoId = bd.getUint32(4, Endian.little);
     final frameSeq = bd.getUint32(8, Endian.little);
     final segIdx = bd.getUint16(12, Endian.little);
     final segCnt = bd.getUint16(14, Endian.little);
-    // final totalLen = bd.getUint32(16, Endian.little);
     final segLen = bd.getUint16(20, Endian.little);
     if (segCnt == 0 || segCnt > 64) return;
     if (data.length < 22 + segLen) return;
@@ -159,6 +217,13 @@ class VisionStreamService {
     _pending.remove(key);
 
     if (type == 1) {
+      // 收到画面即视为已连通（应答可能丢包）
+      if (_discovering && _lastSentTarget != null) {
+        _boardIp = _lastSentTarget;
+        _discovering = false;
+      }
+      _lastFrameAt = DateTime.now();
+      _lastSignal = _lastFrameAt;
       frameNotifier.value = jpeg;
       _fpsCount++;
       final now = DateTime.now();
@@ -169,6 +234,7 @@ class VisionStreamService {
       }
       statusNotifier.value = '图传中';
     } else if (type == 2) {
+      _lastSignal = DateTime.now();
       photoNotifier.value = jpeg;
       statusNotifier.value = '照片已接收';
     }
