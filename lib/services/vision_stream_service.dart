@@ -27,6 +27,37 @@ class VisionStreamService {
     '192.168.4.6', '192.168.4.7', '192.168.4.8', '192.168.4.9',
   ];
 
+  /// 推流画质档位（对应固件 VSTART res fps q）
+  /// res: k_cam_res 索引（2=XGA 1024x768, 3=HD 1280x720, 5=UXGA 1600x1200）
+  /// q: JPEG质量，数字越小越清晰（码率随之升高）
+  /// 三档码率都控制在WiFi UDP可承载范围（约1MB/s），取舍在清晰度与帧率
+  static const List<(String, int, int, int)> profiles = [
+    ('流畅', 2, 20, 14),   // XGA 20fps：帧率优先，操控跟手
+    ('均衡', 3, 12, 9),    // HD 720p 12fps：画质与流畅兼顾
+    ('高清', 5, 6, 8),     // UXGA 1600x1200 6fps：细节优先，用于病虫害识别
+  ];
+
+  /// 当前档位（默认均衡）
+  int _profileIdx = 1;
+  int get profileIndex => _profileIdx;
+  String get profileLabel => profiles[_profileIdx].$1;
+
+  String get _startCmd {
+    final p = profiles[_profileIdx];
+    return 'VSTART ${p.$2} ${p.$3} ${p.$4}';
+  }
+
+  /// 切换画质档位并立即下发（会重配传感器，约0.5秒黑屏后恢复）
+  void setProfile(int index) {
+    if (index < 0 || index >= profiles.length) return;
+    _profileIdx = index;
+    if (!_discovering && _boardIp != null) {
+      _lastVstartAt = DateTime.now();
+      _sendTo(_boardIp!, _startCmd);
+      statusNotifier.value = '切换画质：${profiles[index].$1}';
+    }
+  }
+
   RawDatagramSocket? _socket;
   StreamSubscription<RawSocketEvent>? _sub;
   Timer? _keepAlive;
@@ -62,8 +93,12 @@ class VisionStreamService {
     _socket!.broadcastEnabled = true;
     _sub = _socket!.listen((event) {
       if (event == RawSocketEvent.read) {
-        final dg = _socket!.receive();
-        if (dg != null) _onData(dg);
+        // 一次事件内把接收缓冲里的包全部读空：高码率图传每秒上千个UDP包，
+        // 一个事件只读一个包会积压溢出，导致大量分段丢失、整帧被弃
+        Datagram? dg;
+        while ((dg = _socket!.receive()) != null) {
+          _onData(dg!);
+        }
       }
     });
     _discovering = true;
@@ -79,7 +114,7 @@ class VisionStreamService {
     _keepAlive = Timer.periodic(const Duration(milliseconds: 500), (_) {
       if (!streamingNotifier.value) return;
       // 清理长时间未拼齐的残留分段（UDP丢段）
-      final cutoff = DateTime.now().subtract(const Duration(seconds: 8));
+      final cutoff = DateTime.now().subtract(const Duration(seconds: 2));
       _pending.removeWhere((_, f) => f.createdAt.isBefore(cutoff));
       if (_discovering) {
         final target = _sweepTargets[_sweepIdx % _sweepTargets.length];
@@ -101,7 +136,7 @@ class VisionStreamService {
         final now = DateTime.now();
         if (now.difference(_lastVstartAt).inSeconds >= 15) {
           _lastVstartAt = now;
-          _sendTo(_boardIp!, 'VSTART');
+          _sendTo(_boardIp!, _startCmd);
         }
         if (now.difference(_lastFrameAt).inSeconds > 6) {
           statusNotifier.value =
@@ -194,8 +229,8 @@ class VisionStreamService {
             _discovering = false;
             _lastVstartAt = DateTime.now();
             statusNotifier.value = '已连接视觉板 $_boardIp';
-            // 锁定后只发一次VSTART启动推流
-            _sendTo(_boardIp!, 'VSTART');
+            // 锁定后只发一次VSTART启动推流（带当前画质档位参数）
+            _sendTo(_boardIp!, _startCmd);
             return;
           }
         }

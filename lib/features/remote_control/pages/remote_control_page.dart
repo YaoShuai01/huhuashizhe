@@ -482,19 +482,26 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
               },
             ),
           ),
-          // 右上角：暂停/恢复图传
+          // 右上角：画质切换 + 暂停/恢复图传
           Positioned(
             top: 4,
             right: 8,
-            child: ValueListenableBuilder<bool>(
-              valueListenable: _vision.streamingNotifier,
-              builder: (context, streaming, _) {
-                return _buildIconButton(
-                  streaming ? Icons.pause_circle_outline : Icons.play_circle_outline,
-                  streaming ? '暂停图传' : '恢复图传',
-                  () => streaming ? _vision.stop() : _vision.start(),
-                );
-              },
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildProfileButton(),
+                const SizedBox(width: 4),
+                ValueListenableBuilder<bool>(
+                  valueListenable: _vision.streamingNotifier,
+                  builder: (context, streaming, _) {
+                    return _buildIconButton(
+                      streaming ? Icons.pause_circle_outline : Icons.play_circle_outline,
+                      streaming ? '暂停图传' : '恢复图传',
+                      () => streaming ? _vision.stop() : _vision.start(),
+                    );
+                  },
+                ),
+              ],
             ),
           ),
           // 右下角：高清拍照
@@ -509,6 +516,101 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
           ),
         ],
       ),
+    );
+  }
+
+  /// 右上角画质档位按钮（显示当前档位名）
+  Widget _buildProfileButton() {
+    return Material(
+      color: Colors.black45,
+      borderRadius: BorderRadius.circular(6),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: _showProfilePicker,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Text(
+            _vision.profileLabel,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _resLabel(int idx) {
+    const names = ['VGA', 'SVGA', 'XGA', 'HD', 'SXGA', 'UXGA', 'QXGA', 'QSXGA'];
+    return (idx >= 0 && idx < names.length) ? names[idx] : '?';
+  }
+
+  /// 画质档位选择（清晰度与帧率此消彼长，受WiFi带宽限制）
+  void _showProfilePicker() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.grey[900],
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.8,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Text(
+                    '画面画质（分辨率越高越清晰，帧率相应降低）',
+                    style: TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const Divider(color: Colors.grey, height: 1),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    children: List.generate(VisionStreamService.profiles.length, (i) {
+                      final p = VisionStreamService.profiles[i];
+                      final selected = i == _vision.profileIndex;
+                      return ListTile(
+                        dense: true,
+                        leading: Icon(
+                          selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+                          color: selected ? AppColors.primary : Colors.grey,
+                          size: 20,
+                        ),
+                        title: Text(
+                          '${p.$1}   ${_resLabel(p.$2)} · ${p.$3}fps',
+                          style: TextStyle(
+                            color: selected ? AppColors.primary : Colors.white,
+                            fontSize: 13,
+                            fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                          ),
+                        ),
+                        onTap: () {
+                          _vision.setProfile(i);
+                          setState(() {});
+                          Navigator.pop(ctx);
+                        },
+                      );
+                    }),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
