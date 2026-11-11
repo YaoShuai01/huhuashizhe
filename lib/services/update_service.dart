@@ -153,10 +153,12 @@ class UpdateService {
     return fastest;
   }
 
-  /// 下载更新包：并行竞速选出最快通道，失败时再按顺序回退其余通道
+  /// 下载更新包：并行竞速选最快通道 + 断点续传 + 断网自动续传重试
   ///
-  /// 国内直连 github.com 的 release 资源（会跳转到 objects.githubusercontent.com）
-  /// 经常连接超时，因此优先走镜像，最后再回退直连。
+  /// - 半包文件按 release 版本命名（vX.Y.Z_update.apk.part），断网/切后台后
+  ///   再次下载时从已完成的字节续传，不再从头来过
+  /// - 服务器不支持 Range 时自动退回整包下载
+  /// - 全部通道失败时保留 .part 文件供下次续传，APK 下载完成才落地正式文件名
   Future<bool> downloadUpdate(
     String url,
     void Function(int received, int total) onProgress,
@@ -166,46 +168,124 @@ class UpdateService {
     final filePath = '$dir/huhuashizhe_update.apk';
     _downloadPath = filePath;
 
-    // 镜像 + 直连全部候选
+    // 半包按版本命名：不同版本的残留自然失效，同名残留就是可续传的
+    final tagMatch = RegExp(r'/download/(v[\d.]+)/').firstMatch(url);
+    final tag = tagMatch?.group(1) ?? 'unknown';
+    final partPath = '$dir/${tag}_update.apk.part';
+    // 清掉其他版本的过期残留
+    final dirEntity = Directory(dir);
+    if (await dirEntity.exists()) {
+      await for (final e in dirEntity.list()) {
+        if (e is File && e.path.endsWith('.part') && e.path != partPath) {
+          try {
+            await e.delete();
+          } catch (_) {}
+        }
+      }
+    }
+
+    // 镜像 + 直连全部候选，竞速排序
     final all = <String>[
       for (final prefix in _downloadMirrors) '$prefix$url',
       url,
     ];
-
-    // 先竞速挑最快的通道排到最前面，其余保持原顺序作回退
     final fastest = await _probeFastest(all);
     final candidates = fastest == null ? all : [fastest, ...all.where((c) => c != fastest)];
     debugPrint('[Update] 竞速通道: ${fastest ?? '全部探测失败，按原顺序回退'}');
 
     for (var i = 0; i < candidates.length; i++) {
       final source = candidates[i];
-      try {
-        // 清掉上一通道的残留半包，避免拼接成损坏文件
-        final f = File(filePath);
-        if (await f.exists()) await f.delete();
-        onProgress(0, 1); // 重置进度条
-
-        await _dio.download(
-          source,
-          filePath,
-          onReceiveProgress: onProgress,
-          options: Options(
-            receiveTimeout: const Duration(minutes: 10),
-            followRedirects: true,
-          ),
-        );
-
-        final size = await f.length();
-        if (size < 1024 * 1024) {
-          throw Exception('下载文件过小($size 字节)');
+      // 本通道最多重试4次，断点续传从.part接着下
+      for (var attempt = 0; attempt < 4; attempt++) {
+        final part = File(partPath);
+        var base = 0;
+        if (await part.exists()) base = await part.length();
+        if (base > 0) {
+          debugPrint('[Update] 断点续传：已下载 $base 字节（通道${i + 1} 第${attempt + 1}次）');
+          onProgress(base, base); // 先把已有进度显示出来
         }
-        debugPrint('[Update] 下载成功，通道 ${i + 1}/${candidates.length}');
-        return true;
-      } catch (e) {
-        lastError = e.toString();
-        debugPrint('[Update] 通道 ${i + 1}/${candidates.length} 失败: $e');
+
+        IOSink? sink;
+        try {
+          final headers = <String, dynamic>{
+            if (base > 0) 'range': 'bytes=$base-',
+          };
+          final resp = await _dio.get<ResponseBody>(
+            source,
+            options: Options(
+              responseType: ResponseType.stream,
+              headers: headers,
+              receiveTimeout: const Duration(seconds: 30), // 数据块间隔超时即断流
+              followRedirects: true,
+              // 416=范围超出文件末尾（可能已下完），单独处理
+              validateStatus: (s) => s != null && (s == 200 || s == 206 || s == 416),
+            ),
+          );
+
+          final status = resp.statusCode ?? 0;
+          if (status == 416) {
+            // 服务器认为范围不对：如果文件大小合理，视为已下载完成
+            final size = await part.length();
+            if (size > 1024 * 1024) {
+              await part.rename(filePath);
+              debugPrint('[Update] Range 416，按已完整处理（$size 字节）');
+              return true;
+            }
+            // 残留异常，删掉从头下
+            await part.delete();
+            base = 0;
+            continue;
+          }
+
+          // 206=断点续传成功；200=服务器不支持Range，必须从头写
+          final resumed = status == 206 && base > 0;
+          if (!resumed && base > 0) {
+            debugPrint('[Update] 服务器不支持断点，从头下载');
+            onProgress(0, 1);
+          }
+          final startAt = resumed ? base : 0;
+
+          final remoteTotal =
+              int.tryParse(resp.headers.value('content-length') ?? '') ?? 0;
+          final grandTotal = remoteTotal > 0 ? startAt + remoteTotal : 0;
+
+          sink = part.openWrite(mode: resumed ? FileMode.append : FileMode.write);
+          var received = 0;
+          await for (final chunk in resp.data!.stream) {
+            sink.add(chunk);
+            received += chunk.length;
+            if (grandTotal > 0) {
+              onProgress(startAt + received, grandTotal);
+            }
+          }
+          await sink.flush();
+          await sink.close();
+          sink = null;
+
+          final size = await part.length();
+          if (size < 1024 * 1024) {
+            throw Exception('下载文件过小($size 字节)');
+          }
+          // 完成：半包转正
+          await part.rename(filePath);
+          debugPrint('[Update] 下载完成（${resumed ? '含续传' : '整包'}，$size 字节，通道${i + 1}）');
+          return true;
+        } on DioException catch (e) {
+          lastError = e.message ?? e.toString();
+          debugPrint('[Update] 下载中断(${e.type})，.part已保留待续传');
+          await Future.delayed(Duration(seconds: 1 + attempt));
+          // 循环继续：重新计算.part长度续传
+        } catch (e) {
+          lastError = e.toString();
+          debugPrint('[Update] 通道${i + 1}失败: $e');
+          break; // 非网络错误，换下一个通道
+        } finally {
+          await sink?.flush();
+          await sink?.close();
+        }
       }
     }
+    // 全部失败：保留.part，下次进入下载时自动续传
     return false;
   }
 

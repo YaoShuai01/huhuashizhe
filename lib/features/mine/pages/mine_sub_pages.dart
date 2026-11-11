@@ -783,6 +783,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.7.4',
+        'date': '2026-11-11',
+        'content': [
+          '修复更新弹窗叠加：切后台/下拉控制中心再回来不再重复弹窗，点一次即可关闭',
+          '更新下载支持断点续传：断网/中断后从已完成进度接着下，不再从头来；半包按版本管理自动清理',
+          '图传诊断增强：连接后仍无画面时显示明确的验证指引',
+        ],
+      },
+      {
         'version': 'v2.7.3',
         'date': '2026-11-11',
         'content': [
