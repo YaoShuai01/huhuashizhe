@@ -783,6 +783,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.7.5',
+        'date': '2026-11-11',
+        'content': [
+          '图传画质大幅提升：默认由 XGA 提升至 720p，新增流畅/均衡/高清三档画质切换',
+          '修复实际帧率远低于设定值：收包循环改为单次事件读空缓冲区，避免高码率下分段丢失导致整帧被弃',
+          '高清档 1600x1200，用于病虫害识别细节观察；需要五百万像素细节请用右下角拍照按钮抓单帧',
+        ],
+      },
+      {
         'version': 'v2.7.4',
         'date': '2026-11-11',
         'content': [
