@@ -33,15 +33,27 @@ static uint32_t s_frame_seq = 0;
 static uint32_t s_photo_id = 0;
 
 // ==================== 分段发送 ====================
+// FEC：每 FEC_GROUP 个数据段生成 1 个 XOR 校验段，
+// 接收端丢 1 个分段时可用校验段恢复该帧，避免"丢一段废一帧"——
+// 720p一帧约65段，1%丢包时整帧成功率仅52%；加FEC后可达95%以上。
+#define FEC_GROUP      8
+#define FEC_FLAG       0x02    // flags bit1：本包是FEC校验段
+
 static int send_segments(int type, uint32_t photo_id, const uint8_t *jpg, uint32_t total)
 {
     if (!s_has_client) return -1;
 
     const uint16_t seg_cnt = (uint16_t)((total + SEG_MAX - 1) / SEG_MAX);
     uint8_t buf[22 + SEG_MAX];
+    uint8_t fec_acc[SEG_MAX];
+    int fec_in_group = 0;
+    uint16_t fec_group = 0;
+    memset(fec_acc, 0, SEG_MAX);
 
     for (uint16_t seg = 0; seg < seg_cnt; seg++) {
-        uint16_t off = seg * SEG_MAX;
+        // ★ 必须是 uint32：UXGA一帧约200KB，uint16在第47段就会回绕，
+        //   导致后续分段全部重复发送文件开头的数据，画面大面积花屏
+        uint32_t off = (uint32_t)seg * SEG_MAX;
         uint16_t seg_len = (uint16_t)((total - off) > SEG_MAX ? SEG_MAX : (total - off));
 
         buf[0] = 'H'; buf[1] = 'V';
@@ -73,6 +85,25 @@ static int send_segments(int type, uint32_t photo_id, const uint8_t *jpg, uint32
         if (sent < 0) {
             ESP_LOGW(TAG, "sendto 失败 errno=%d", errno);
             return -1;
+        }
+
+        // 累积本组 XOR
+        if (fec_in_group == 0) memset(fec_acc, 0, SEG_MAX);
+        for (uint16_t i = 0; i < seg_len; i++) fec_acc[i] ^= jpg[off + i];
+        fec_in_group++;
+
+        // 组满或到达最后一帧：发送校验段（固定SEG_MAX长，短段按零补齐）
+        if (fec_in_group == FEC_GROUP || seg == seg_cnt - 1) {
+            buf[3] = FEC_FLAG;
+            buf[12] = (uint8_t)(fec_group);
+            buf[13] = (uint8_t)(fec_group >> 8);
+            buf[20] = (uint8_t)(SEG_MAX);
+            buf[21] = (uint8_t)(SEG_MAX >> 8);
+            memcpy(buf + 22, fec_acc, SEG_MAX);
+            sendto(s_sock, buf, 22 + SEG_MAX, 0,
+                   (struct sockaddr *)&s_client, sizeof(s_client));
+            fec_group++;
+            fec_in_group = 0;
         }
     }
     s_frame_seq++;

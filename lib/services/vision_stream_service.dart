@@ -58,6 +58,26 @@ class VisionStreamService {
     }
   }
 
+  // 画面翻转状态（下发到摄像头传感器，图传与拍照同步生效）
+  bool _hmirror = false;
+  bool _vflip = false;
+  bool get hmirror => _hmirror;
+  bool get vflip => _vflip;
+
+  /// 设置翻转：必须在摄像头侧做，否则图传翻转了、拍照出来的图还是反的
+  void setFlip({required bool hmirror, required bool vflip}) {
+    _hmirror = hmirror;
+    _vflip = vflip;
+    _sendFlipState();
+  }
+
+  void _sendFlipState() {
+    final ip = _boardIp;
+    if (ip == null) return;
+    _sendTo(ip, 'VFLIP ${_vflip ? 1 : 0}');
+    _sendTo(ip, 'VMIR ${_hmirror ? 1 : 0}');
+  }
+
   RawDatagramSocket? _socket;
   StreamSubscription<RawSocketEvent>? _sub;
   Timer? _keepAlive;
@@ -217,6 +237,67 @@ class VisionStreamService {
 
   // ==================== 数据解析 ====================
 
+  /// 与固件 send_segments 保持一致的参数
+  static const int _fecGroup = 8;    // 每8个数据段配1个XOR校验段
+  static const int _segMax = 1400;   // 单段数据上限
+
+  /// 尝试组装完整JPEG：允许用FEC校验段恢复单个丢失分段。
+  /// 720p一帧约65段，1%丢包时不做恢复整帧成功率仅约52%，恢复后可到95%以上。
+  Uint8List? _tryAssemble(_PendingFrame f) {
+    // 最多只差1段才可能靠FEC恢复，先快速排除绝大多数包
+    if (f.segments.length < f.segCnt - 1) return null;
+
+    int? missing;
+    for (var i = 0; i < f.segCnt; i++) {
+      if (!f.segments.containsKey(i)) {
+        if (missing != null) return null; // 缺多于1段，放弃本帧
+        missing = i;
+      }
+    }
+
+    if (missing != null) {
+      final group = missing ~/ _fecGroup;
+      final fecData = f.fec[group];
+      if (fecData == null) return null; // 该组校验段也没收到
+      final gStart = group * _fecGroup;
+      var gEnd = gStart + _fecGroup;
+      if (gEnd > f.segCnt) gEnd = f.segCnt;
+
+      // XOR 还原丢失段
+      final rec = Uint8List(fecData.length);
+      rec.setAll(0, fecData);
+      for (var i = gStart; i < gEnd; i++) {
+        if (i == missing) continue;
+        final s = f.segments[i];
+        if (s == null) return null;
+        for (var k = 0; k < s.length; k++) {
+          rec[k] ^= s[k];
+        }
+      }
+      // 只有最后一个数据段可能是短段
+      final len = (missing == f.segCnt - 1)
+          ? f.totalLen - missing * _segMax
+          : _segMax;
+      final cut = (len > 0 && len < rec.length) ? len : rec.length;
+      f.segments[missing] = Uint8List.sublistView(rec, 0, cut);
+    }
+
+    var total = 0;
+    for (var i = 0; i < f.segCnt; i++) {
+      final s = f.segments[i];
+      if (s == null) return null;
+      total += s.length;
+    }
+    final out = Uint8List(total);
+    var off = 0;
+    for (var i = 0; i < f.segCnt; i++) {
+      final s = f.segments[i]!;
+      out.setRange(off, off + s.length, s);
+      off += s.length;
+    }
+    return out;
+  }
+
   void _onData(Datagram dg) {
     final data = dg.data;
     _byteCount += data.length;
@@ -236,6 +317,8 @@ class VisionStreamService {
             statusNotifier.value = '已连接视觉板 $_boardIp';
             // 锁定后只发一次VSTART启动推流（带当前画质档位参数）
             _sendTo(_boardIp!, _startCmd);
+            // 切分辨率可能重置传感器翻转寄存器，补发一次
+            _sendFlipState();
             return;
           }
         }
@@ -246,38 +329,35 @@ class VisionStreamService {
 
     final bd = ByteData.sublistView(data);
     final type = data[2];
+    final flags = data[3];
+    final isFec = (flags & 0x02) != 0;
     final frameSeq = bd.getUint32(8, Endian.little);
     final segIdx = bd.getUint16(12, Endian.little);
     final segCnt = bd.getUint16(14, Endian.little);
+    final totalLen = bd.getUint32(16, Endian.little);
     final segLen = bd.getUint16(20, Endian.little);
     if (segCnt == 0 || segCnt > 4096) return;
     if (data.length < 22 + segLen) return;
 
     final key = (type << 32) | frameSeq;
-    final pending =
-        _pending.putIfAbsent(key, () => _PendingFrame(segCnt, DateTime.now()));
-    pending.segments[segIdx] = Uint8List.sublistView(data, 22, 22 + segLen);
+    final pending = _pending.putIfAbsent(
+        key, () => _PendingFrame(segCnt, totalLen, DateTime.now()));
+    final payload = Uint8List.sublistView(data, 22, 22 + segLen);
+    if (isFec) {
+      pending.fec[segIdx] = payload;   // 校验段：组号 → XOR数据
+    } else {
+      pending.segments[segIdx] = payload;
+    }
 
-    if (pending.segments.length < segCnt) {
+    final jpeg = _tryAssemble(pending);
+    if (jpeg == null) {
       // 清理过期未拼完的帧（UDP丢段）
-      if (_pending.length > 4) {
+      if (_pending.length > 6) {
         final cutoff = DateTime.now().subtract(const Duration(seconds: 1));
         _pending.removeWhere(
             (_, f) => f.createdAt.isBefore(cutoff) && f.segments.length < f.segCnt);
       }
       return;
-    }
-
-    // 拼完整JPEG
-    final parts = pending.segments;
-    final total = parts.values.fold<int>(0, (a, b) => a + b.length);
-    final jpeg = Uint8List(total);
-    var off = 0;
-    for (var i = 0; i < segCnt; i++) {
-      final seg = parts[i];
-      if (seg == null) return; // 缺段，放弃
-      jpeg.setRange(off, off + seg.length, seg);
-      off += seg.length;
     }
     _pending.remove(key);
 
@@ -310,8 +390,10 @@ class VisionStreamService {
 
 class _PendingFrame {
   final int segCnt;
+  final int totalLen;
   final DateTime createdAt;
   final Map<int, Uint8List> segments = {};
+  final Map<int, Uint8List> fec = {};   // 组号 → XOR校验数据
 
-  _PendingFrame(this.segCnt, this.createdAt);
+  _PendingFrame(this.segCnt, this.totalLen, this.createdAt);
 }

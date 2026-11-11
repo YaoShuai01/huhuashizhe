@@ -445,26 +445,18 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
                   ),
                 );
               }
-              // 解码时直接降采样到显示尺寸：720p全尺寸解码每帧要20-30ms，
-              // 降采样后CPU和内存带宽开销大幅下降，可渲染帧率明显提升
+              // 翻转由摄像头侧完成（固件 VFLIP/VMIR），保证图传画面与拍照结果一致。
+              // 这里只做解码降采样：720p全尺寸解码每帧20-30ms，降采样后帧率明显提升
               return LayoutBuilder(
                 builder: (context, constraints) {
                   final dpr = MediaQuery.of(context).devicePixelRatio;
                   final targetW =
                       (constraints.maxWidth * dpr).round().clamp(320, 1920);
-                  return Transform(
-                    alignment: Alignment.center,
-                    transform: Matrix4.diagonal3Values(
-                      _flipH ? -1.0 : 1.0,
-                      _flipV ? -1.0 : 1.0,
-                      1.0,
-                    ),
-                    child: Image.memory(
-                      frame,
-                      fit: BoxFit.contain,
-                      gaplessPlayback: true,
-                      cacheWidth: targetW,
-                    ),
+                  return Image.memory(
+                    frame,
+                    fit: BoxFit.contain,
+                    gaplessPlayback: true,
+                    cacheWidth: targetW,
                   );
                 },
               );
@@ -513,14 +505,22 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
                 _buildIconButton(
                   Icons.swap_horiz,
                   '水平翻转',
-                  () => setState(() => _flipH = !_flipH),
+                  () {
+                    final v = !_flipH;
+                    setState(() => _flipH = v);
+                    _vision.setFlip(hmirror: v, vflip: _flipV);
+                  },
                   active: _flipH,
                 ),
                 const SizedBox(width: 4),
                 _buildIconButton(
                   Icons.swap_vert,
                   '垂直翻转',
-                  () => setState(() => _flipV = !_flipV),
+                  () {
+                    final v = !_flipV;
+                    setState(() => _flipV = v);
+                    _vision.setFlip(hmirror: _flipH, vflip: v);
+                  },
                   active: _flipV,
                 ),
               ],

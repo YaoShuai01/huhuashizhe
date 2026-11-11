@@ -135,7 +135,16 @@ int cam_set_stream_res(int res_idx)
     clamp_stream_res();
 
     sensor_t *s = esp_camera_sensor_get();
-    if (s) s->set_framesize(s, k_cam_res[s_stream_res].fs);
+    if (s) {
+        // ★ set_framesize 内部会重置传感器的 flip/mirror 寄存器，
+        //   必须先保存再恢复，否则切换分辨率/拍照后画面翻转就丢了，
+        //   会出现"图传翻转了但拍照没翻转"的不一致
+        const int vf = s->status.vflip;
+        const int hm = s->status.hmirror;
+        s->set_framesize(s, k_cam_res[s_stream_res].fs);
+        s->set_vflip(s, vf);
+        s->set_hmirror(s, hm);
+    }
     ESP_LOGI(TAG, "推流分辨率 → %s", k_cam_res[s_stream_res].name);
     return s_stream_res;
 }
