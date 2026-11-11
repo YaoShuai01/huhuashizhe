@@ -88,6 +88,15 @@ esp_err_t vision_wifi_start(void)
     ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));   // 关省电：修复与飞控softAP周期掉线
     ESP_ERROR_CHECK(esp_wifi_start());
 
+    // ★ STA 侧也申请 40MHz：飞控AP已改HT40，但 ESP32 STA 默认只协商HT20，
+    //   不显式设置的话图传吞吐仍被限制在一半。AP不支持时会自动退回HT20。
+    esp_err_t bw_err = esp_wifi_set_bandwidth(WIFI_IF_STA, WIFI_BW_HT40);
+    if (bw_err != ESP_OK) {
+        ESP_LOGW(TAG, "STA侧HT40申请失败(0x%x)，使用HT20", bw_err);
+    } else {
+        ESP_LOGI(TAG, "STA带宽已申请HT40(40MHz)");
+    }
+
     // 改 AP 网段为 192.168.5.x
     esp_netif_dhcps_stop(ap_netif);
     esp_netif_ip_info_t ip = { 0 };
