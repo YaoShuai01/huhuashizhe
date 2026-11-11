@@ -32,9 +32,9 @@ class VisionStreamService {
   /// q: JPEG质量，数字越小越清晰（码率随之升高）
   /// 三档码率都控制在WiFi UDP可承载范围（约1MB/s），取舍在清晰度与帧率
   static const List<(String, int, int, int)> profiles = [
-    ('流畅', 2, 20, 14),   // XGA 20fps：帧率优先，操控跟手
-    ('均衡', 3, 12, 9),    // HD 720p 12fps：画质与流畅兼顾
-    ('高清', 5, 6, 8),     // UXGA 1600x1200 6fps：细节优先，用于病虫害识别
+    ('流畅', 2, 25, 15),   // XGA 25fps：帧率优先，操控跟手
+    ('均衡', 3, 15, 10),   // HD 720p 15fps：画质与流畅兼顾
+    ('高清', 5, 8, 9),     // UXGA 1600x1200 8fps：细节优先，用于病虫害识别
   ];
 
   /// 当前档位（默认均衡）
@@ -76,11 +76,14 @@ class VisionStreamService {
 
   final ValueNotifier<String> statusNotifier = ValueNotifier('未启动');
   final ValueNotifier<int> fpsNotifier = ValueNotifier(0);
+  /// 实时接收码率（KB/s），用于判断链路是否被码头堵塞
+  final ValueNotifier<int> kbpsNotifier = ValueNotifier(0);
   final ValueNotifier<Uint8List?> frameNotifier = ValueNotifier(null);
   final ValueNotifier<Uint8List?> photoNotifier = ValueNotifier(null);
   final ValueNotifier<bool> streamingNotifier = ValueNotifier(false);
 
   int _fpsCount = 0;
+  int _byteCount = 0;
   DateTime _fpsT0 = DateTime.now();
 
   bool get streaming => streamingNotifier.value;
@@ -206,6 +209,7 @@ class VisionStreamService {
     _socket?.close();
     statusNotifier.dispose();
     fpsNotifier.dispose();
+    kbpsNotifier.dispose();
     frameNotifier.dispose();
     photoNotifier.dispose();
     streamingNotifier.dispose();
@@ -215,6 +219,7 @@ class VisionStreamService {
 
   void _onData(Datagram dg) {
     final data = dg.data;
+    _byteCount += data.length;
     if (data.length < 22 || data[0] != 0x48 || data[1] != 0x56) {
       // 非帧数据：板子的文本应答（VOK/VERR开头）
       final text = utf8.decode(data, allowMalformed: true).trim();
@@ -288,8 +293,11 @@ class VisionStreamService {
       _fpsCount++;
       final now = DateTime.now();
       if (now.difference(_fpsT0).inMilliseconds >= 1000) {
-        fpsNotifier.value = (_fpsCount * 1000 / now.difference(_fpsT0).inMilliseconds).round();
+        final ms = now.difference(_fpsT0).inMilliseconds;
+        fpsNotifier.value = (_fpsCount * 1000 / ms).round();
+        kbpsNotifier.value = (_byteCount * 1000 / ms / 1024).round();
         _fpsCount = 0;
+        _byteCount = 0;
         _fpsT0 = now;
       }
       statusNotifier.value = '图传中';

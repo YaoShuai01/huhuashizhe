@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "freertos/queue.h"
 #include "esp_log.h"
 #include "esp_timer.h"
 #include "esp_psram.h"
@@ -78,32 +79,61 @@ static int send_segments(int type, uint32_t photo_id, const uint8_t *jpg, uint32
     return 0;
 }
 
-// ==================== 推流任务 ====================
-static void stream_task(void *pv)
+// ==================== 采集/发送流水线 ====================
+// 采集与发送拆成两个任务：采集完立即把帧投递到队列去采下一帧，
+// 发送任务并行把上一帧发出去。
+// 原来单任务串行"采集→发完几十个包→再采集"，发送耗时全部串进帧周期，
+// 是实际帧率只有设定值一半左右的核心原因。
+#define FB_QUEUE_LEN 2
+static QueueHandle_t s_fb_q = NULL;
+
+static void capture_task(void *pv)
 {
     while (1) {
-        if (!s_streaming) {
-            vTaskDelay(pdMS_TO_TICKS(100));
+        if (!s_streaming || !s_has_client) {
+            vTaskDelay(pdMS_TO_TICKS(50));
             continue;
         }
 
         int64_t t0 = esp_timer_get_time();
         camera_fb_t *fb = cam_capture();
         if (!fb) {
-            vTaskDelay(pdMS_TO_TICKS(100));
+            vTaskDelay(pdMS_TO_TICKS(10));
             continue;
         }
 
-        if (fb->format == PIXFORMAT_JPEG && s_has_client) {
-            send_segments(FRAME_TYPE_STREAM, 0, fb->buf, fb->len);
+        // 队列满说明网络发不出去：直接丢这帧，避免延迟越积越大
+        if (xQueueSend(s_fb_q, &fb, 0) != pdTRUE) {
+            cam_release(fb);
         }
-        cam_release(fb);
 
-        // 按 fps 定拍，采集/发送耗时计入间隔
+        // 按 fps 定拍，采集耗时计入间隔
         int interval_ms = 1000 / cam_get_fps();
         int elapsed_ms = (int)((esp_timer_get_time() - t0) / 1000);
         int remain = interval_ms - elapsed_ms;
         if (remain > 0) vTaskDelay(pdMS_TO_TICKS(remain));
+    }
+}
+
+static void send_task(void *pv)
+{
+    camera_fb_t *fb = NULL;
+    while (1) {
+        if (xQueueReceive(s_fb_q, &fb, pdMS_TO_TICKS(200)) == pdTRUE && fb) {
+            send_segments(FRAME_TYPE_STREAM, 0, fb->buf, fb->len);
+            cam_release(fb);
+            fb = NULL;
+        }
+    }
+}
+
+/// 清空待发送队列，把帧缓冲立即还给摄像头（拍照/切档前调用）
+static void drain_fb_queue(void)
+{
+    camera_fb_t *stale = NULL;
+    while (s_fb_q && xQueueReceive(s_fb_q, &stale, 0) == pdTRUE) {
+        if (stale) cam_release(stale);
+        stale = NULL;
     }
 }
 
@@ -124,6 +154,7 @@ static void do_snapshot(int res_idx)
     s_streaming = false;                    // 拍照期间暂停推流，释放帧缓冲
 
     vTaskDelay(pdMS_TO_TICKS(150));         // 等上一帧归还
+    drain_fb_queue();                       // 丢弃队列里未发的帧，腾出帧缓冲
     cam_set_stream_res(res_idx);
 
     int64_t t0 = esp_timer_get_time();
@@ -164,9 +195,13 @@ static void handle_command(char *cmd, int len)
         int n = sscanf(cmd, "VSTART %d %d %d", &res, &fps, &q);
         if (n >= 1) {
             if (res < 0 || res >= k_cam_res_count) res = 2;
-            if (fps < 2 || fps > 20) fps = 12;
+            if (fps < 2 || fps > 30) fps = 12;   // 上限30fps（VGA/XGA可跑到）
             if (q < 6 || q > 25) q = 12;
         }
+        // 切分辨率会重启传感器PLL：先停采、清空队列，再改配置
+        s_streaming = false;
+        vTaskDelay(pdMS_TO_TICKS(80));
+        drain_fb_queue();
         cam_set_stream_res(res);
         cam_set_stream_params(fps, q);
         s_streaming = true;
@@ -261,7 +296,15 @@ static void udp_server_task(void *pv)
 
 esp_err_t vision_udp_start(void)
 {
-    if (xTaskCreate(stream_task, "vstream", 8192, NULL, 5, NULL) != pdPASS ||
+    s_fb_q = xQueueCreate(FB_QUEUE_LEN, sizeof(camera_fb_t *));
+    if (!s_fb_q) {
+        ESP_LOGE(TAG, "帧队列创建失败");
+        return ESP_FAIL;
+    }
+
+    // 采集固定核1（JPEG编码吃CPU），发送固定核0（贴近WiFi任务），双核并行
+    if (xTaskCreatePinnedToCore(capture_task, "vcapture", 4096, NULL, 5, NULL, 1) != pdPASS ||
+        xTaskCreatePinnedToCore(send_task, "vsend", 8192, NULL, 6, NULL, 0) != pdPASS ||
         xTaskCreate(udp_server_task, "vudp", 8192, NULL, 5, NULL) != pdPASS) {
         return ESP_FAIL;
     }
