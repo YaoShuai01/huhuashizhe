@@ -16,7 +16,8 @@
 
 static const char *TAG = "VUDP";
 
-#define SEG_MAX        48000   // 单段payload上限
+#define SEG_MAX        1400    // 单段payload上限（≤MTU，避免IP分片：
+                               // 48KB大包要切30+个IP分片，任一分片丢失整帧皆失）
 #define RX_BUF_SIZE    128
 #define SEND_FLAG_START 0x01
 
@@ -72,8 +73,6 @@ static int send_segments(int type, uint32_t photo_id, const uint8_t *jpg, uint32
             ESP_LOGW(TAG, "sendto 失败 errno=%d", errno);
             return -1;
         }
-        // 大包分片时给协议栈喘息时间，避免网卡缓冲溢出丢段
-        if (seg_cnt > 1) vTaskDelay(pdMS_TO_TICKS(2));
     }
     s_frame_seq++;
     return 0;

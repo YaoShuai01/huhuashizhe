@@ -52,6 +52,11 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
         state.status == UpdateStatus.downloaded) {
       return;
     }
+    // 已经提示过有新版本时不要重复检测：
+    // 回前台/切后台再回来会触发重查，否则每次都会再叠一个更新弹窗
+    if (state.status == UpdateStatus.updateAvailable) {
+      return;
+    }
     state = state.copyWith(status: UpdateStatus.checking);
     final service = ref.read(updateServiceProvider);
     final (result, info) = await service.checkForUpdate();

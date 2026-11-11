@@ -34,10 +34,11 @@ class VisionStreamService {
   // 发现状态
   int _sweepIdx = 0;
   bool _discovering = true;
-  String? _boardIp;          // 已锁定的视觉板地址
-  String? _lastSentTarget;   // 最近一次单播探测的目标（用于应答配对）
+  bool _everGotFrame = false; // 本次连接后是否收到过画面
+  String? _boardIp;           // 已锁定的视觉板地址
+  String? _lastSentTarget;    // 最近一次单播探测的目标（用于应答配对）
   DateTime _lastFrameAt = DateTime.now();
-  DateTime _lastSignal = DateTime.now(); // 最后一次收到应答或画面
+  DateTime _lastVstartAt = DateTime.now(); // 最近一次发VSTART（防频发）
 
   // 分帧重组缓冲：key = frame_seq
   final Map<int, _PendingFrame> _pending = {};
@@ -66,8 +67,9 @@ class VisionStreamService {
       }
     });
     _discovering = true;
+    _everGotFrame = false;
     _sweepIdx = 0;
-    _lastSignal = DateTime.now();
+    _lastFrameAt = DateTime.now();
     streamingNotifier.value = true;
     statusNotifier.value = '正在搜索视觉板...';
     _keepAlive?.cancel();
@@ -86,12 +88,24 @@ class VisionStreamService {
         final lastOctet = target.split('.').last;
         statusNotifier.value = '正在搜索视觉板(.$lastOctet)...';
         _sendTo(target, 'VINFO');
-      } else {
-        // 已锁定：板子会持续推流，无需周期命令；9秒无任何信号才重新搜索
-        if (DateTime.now().difference(_lastSignal).inSeconds > 9) {
+      } else if (_everGotFrame) {
+        // 之前出过画面：断流9秒重新搜索（板子可能掉线重连换了IP）
+        if (DateTime.now().difference(_lastFrameAt).inSeconds > 9) {
           _discovering = true;
           _sweepIdx = 0;
           statusNotifier.value = '画面中断，重新搜索视觉板...';
+        }
+      } else {
+        // 从未出过画面：板子应答正常，但帧没到达（大包传输受阻或摄像头无输出）
+        // 每15秒单次重试VSTART（VSTART有重配传感器副作用，严禁频发）
+        final now = DateTime.now();
+        if (now.difference(_lastVstartAt).inSeconds >= 15) {
+          _lastVstartAt = now;
+          _sendTo(_boardIp!, 'VSTART');
+        }
+        if (now.difference(_lastFrameAt).inSeconds > 6) {
+          statusNotifier.value =
+              '板子已应答但画面未到达\n用手机浏览器打开 http://$_boardIp/stream 验证';
         }
       }
     });
@@ -170,7 +184,6 @@ class VisionStreamService {
       // 非帧数据：板子的文本应答（VOK/VERR开头）
       final text = utf8.decode(data, allowMalformed: true).trim();
       if (text.startsWith('VOK') || text.startsWith('VERR')) {
-        _lastSignal = DateTime.now();
         // VINFO应答带有板子IP，直接精确锁定（比来源配对更可靠）
         final ipMatch =
             RegExp(r'ip=(\d+\.\d+\.\d+\.\d+)').firstMatch(text);
@@ -179,6 +192,7 @@ class VisionStreamService {
           if (lockedIp != null) {
             _boardIp = lockedIp;
             _discovering = false;
+            _lastVstartAt = DateTime.now();
             statusNotifier.value = '已连接视觉板 $_boardIp';
             // 锁定后只发一次VSTART启动推流
             _sendTo(_boardIp!, 'VSTART');
@@ -233,8 +247,8 @@ class VisionStreamService {
         _boardIp = _lastSentTarget;
         _discovering = false;
       }
+      _everGotFrame = true;
       _lastFrameAt = DateTime.now();
-      _lastSignal = _lastFrameAt;
       frameNotifier.value = jpeg;
       _fpsCount++;
       final now = DateTime.now();
@@ -245,7 +259,6 @@ class VisionStreamService {
       }
       statusNotifier.value = '图传中';
     } else if (type == 2) {
-      _lastSignal = DateTime.now();
       photoNotifier.value = jpeg;
       statusNotifier.value = '照片已接收';
     }

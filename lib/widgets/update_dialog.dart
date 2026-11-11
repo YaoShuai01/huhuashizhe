@@ -7,12 +7,17 @@ import '../providers/update_provider.dart';
 class UpdateDialog extends ConsumerWidget {
   const UpdateDialog({super.key});
 
+  /// 防止重复弹窗叠加（回前台重查时旧弹窗还在）
+  static bool _showing = false;
+
   static Future<void> show(BuildContext context) {
+    if (_showing) return Future.value();
+    _showing = true;
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (_) => const UpdateDialog(),
-    );
+    ).whenComplete(() => _showing = false);
   }
 
   @override
