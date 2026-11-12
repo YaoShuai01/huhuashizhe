@@ -51,6 +51,10 @@ app.*.map.json
 **/ios/*.xcworkspace
 **/ios/*.xcodeproj/project.xcworkspace/
 
+# ESP-IDF build output
+esp32_drone/build/
+esp32_vision/build/
+
 # Built outputs (large files)
 *.apk
 *.ipa
