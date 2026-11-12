@@ -1,2 +1,11 @@
 idf_component_register(SRCS "main.c"
+                            "drone_types.h"
+                            "prm_params.c"
+                            "drv_mpu6050.c"
+                            "est_attitude.c"
+                            "mix_mixer.c"
+                            "ctl_controller.c"
+                            "out_pwm.c"
+                            "rc_udp.c"
+                            "cmd_commander.c"
                     INCLUDE_DIRS ".")
