@@ -151,12 +151,20 @@ static void imu_task(void *arg)
         if (rd == ESP_OK) {
             fail_cnt = 0;
             // LSB → 物理量（读函数已扣除标定偏移）
-            imu.ax = (float)accel[0] * MPU6050_ACCEL_SCALE;
-            imu.ay = (float)accel[1] * MPU6050_ACCEL_SCALE;
-            imu.az = (float)accel[2] * MPU6050_ACCEL_SCALE;
-            imu.gx = (float)gyro[0] * MPU6050_GYRO_SCALE * DEG_TO_RAD;
-            imu.gy = (float)gyro[1] * MPU6050_GYRO_SCALE * DEG_TO_RAD;
-            imu.gz = (float)gyro[2] * MPU6050_GYRO_SCALE * DEG_TO_RAD;
+            // MPU6050 安装方向：X 箭头朝机身左侧，Y 箭头朝机尾，芯片朝上。
+            // 旋回机体系：前 = -Y，左 = +X，上 = +Z，即绕 Z 轴 +90°。
+            float ax = -(float)accel[1] * MPU6050_ACCEL_SCALE;
+            float ay =  (float)accel[0] * MPU6050_ACCEL_SCALE;
+            float az =  (float)accel[2] * MPU6050_ACCEL_SCALE;
+            float gx = -(float)gyro[1] * MPU6050_GYRO_SCALE * DEG_TO_RAD;
+            float gy =  (float)gyro[0] * MPU6050_GYRO_SCALE * DEG_TO_RAD;
+            float gz =  (float)gyro[2] * MPU6050_GYRO_SCALE * DEG_TO_RAD;
+            imu.ax = ax;
+            imu.ay = ay;
+            imu.az = az;
+            imu.gx = gx;
+            imu.gy = gy;
+            imu.gz = gz;
             imu.valid = true;
         } else {
             fail_cnt++;
