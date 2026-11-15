@@ -6,6 +6,8 @@ import '../../../core/theme/app_theme.dart';
 import '../../../services/drone_udp_service.dart';
 import '../../../services/vision_stream_service.dart';
 import '../widgets/drone_joystick.dart';
+import '../widgets/vertical_throttle.dart';
+import '../widgets/yaw_joystick.dart';
 
 class RemoteControlPage extends StatefulWidget {
   const RemoteControlPage({super.key});
@@ -21,6 +23,7 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
   Uint8List? _lastPhoto;
   bool _flipH = false;   // 画面水平翻转
   bool _flipV = false;   // 画面垂直翻转
+  int _throttleValue = 0; // 竖向油门 0~100%
 
   @override
   void initState() {
@@ -269,14 +272,14 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
                         const SizedBox(width: 4),
                         // 监控画面（居中）
                         Expanded(
-                          flex: 7,
+                          flex: 6,
                           child: _buildCameraView(),
                         ),
                         const SizedBox(width: 4),
-                        // 右摇杆：油门(上下, sticky) / 偏航(旋转, 回中)
+                        // 右侧：偏航摇杆 + 竖向油门
                         Expanded(
-                          flex: 4,
-                          child: _buildRightJoystick(joystickSize),
+                          flex: 5,
+                          child: _buildRightControls(),
                         ),
                       ],
                     ),
@@ -365,28 +368,32 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
     );
   }
 
-  // ========== 右摇杆：油门(上下, sticky) / 偏航(旋转, 回中) ==========
-  Widget _buildRightJoystick(double size) {
+  // ========== 右侧：独立偏航摇杆(只左右, 回中) + 竖向油门滑杆 ==========
+  Widget _buildRightControls() {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        const Text('油门 / 旋转', style: TextStyle(fontSize: 11, color: Colors.white54)),
+        const Text('左旋 / 右旋', style: TextStyle(fontSize: 11, color: Colors.white54)),
         const SizedBox(height: 4),
-        DroneJoystick(
-          size: size,
-          color: AppColors.accent,
-          stickyY: true, // 油门轴松手保持位置
-          onChanged: (x, y) {
-            _udp.setYaw(x.round());       // X = 偏航 = 旋转
-            _udp.setThrottle(y.round());  // Y = 油门 = 上下
-          },
-          onReleased: () {
-            _udp.setYaw(0); // 偏航回中，油门保持
-          },
+        YawJoystick(
+          width: 150,
+          height: 64,
+          onChanged: (v) => _udp.setYaw(v),
+          onReleased: () => _udp.setYaw(0),
         ),
-        const SizedBox(height: 4),
+        const SizedBox(height: 8),
+        Expanded(
+          child: VerticalThrottle(
+            value: _throttleValue,
+            onChanged: (v) {
+              setState(() => _throttleValue = v);
+              _udp.setThrottle(v);
+            },
+          ),
+        ),
+        const SizedBox(height: 2),
         Text(
-          'T:${_udp.throttle.toString().padLeft(3)} Y:${_udp.yaw.toString().padLeft(3)}',
+          'Y:${_udp.yaw.toString().padLeft(3)} T:${_throttleValue.toString().padLeft(3)}',
           style: const TextStyle(fontSize: 10, color: Colors.white38, fontFamily: 'monospace'),
         ),
       ],
@@ -690,6 +697,8 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
             child: ElevatedButton(
               onPressed: () {
                 _udp.toggleArmed();
+                _udp.setThrottle(0);
+                _throttleValue = 0;
                 setState(() {});
               },
               style: ElevatedButton.styleFrom(
@@ -705,68 +714,54 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
             ),
           ),
           const SizedBox(width: 8),
-          // 飞行状态显示
+          // 解锁状态显示
           Expanded(
-            child: ValueListenableBuilder<FlightState>(
-              valueListenable: _udp.flightStateNotifier,
-              builder: (context, state, _) {
-                final (label, color) = switch (state) {
-                  FlightState.landed => ('已降落', Colors.grey),
-                  FlightState.takingOff => ('起飞中', AppColors.accent),
-                  FlightState.flying => ('飞行中', AppColors.success),
-                  FlightState.landing => ('降落中', AppColors.info),
-                };
-                return Container(
-                  alignment: Alignment.center,
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: color.withValues(alpha: 0.4), width: 1),
-                  ),
-                  child: Text(
-                    label,
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color),
-                  ),
-                );
-              },
+            child: Container(
+              alignment: Alignment.center,
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: (armed ? AppColors.success : Colors.grey).withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: (armed ? AppColors.success : Colors.grey).withValues(alpha: 0.4),
+                  width: 1,
+                ),
+              ),
+              child: Text(
+                armed ? '已解锁' : '已上锁',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: armed ? AppColors.success : Colors.grey,
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 8),
-          // 一键起降按钮
+          // 急停：立即上锁并收油
           SizedBox(
             width: 64,
             height: 36,
-            child: ValueListenableBuilder<FlightState>(
-              valueListenable: _udp.flightStateNotifier,
-              builder: (context, state, _) {
-                final isFlying = state == FlightState.flying || state == FlightState.takingOff;
-                return ElevatedButton(
-                  onPressed: armed
-                      ? () {
-                          if (isFlying) {
-                            _udp.sendLand();
-                            _udp.flightStateNotifier.value = FlightState.landing;
-                          } else {
-                            _udp.sendTakeoff();
-                            _udp.flightStateNotifier.value = FlightState.takingOff;
-                          }
-                          setState(() {});
-                        }
-                      : null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isFlying ? AppColors.error : AppColors.info,
-                    foregroundColor: Colors.white,
-                    padding: EdgeInsets.zero,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    disabledBackgroundColor: Colors.grey[800],
-                  ),
-                  child: Text(
-                    isFlying ? '降落' : '起飞',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-                  ),
-                );
-              },
+            child: ElevatedButton(
+              onPressed: armed
+                  ? () {
+                      _udp.setArmed(false);
+                      _udp.setThrottle(0);
+                      _throttleValue = 0;
+                      setState(() {});
+                    }
+                  : null,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.error,
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                disabledBackgroundColor: Colors.grey[800],
+              ),
+              child: const Text(
+                '急停',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
             ),
           ),
           const SizedBox(width: 8),

@@ -783,6 +783,19 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.8.0',
+        'date': '2026-11-15',
+        'content': [
+          '遥控页重构：竖向油门力度滑杆（0~100% 精细控制），偏航独立为只左右、松手回中的摇杆',
+          '去掉一键起飞/降落，改为“解锁 + 手动油门 + 急停”；油门拉到底只停电机、保持解锁',
+          '飞控固件改为油门直通（0→1000us，100→2000us），取消自动起飞/自动上锁',
+          '飞控默认速率调柔：最大倾角 25°、偏航 150°/s、横滚俯仰 250°/s，加法 Expo 与偏航力矩缩放，满舵不再停电机',
+          '开启 Air Mode，低油门保持姿态控制权',
+          '飞控新增手机网页姿态/电机测试页：电池供电时浏览器打开 192.168.4.1 可看实时姿态、单独测电机',
+          '飞控内核切换为 esp-fc（Betaflight 风格）：MPU6050 SDA41/SCL42，500Hz 陀螺 / 250Hz PID，支持 Betaflight Configurator 调参',
+        ],
+      },
+      {
         'version': 'v2.7.7',
         'date': '2026-11-11',
         'content': [
