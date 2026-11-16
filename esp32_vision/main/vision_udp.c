@@ -105,6 +105,12 @@ static int send_segments(int type, uint32_t photo_id, const uint8_t *jpg, uint32
             fec_group++;
             fec_in_group = 0;
         }
+
+        // 拍照大图是几百段突发，中间让出CPU给 lwIP 排空发送缓冲，
+        // 否则 sendto 会因缓冲耗尽直接失败（拍照 ACK rc=-1、图收不到）
+        if (type == FRAME_TYPE_SNAPSHOT && (seg & 31) == 31) {
+            vTaskDelay(1);
+        }
     }
     s_frame_seq++;
     return 0;
@@ -186,10 +192,28 @@ static void do_snapshot(int res_idx)
 
     vTaskDelay(pdMS_TO_TICKS(150));         // 等上一帧归还
     drain_fb_queue();                       // 丢弃队列里未发的帧，腾出帧缓冲
-    cam_set_stream_res(res_idx);
+    cam_set_snapshot_res(res_idx);          // 不夹取，允许 QSXGA 5MP
+    vTaskDelay(pdMS_TO_TICKS(300));         // 等传感器切档稳定
+
+    // 切换分辨率后缓冲里还残留旧尺寸帧，先丢弃，否则会拍到上一档的画面
+    for (int i = 0; i < 3; i++) {
+        camera_fb_t *old = cam_capture();
+        if (old) cam_release(old);
+        vTaskDelay(pdMS_TO_TICKS(80));
+    }
 
     int64_t t0 = esp_timer_get_time();
-    camera_fb_t *fb = cam_capture();
+    camera_fb_t *fb = NULL;
+    for (int tries = 0; tries < 10; tries++) {
+        fb = cam_capture();
+        if (fb) {
+            int min_w = (res_idx >= 6) ? 2000 : (res_idx == 5 ? 1500 : 0);
+            if (fb->width >= min_w) break;
+            cam_release(fb);
+            fb = NULL;
+        }
+        vTaskDelay(pdMS_TO_TICKS(150));
+    }
     if (!fb) {
         send_text("VERR SNAPSHOT_FAIL");
         cam_set_stream_res(saved_res);
@@ -198,13 +222,16 @@ static void do_snapshot(int res_idx)
     }
 
     uint32_t id = ++s_photo_id;
-    ESP_LOGI(TAG, "拍照 %s %u字节 (%.1fMB) 耗时%dms",
-             k_cam_res[res_idx].name, (unsigned)fb->len, fb->len / 1048576.0,
+    ESP_LOGI(TAG, "拍照 %s %ux%u %u字节 (%.1fMB) 耗时%dms",
+             k_cam_res[res_idx].name, (unsigned)fb->width, (unsigned)fb->height,
+             (unsigned)fb->len, fb->len / 1048576.0,
              (int)((esp_timer_get_time() - t0) / 1000));
 
     int rc = send_segments(FRAME_TYPE_SNAPSHOT, id, fb->buf, fb->len);
     cam_release(fb);
 
+    vTaskDelay(pdMS_TO_TICKS(200));         // 等传感器缓过来再切回推流档
+    drain_fb_queue();
     cam_set_stream_res(saved_res);          // 恢复推流分辨率
     s_streaming = was_streaming;
 
@@ -303,6 +330,10 @@ static void udp_server_task(void *pv)
     // 提高发送缓冲，保证48000字节分段能发出
     int sndbuf = 128 * 1024;
     setsockopt(s_sock, SOL_SOCKET, SO_SNDBUF, &sndbuf, sizeof(sndbuf));
+    // ★ 发送超时：2.4G拥塞时 sendto 不能无限阻塞，否则发送任务卡死、
+    //   采集队列堆满，画面会永久停住只能重启板子。超时后丢帧继续跑。
+    struct timeval snd_tv = { .tv_sec = 0, .tv_usec = 20000 };
+    setsockopt(s_sock, SOL_SOCKET, SO_SNDTIMEO, &snd_tv, sizeof(snd_tv));
 
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = htonl(INADDR_ANY);

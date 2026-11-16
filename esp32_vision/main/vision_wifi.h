@@ -16,3 +16,6 @@ bool vision_wifi_wait_ip(int timeout_s);
 
 /** 获取本机IP字符串（"192.168.x.x"），未连网返回 "0.0.0.0" */
 const char *vision_wifi_ip_str(void);
+
+/** 运行时切换 STA 目标网络（调试/测速用，不写入固件） */
+esp_err_t vision_wifi_set_sta(const char *ssid, const char *pass);

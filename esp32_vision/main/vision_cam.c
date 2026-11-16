@@ -149,6 +149,22 @@ int cam_set_stream_res(int res_idx)
     return s_stream_res;
 }
 
+int cam_set_snapshot_res(int res_idx)
+{
+    if (res_idx < 0 || res_idx >= k_cam_res_count) return -1;
+
+    sensor_t *s = esp_camera_sensor_get();
+    if (s) {
+        const int vf = s->status.vflip;
+        const int hm = s->status.hmirror;
+        s->set_framesize(s, k_cam_res[res_idx].fs);   // 不夹取，允许 QSXGA
+        s->set_vflip(s, vf);
+        s->set_hmirror(s, hm);
+    }
+    ESP_LOGI(TAG, "拍照分辨率 → %s", k_cam_res[res_idx].name);
+    return res_idx;
+}
+
 void cam_set_stream_params(int fps, int quality)
 {
     if (fps >= 2 && fps <= 30)  s_fps = fps;

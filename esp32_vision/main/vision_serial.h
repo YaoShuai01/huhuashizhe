@@ -1,8 +1,8 @@
 /**
- * vision_serial - 串口图传（USB-UART 口，CH343，最高 3M 波特率）
+ * vision_serial - 串口图传（ESP32-S3 原生 USB-Serial-JTAG，单根 USB 线）
  *
  * 用途：电脑用 USB 线直连视觉板，无需任何网络即可看实时画面。
- * 与控制台日志共用 UART0，因此推流期间自动静默日志，停止后恢复。
+ * 与控制台日志共用 USB 通道，因此推流期间自动静默日志，停止后恢复。
  *
  * 协议（帧）：'H''V' + type + len32(LE) + JPEG数据
  *   type 0x03 = 实时流帧(XGA)；type 0x04 = 高清拍照(QSXGA 5MP)

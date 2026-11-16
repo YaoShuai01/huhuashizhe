@@ -2,7 +2,7 @@
  * vision_wifi - WiFi AP+STA 双模式
  *
  * STA：接入飞控热点 HuHuaShiZhe-Drone（生产链路）
- * AP ：自开热点 HuHuaShiZhe-CAM（192.168.5.1），电脑/手机直连浏览器看图传，
+ * AP ：自开热点 HuHuaShiZhe-CAM（192.168.6.1），电脑/手机直连浏览器看图传，
  *      飞控不开机也能玩。两网并存，服务监听 0.0.0.0 双网可达。
  */
 #include <string.h>
@@ -21,9 +21,10 @@ static const char *TAG = "VWIFI";
 #define WIFI_SSID    "HuHuaShiZhe-Drone"
 #define WIFI_PASS    ""
 
-// 视觉板自开热点（调试/体验用）。子网用 5.x 避开飞控的 4.x
+// 视觉板自开热点（调试/体验用）。★ 6.x 避开飞控 4.x，也避开常见路由器 5.x
+//   同网段冲突：热点与 STA 若落在同一子网会导致路由失效
 #define CAM_AP_SSID  "HuHuaShiZhe-CAM"
-#define CAM_AP_IP    "192.168.5.1"
+#define CAM_AP_IP    "192.168.6.1"
 #define CAM_AP_MASK  "255.255.255.0"
 
 #define WIFI_CONNECTED_BIT BIT0
@@ -72,7 +73,10 @@ esp_err_t vision_wifi_start(void)
     wifi_config_t ap_cfg = { 0 };
     strlcpy((char *)ap_cfg.ap.ssid, CAM_AP_SSID, sizeof(ap_cfg.ap.ssid));
     ap_cfg.ap.ssid_len = strlen(CAM_AP_SSID);
-    ap_cfg.ap.channel = 1;
+    // ★ 必须为 0（自动跟随 STA 信道）：ESP32 只有一个 2.4G 射频，
+    //   AP 与 STA 不同信道时会来回跳频，实测吞吐从 13Mbps 掉到 6Mbps、
+    //   ping 涨到 17~300ms，画面严重卡顿
+    ap_cfg.ap.channel = 0;
     ap_cfg.ap.max_connection = 3;
     ap_cfg.ap.authmode = WIFI_AUTH_OPEN;
 
@@ -122,4 +126,25 @@ bool vision_wifi_wait_ip(int timeout_s)
 const char *vision_wifi_ip_str(void)
 {
     return s_ip;
+}
+
+esp_err_t vision_wifi_set_sta(const char *ssid, const char *pass)
+{
+    if (ssid == NULL || ssid[0] == '\0') return ESP_ERR_INVALID_ARG;
+
+    wifi_config_t cfg = { 0 };
+    strlcpy((char *)cfg.sta.ssid, ssid, sizeof(cfg.sta.ssid));
+    strlcpy((char *)cfg.sta.password, (pass != NULL) ? pass : "", sizeof(cfg.sta.password));
+    cfg.sta.scan_method = WIFI_ALL_CHANNEL_SCAN;
+
+    esp_err_t err = esp_wifi_set_config(WIFI_IF_STA, &cfg);
+    if (err != ESP_OK) return err;
+
+    memset(s_ip, 0, sizeof(s_ip));
+    strlcpy(s_ip, "0.0.0.0", sizeof(s_ip));
+    esp_wifi_disconnect();
+    vTaskDelay(pdMS_TO_TICKS(200));
+    esp_wifi_connect();
+    ESP_LOGI(TAG, "STA 目标切换为 \"%s\"", ssid);
+    return ESP_OK;
 }

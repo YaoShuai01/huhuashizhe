@@ -29,6 +29,9 @@ void cam_release(camera_fb_t *fb);
 /** 设置推流分辨率档位（k_cam_res 索引），返回实际档位 */
 int cam_set_stream_res(int res_idx);
 
+/** 设置拍照分辨率档位（不夹取，允许 QSXGA 5MP），返回实际档位 */
+int cam_set_snapshot_res(int res_idx);
+
 /** 设置推流参数：fps（2~20）、JPEG质量（6最佳~25最差） */
 void cam_set_stream_params(int fps, int quality);
 

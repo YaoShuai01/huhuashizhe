@@ -81,13 +81,26 @@ static void handle_capture(int sock, const char *query)
     bool was_streaming = vision_udp_set_streaming(false);
     vTaskDelay(pdMS_TO_TICKS(150));
     int saved_res = cam_get_stream_res();
-    cam_set_stream_res(res_idx);
+    cam_set_snapshot_res(res_idx);          // 不夹取，允许 QSXGA 5MP
+    vTaskDelay(pdMS_TO_TICKS(300));
 
-    // 切分辨率后首帧可能为空，重试
+    // 切换分辨率后缓冲里还残留旧尺寸帧，先丢弃，否则会拍到上一档的画面
+    for (int i = 0; i < 3; i++) {
+        camera_fb_t *old = cam_capture();
+        if (old) cam_release(old);
+        vTaskDelay(pdMS_TO_TICKS(80));
+    }
+
     camera_fb_t *fb = NULL;
-    for (int tries = 0; tries < 10 && !fb; tries++) {
+    for (int tries = 0; tries < 10; tries++) {
         fb = cam_capture();
-        if (!fb) vTaskDelay(pdMS_TO_TICKS(150));
+        if (fb) {
+            int min_w = (res_idx >= 6) ? 2000 : (res_idx == 5 ? 1500 : 0);
+            if (fb->width >= min_w) break;
+            cam_release(fb);
+            fb = NULL;
+        }
+        vTaskDelay(pdMS_TO_TICKS(150));
     }
     if (!fb) {
         cam_set_stream_res(saved_res);
@@ -101,11 +114,13 @@ static void handle_capture(int sock, const char *query)
                       "HTTP/1.1 200 OK\r\nContent-Type: image/jpeg\r\n"
                       "Content-Length: %u\r\nConnection: close\r\n\r\n",
                       (unsigned)fb->len);
-    ESP_LOGI(TAG, "HTTP拍照 %s %u字节", k_cam_res[res_idx].name, (unsigned)fb->len);
+    ESP_LOGI(TAG, "HTTP拍照 %s %ux%u %u字节", k_cam_res[res_idx].name,
+             (unsigned)fb->width, (unsigned)fb->height, (unsigned)fb->len);
     send_all(sock, header, hl);
     send_all(sock, (const char *)fb->buf, fb->len);
     cam_release(fb);
 
+    vTaskDelay(pdMS_TO_TICKS(200));         // 等传感器缓过来再切回推流档
     cam_set_stream_res(saved_res);
     vision_udp_set_streaming(was_streaming);
 }
@@ -209,7 +224,7 @@ static void http_server_task(void *pv)
         return;
     }
 
-    ESP_LOGI(TAG, "浏览器图传服务就绪: http://192.168.5.1 (端口 %d)", HTTP_PORT);
+    ESP_LOGI(TAG, "浏览器图传服务就绪: http://192.168.6.1 (端口 %d)", HTTP_PORT);
 
     while (1) {
         struct sockaddr_in client;
