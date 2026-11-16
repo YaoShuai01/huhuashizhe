@@ -20,6 +20,7 @@
 #include "vision_udp.h"
 #include "vision_http.h"
 #include "vision_serial.h"
+#include "vision_led.h"
 
 static const char *TAG = "VISION";
 
@@ -47,6 +48,9 @@ void app_main(void)
 
     ESP_LOGI(TAG, "PSRAM: %d KB", (int)(esp_psram_get_size() / 1024));
 
+    // 板载 WS2812 状态灯
+    vision_led_start();
+
     // WiFi（不阻塞主流程，后台自动重连）
     vision_wifi_start();
 
@@ -70,7 +74,7 @@ void app_main(void)
         ESP_LOGI(TAG, "就绪！手机发送 VINFO 到 %s:%d 查询状态",
                  vision_wifi_ip_str(), VISION_UDP_PORT);
     } else {
-        ESP_LOGW(TAG, "25秒未接入飞控热点，浏览器图传仍可用: http://192.168.5.1");
+        ESP_LOGW(TAG, "25秒未接入飞控热点，浏览器图传仍可用: http://192.168.6.1");
     }
 
     xTaskCreate(heartbeat_task, "vheart", 4096, NULL, 3, NULL);

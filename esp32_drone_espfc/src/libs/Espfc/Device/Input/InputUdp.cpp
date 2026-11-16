@@ -3,6 +3,7 @@
 #if defined(ESPFC_UDP_RX)
 
 #include <Arduino.h>
+#include <Preferences.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
 #include <driver/ledc.h>
@@ -28,7 +29,7 @@ const uint8_t SPRAY_DUTY[7] = {0, 115, 140, 166, 191, 224, 255};
 
 const char* PAGE_HEAD =
     "<!doctype html><html><head><meta charset='utf-8'>"
-    "<meta http-equiv='refresh' content='0.5'>"
+    "<meta http-equiv='refresh' content='1'>"
     "<meta name='viewport' content='width=device-width,initial-scale=1'>"
     "<style>body{font-family:sans-serif;background:#111;color:#eee;text-align:center;padding:12px}"
     "a{display:block;margin:10px;padding:16px;background:#2a7;color:#fff;text-decoration:none;border-radius:8px;font-size:19px}"
@@ -43,17 +44,46 @@ const char* PAGE_BUTTONS =
     "<a href='/m3'>电机3 后左 (GPIO12)</a>"
     "<a href='/m4'>电机4 前左 (GPIO4)</a>"
     "<a class='stop' href='/stop'>全部停止</a>"
-    "<p>测完请到 APP 点“上锁”再“解锁”恢复</p></body></html>";
+    "<p>测完请到 APP 点“上锁”再“解锁”恢复</p>"
+    "<p style='margin-top:16px'>电调行程校准：</p>"
+    "<a class='stop' href='/cal'>电调校准（下次上电）</a>"
+    "<p style='font-size:13px;color:#aaa'>点完后断开电池再重新接上；上电后电调先响满油门，3 秒后自动降到最低。必须先拆桨！</p>"
+    "</body></html>";
 
 // Bench-test signs: flip any of these if a stick moves the wrong way.
 // App left stick up = forward, so Betaflight pitch must go negative.
 constexpr int ROLL_SIGN = 1;
-constexpr int PITCH_SIGN = -1;
+constexpr int PITCH_SIGN = 1;
 constexpr int YAW_SIGN = 1;
 } // namespace
 
 int InputUdp::begin(void)
 {
+  // Optional ESC throttle-range calibration on the next power-up: hold 2000us
+  // for 3s, then drop to 1000us. Props must be removed.
+  Preferences prefs;
+  prefs.begin("hhs", false);
+  const bool escCal = prefs.getBool("esc_cal", false);
+  if (escCal)
+  {
+    prefs.putBool("esc_cal", false);
+    prefs.end();
+    auto* motor = _model.state.mixer.escMotor;
+    if (motor)
+    {
+      for (int i = 0; i < 4; i++) motor->write(i, 2000);
+      motor->apply();
+      vTaskDelay(pdMS_TO_TICKS(3000));
+      for (int i = 0; i < 4; i++) motor->write(i, 1000);
+      motor->apply();
+      vTaskDelay(pdMS_TO_TICKS(500));
+    }
+  }
+  else
+  {
+    prefs.end();
+  }
+
   ledc_timer_config_t sprayTimer = {};
   sprayTimer.speed_mode = LEDC_LOW_SPEED_MODE;
   sprayTimer.duty_resolution = LEDC_TIMER_8_BIT;
@@ -123,6 +153,13 @@ void InputUdp::taskLoop()
       else if (req.indexOf("/m3") >= 0) { _motorTest = 3; _motorTestUntil = now + 3000; _disarmLatch = true; }
       else if (req.indexOf("/m4") >= 0) { _motorTest = 4; _motorTestUntil = now + 3000; _disarmLatch = true; }
       else if (req.indexOf("/stop") >= 0) { _motorTest = 0; }
+      else if (req.indexOf("/cal") >= 0)
+      {
+        Preferences calPrefs;
+        calPrefs.begin("hhs", false);
+        calPrefs.putBool("esc_cal", true);
+        calPrefs.end();
+      }
       client.print("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n");
       client.print(PAGE_HEAD);
       const auto& e = _model.state.attitude.euler;
@@ -137,6 +174,22 @@ void InputUdp::taskLoop()
       client.print(" 油门=");
       client.print((int)_throttle);
       client.print("us</p>");
+      client.print("<p>链路 收 ");
+      client.print((uint32_t)_packets);
+      client.print(" / 丢 ");
+      client.print((uint32_t)_lostCount);
+      client.print(" / ");
+      if (_packets == 0)
+      {
+        client.print("无包（APP 未连接）");
+      }
+      else
+      {
+        client.print("年龄 ");
+        client.print((uint32_t)(now - _lastPacketMs));
+        client.print("ms");
+      }
+      client.print("</p>");
       client.print(PAGE_BUTTONS);
       client.stop();
     }
@@ -210,7 +263,7 @@ void InputUdp::parse(const char* buf, size_t len)
 void InputUdp::linkLost()
 {
   _linked = false;
-  _disarmLatch = true;
+  _lostCount++;
   _throttle = THROTTLE_MIN;
   _appRoll = _appPitch = _appThrottle = _appYaw = 0;
   _sprayLevel = 0;
@@ -273,10 +326,14 @@ void InputUdp::tick(uint32_t now)
     if (_linked) linkLost();
     _throttle = THROTTLE_MIN;
     _channels[2] = THROTTLE_MIN;
-    _channels[4] = ARM_OFF;
+    // A short WiFi stall cuts throttle but keeps the FC armed so the link can
+    // recover without a full disarm. Only a long outage disarms.
+    if ((now - _lastPacketMs) > DISARM_TIMEOUT_MS) _disarmLatch = true;
+    _channels[4] = (_armCmd && !_disarmLatch) ? ARM_ON : ARM_OFF;
     applySpray();
     return;
   }
+  if (!_linked) _linked = true;
 
   if (!_armCmd || _disarmLatch)
   {

@@ -45,6 +45,7 @@ private:
   volatile uint16_t _channels[CHANNELS] = {1500, 1500, 1000, 1500, 1000, 1800};
   volatile uint32_t _lastPacketMs = 0;
   volatile uint32_t _packets = 0;
+  volatile uint32_t _lostCount = 0;
   volatile bool _newFrame = false;
   bool _linked = false;
 
@@ -65,7 +66,8 @@ private:
   static constexpr uint16_t ARM_ON = 1800;
   static constexpr uint16_t ARM_OFF = 1000;
   static constexpr uint16_t ANGLE_ON = 1800;
-  static constexpr uint32_t LINK_TIMEOUT_MS = 300;
+  static constexpr uint32_t LINK_TIMEOUT_MS = 1000;
+  static constexpr uint32_t DISARM_TIMEOUT_MS = 3000;
 };
 
 } // namespace Espfc::Device::Input

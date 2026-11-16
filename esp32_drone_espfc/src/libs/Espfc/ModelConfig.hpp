@@ -1135,7 +1135,10 @@ public:
     // analog 50Hz ESCs, phone UDP receiver, angle mode always on.
     i2cSpeed = 100;
     loopSync = 2; // 500Hz gyro -> 250Hz PID
-    boardAlignment[2] = 90; // MPU6050 X arrow points to the left side of the frame
+    // MPU6050 X arrow points left, Y arrow points to the tail.
+    // Needed body frame: forward = -sensor Y, left = +sensor X, which is yaw 270
+    // in esp-fc's rotation matrix (yaw 90 gives the opposite 180-degree frame).
+    boardAlignment[2] = 270;
 
     output.protocol = ESC_PROTOCOL_PWM;
     output.async = true;
@@ -1147,10 +1150,13 @@ public:
     failsafe.delay = 10; // 1s without UDP frames -> disarm
 
     // conservative starting point for a 250-450mm quad, tune with Betaflight Configurator
-    pid[FC_PID_ROLL] = {35, 70, 20, 60};
-    pid[FC_PID_PITCH] = {35, 70, 20, 60};
+    // Lower roll/pitch I gain and I-term limit: the old 70/30% combination wound
+    // up while the quad sat on the ground in angle mode and stopped the left motors.
+    pid[FC_PID_ROLL] = {35, 30, 20, 60};
+    pid[FC_PID_PITCH] = {35, 30, 20, 60};
     pid[FC_PID_YAW] = {25, 40, 0, 0};
     pid[FC_PID_LEVEL] = {35, 0, 0, 0};
+    iterm.limit = 15; // 15% I-term limit, prevents ground windup from killing a motor
 
     // Gentle beginner rates. The upstream Betaflight defaults (rate 20/20/30,
     // super 40/40/36) give ~400 deg/s at full stick, which is far too twitchy
