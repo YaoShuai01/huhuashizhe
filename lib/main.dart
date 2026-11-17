@@ -7,6 +7,7 @@ import 'data/local_database.dart';
 import 'providers/update_provider.dart';
 import 'services/ai_suggestion_worker.dart';
 import 'services/model_hotupdate_service.dart';
+import 'services/schedule_service.dart';
 import 'widgets/update_dialog.dart';
 import 'widgets/splash_page.dart';
 
@@ -16,6 +17,8 @@ void main() async {
   AiSuggestionWorker().start(); // 生长检测AI建议：启动离线补全监听
   // 模型热更新：联网后静默检查/下载新模型（不阻塞启动，可重入安全）
   unawaited(ModelHotupdateService.instance.checkAndDownload());
+  // 轮协静默同步：已登录用户联网后自动拉取最新轮协并重排本地提醒
+  unawaited(ScheduleService.instance.syncSilently());
   runApp(
     const ProviderScope(
       child: HuHuaShiZheApp(),
@@ -101,6 +104,7 @@ class _UpdateCheckerState extends ConsumerState<_UpdateChecker> with WidgetsBind
     // 应用从后台回到前台时自动刷新
     if (state == AppLifecycleState.resumed) {
       _checkUpdate();
+      unawaited(ScheduleService.instance.syncSilently());
     }
   }
 

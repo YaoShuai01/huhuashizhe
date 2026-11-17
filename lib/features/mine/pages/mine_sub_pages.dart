@@ -783,6 +783,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.9.7',
+        'date': '2026-11-17',
+        'content': [
+          '恢复“轮协管理”功能：数据管理页入口、轮协表、编辑、消息与本地提醒',
+          '恢复轮协密钥门禁、成员身份、静默同步与协管变更通知',
+          '补齐 flutter_local_notifications / timezone / flutter_secure_storage 依赖与原生通知权限',
+        ],
+      },
+      {
         'version': 'v2.9.6',
         'date': '2026-11-17',
         'content': [
