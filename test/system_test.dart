@@ -122,7 +122,7 @@ void main() {
         await tester.tap(find.text('快速入门指南'));
         await tester.pump();
         // 应该能看到展开的内容
-        expect(find.textContaining('打开APP，确保蓝牙已开启'), findsOneWidget);
+        expect(find.textContaining('打开APP，确保 WiFi 已开启'), findsOneWidget);
       });
     });
 
@@ -271,7 +271,7 @@ void main() {
         await tester.pumpWidget(providerScope(const HelpPage()));
         await tester.pumpAndSettle();
         expect(find.text('帮助'), findsOneWidget);
-        expect(find.text('如何连接遥控器？'), findsOneWidget);
+        expect(find.text('如何连接无人机？'), findsOneWidget);
         expect(find.text('如何创建飞行任务？'), findsOneWidget);
         expect(find.text('作业区域面积太小怎么办？'), findsOneWidget);
         expect(find.text('离线可以使用吗？'), findsOneWidget);
@@ -282,9 +282,9 @@ void main() {
         await tester.pumpWidget(providerScope(const HelpPage()));
         await tester.pumpAndSettle();
         // 点击第一个FAQ
-        await tester.tap(find.text('如何连接遥控器？'));
+        await tester.tap(find.text('如何连接无人机？'));
         await tester.pumpAndSettle();
-        expect(find.textContaining('打开遥控器电源'), findsOneWidget);
+        expect(find.textContaining('HuHuaShiZhe-Drone'), findsOneWidget);
       });
     });
 

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/device_provider.dart';
-import '../../../services/bluetooth_service.dart';
+import '../../../services/wifi_service.dart';
 
 class MissionMonitorPage extends ConsumerStatefulWidget {
   final String missionId;
@@ -88,7 +88,7 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
     );
   }
 
-  Widget _buildStatusBar(DeviceStatus? status) {
+  Widget _buildStatusBar(WifiStatus? status) {
     final isConnected = status?.isConnected ?? false;
     return Container(
       padding: const EdgeInsets.all(12),
@@ -105,7 +105,7 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
           ),
           const SizedBox(width: 8),
           Text(
-            isConnected ? '设备已连接: ${status!.deviceName}' : '未连接设备',
+            isConnected ? '设备已连接: ${status!.displayName}' : '未连接设备',
             style: TextStyle(
               color: isConnected ? AppColors.primary : AppColors.error,
               fontWeight: FontWeight.w600,
@@ -114,9 +114,9 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
           ),
           const Spacer(),
           Text(
-            '信号: ${status?.signalStrength ?? 0}%',
+            '信号: ${status?.signalDisplay ?? "-- dBm"}',
             style: TextStyle(
-              color: (status?.signalStrength ?? 0) > 30 ? AppColors.primary : AppColors.warning,
+              color: (status?.rssi ?? -100) > -70 ? AppColors.primary : AppColors.warning,
               fontSize: 12,
             ),
           ),
@@ -125,7 +125,7 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
     );
   }
 
-  Widget _buildInfoGrid(DeviceStatus? status) {
+  Widget _buildInfoGrid(WifiStatus? status) {
     return GridView.count(
       crossAxisCount: 3,
       shrinkWrap: true,
@@ -134,7 +134,7 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
       crossAxisSpacing: 8,
       childAspectRatio: 1.3,
       children: [
-        _infoTile('电量', '${status?.batteryLevel ?? 0}%', Icons.battery_5_bar),
+        _infoTile('电量', '--', Icons.battery_5_bar),
         _infoTile('高度', '2.5 m', Icons.height),
         _infoTile('速度', '5.0 m/s', Icons.speed),
         _infoTile('喷洒量', '1.5 L/亩', Icons.water_drop),

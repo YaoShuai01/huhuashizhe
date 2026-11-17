@@ -4,10 +4,9 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/weather_provider.dart';
 import '../../../providers/device_provider.dart';
-import '../../../services/bluetooth_service.dart';
+import '../../../services/wifi_service.dart';
 import '../../../services/weather_service.dart';
 import '../../mission/pages/map_select_page.dart';
-import '../../mine/widgets/device_scan_page.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -33,6 +32,7 @@ class HomePage extends ConsumerWidget {
       body: RefreshIndicator(
         onRefresh: () async {
           await ref.read(weatherProvider.notifier).refresh();
+          await ref.read(wifiServiceProvider).refreshStatus();
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -158,7 +158,7 @@ class HomePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildDeviceCard(BuildContext context, DeviceStatus? status) {
+  Widget _buildDeviceCard(BuildContext context, WifiStatus? status) {
     final isConnected = status?.isConnected ?? false;
 
     return Card(
@@ -181,7 +181,7 @@ class HomePage extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
-                  isConnected ? Icons.bluetooth_connected : Icons.bluetooth_disabled,
+                  isConnected ? Icons.wifi : Icons.wifi_off,
                   color: isConnected ? AppColors.primary : AppColors.textHint,
                   size: 22,
                 ),
@@ -194,7 +194,7 @@ class HomePage extends ConsumerWidget {
                     Row(
                       children: [
                         Text(
-                          isConnected ? '已连接: ${status!.deviceName}' : '未连接设备',
+                          isConnected ? '已连接: ${status!.displayName}' : '未连接设备',
                           style: TextStyle(
                             color: isConnected ? AppColors.primary : AppColors.textHint,
                             fontSize: 16,
@@ -216,7 +216,7 @@ class HomePage extends ConsumerWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      isConnected ? '电量 ${status!.batteryLevel}% · 信号 ${status.signalStrength}%' : '请点击连接设备',
+                      isConnected ? 'WiFi 热点 · 信号 ${status!.signalDisplay}' : '请点击连接无人机 WiFi',
                       style: TextStyle(
                         color: isConnected ? AppColors.textSecondary : AppColors.textDisabled,
                         fontSize: 12,

@@ -15,7 +15,7 @@ class ManualPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final manuals = [
-      {'title': '快速入门指南', 'icon': Icons.rocket_launch, 'content': '1. 打开APP，确保蓝牙已开启\n2. 点击"设备连接"搜索并配对遥控器\n3. 在首页点击"创建飞行任务"\n4. 在地图上圈选作业区域\n5. 确认飞行参数后启动任务\n\n首次使用建议在空旷场地进行试飞，熟悉操作流程。'},
+      {'title': '快速入门指南', 'icon': Icons.rocket_launch, 'content': '1. 打开APP，确保 WiFi 已开启\n2. 点击"设备连接"扫描并连接 HuHuaShiZhe-Drone 热点\n3. 在首页点击"创建飞行任务"\n4. 在地图上圈选作业区域\n5. 确认飞行参数后启动任务\n\n首次使用建议在空旷场地进行试飞，熟悉操作流程。'},
       {'title': '飞行参数设置说明', 'icon': Icons.settings, 'content': '飞行高度：建议1.5-3米，根据作物高度调整\n飞行速度：建议3-6米/秒，喷洒作业建议4米/秒\n行距：根据喷幅宽度设置，通常为喷幅的80%\n喷洒量：根据农药说明和作物类型设置\n\n以上参数可在AI助手中获取智能推荐。'},
       {'title': '安全操作规范', 'icon': Icons.security, 'content': '1. 作业前检查无人机电池、螺旋桨状态\n2. 远离高压线、人群、建筑物\n3. 风速超过5级禁止飞行\n4. 佩戴防护口罩和手套\n5. 作业区域设置警示标识\n6. 禁止在雨天或大雾天气作业\n7. 农药配制时远离水源\n8. 作业完成后及时清洗设备'},
       {'title': '农药使用指南', 'icon': Icons.science, 'content': '安全间隔期：\n- 水稻：不少于15天\n- 小麦：不少于20天\n- 蔬菜：不少于7-14天\n\n混用禁忌：\n- 酸性农药不能与碱性农药混用\n- 铜制剂与多数农药不能混用\n- 有机磷类与碱性农药不能混用\n\n药液配制：\n- 先加水再加药\n- 充分搅拌至完全溶解\n- 现配现用，不宜久置'},
@@ -67,7 +67,7 @@ class FeatureIntroPage extends StatelessWidget {
             _featureCard('AI助手', Icons.auto_awesome, '基于小米MiMo大模型的智能植保助手，提供病虫害诊断、用药推荐、飞行参数优化等专业建议。'),
             _featureCard('预设管理', Icons.bookmark, '保存常用作业参数为预设，一键调用。支持飞行高度、速度、喷洒量等参数的自定义配置。'),
             _featureCard('天气信息', Icons.cloud, '实时显示当前位置天气（数据来源：中国气象局），包括温度、风向、风速、湿度，支持风力预警。'),
-            _featureCard('设备连接', Icons.bluetooth, '通过蓝牙连接无人机遥控器，实时查看设备状态、电量、信号强度等信息。'),
+            _featureCard('设备连接', Icons.wifi, '扫描周边 WiFi 并连接无人机热点，实时查看连接状态与信号强度。'),
             _featureCard('小课堂', Icons.school, '内置植保知识库，涵盖水稻、小麦、玉米等多种作物的病虫害防治技术，持续更新中。'),
             _featureCard('作业记录', Icons.history, '查看历史作业详情，包括作业面积、飞行时长、用药量等统计信息。'),
             _featureCard('在线更新', Icons.system_update, '自动检测GitHub最新版本，支持在线下载和安装更新。'),
@@ -445,7 +445,7 @@ class HelpPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final faqs = [
-      {'q': '如何连接遥控器？', 'a': '打开遥控器电源，确保蓝牙可见。在APP中点击"设备连接"，选择发现的遥控器设备进行配对。'},
+      {'q': '如何连接无人机？', 'a': '给无人机上电后会建立 HuHuaShiZhe-Drone WiFi 热点。在APP中点击"设备连接"，选择该热点后按系统提示连接，返回APP即可看到已连接状态。'},
       {'q': '如何创建飞行任务？', 'a': '在首页点击"创建飞行任务"，在地图上圈选作业区域，AI将自动为您推荐最佳飞行参数。'},
       {'q': '作业区域面积太小怎么办？', 'a': '无人机的作业区域不能小于0.5亩。请扩大圈选范围或选择更大的作业区域。'},
       {'q': '离线可以使用吗？', 'a': '地图圈选、预设管理、作业记录等核心功能支持离线使用。天气数据和AI助手需要网络连接。'},
@@ -520,7 +520,7 @@ class LegalPage extends StatelessWidget {
                   '我们非常重视您的隐私保护。\n\n'
                   '一、信息收集\n'
                   '1. 位置信息：用于获取当地天气和地图定位\n'
-                  '2. 蓝牙信息：用于连接无人机遥控器\n'
+                  '2. WiFi 信息：用于扫描并连接无人机热点\n'
                   '3. 设备信息：APP版本、设备型号等基础信息\n\n'
                   '二、信息使用\n'
                   '1. 位置信息仅用于天气显示和地图服务\n'
@@ -531,7 +531,7 @@ class LegalPage extends StatelessWidget {
                   '2. 我们不会向第三方分享您的个人信息\n\n'
                   '四、权限说明\n'
                   '1. 位置权限：用于GPS定位和天气获取\n'
-                  '2. 蓝牙权限：用于设备连接\n'
+                  '2. WiFi 与定位权限：用于扫描周边 WiFi 网络\n'
                   '3. 存储权限：用于APK更新下载和本地数据存储',
             }),
           ),
