@@ -783,6 +783,14 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.9.6',
+        'date': '2026-11-17',
+        'content': [
+          '修复覆盖安装时系统提示“无法降级安装”的问题（构建号提升至 100）',
+          '版本号统一为 2.9.6，后续构建号在此基础上递增',
+        ],
+      },
+      {
         'version': 'v2.9.5',
         'date': '2026-11-17',
         'content': [
