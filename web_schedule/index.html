@@ -97,6 +97,20 @@
     font-weight: 700;
     width: fit-content;
   }
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .status-badge i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+  .status-badge.unverified { background: rgba(120, 130, 120, .12); color: var(--hint); }
+  .status-badge.online { background: rgba(46, 125, 50, .12); color: var(--green); }
+  .status-badge.offline { background: rgba(120, 130, 120, .12); color: var(--hint); }
   .btn {
     border: none;
     border-radius: 10px;
@@ -511,6 +525,9 @@ const state = {
   confirmCallback: null
 };
 
+let presenceTimer = null;
+const PRESENCE_INTERVAL = 2 * 60 * 1000;
+
 function safeJson(s) {
   try { return s ? JSON.parse(s) : null; } catch (e) { return null; }
 }
@@ -591,6 +608,7 @@ function cacheSchedule(schedule) {
   localStorage.setItem(LS.cache, JSON.stringify(schedule));
 }
 function clearSession(clearMember) {
+  stopPresence();
   state.token = '';
   state.role = '';
   localStorage.removeItem(LS.token);
@@ -675,6 +693,45 @@ function computeOwnChanges(oldSchedule, newSchedule, memberId) {
   return { added: added, removed: removed };
 }
 
+// ==================== 成员验证与在线心跳 ====================
+async function reportPresence(path) {
+  if (!state.token || !state.memberId) return;
+  try {
+    const result = await apiFetch(path, {
+      method: 'POST',
+      auth: true,
+      body: { memberId: state.memberId }
+    });
+    if (result.status === 404) {
+      state.memberId = '';
+      state.memberName = '';
+      localStorage.removeItem(LS.memberId);
+      localStorage.removeItem(LS.memberName);
+      stopPresence();
+      state.screen = 'name';
+      state.nameError = '你已不在最新轮协名单中，请重新验证姓名';
+      render();
+    }
+  } catch (e) {
+    // 心跳失败静默处理，等下一次重试
+  }
+}
+
+function startPresence() {
+  if (!state.token || !state.memberId) return;
+  if (!presenceTimer) {
+    presenceTimer = setInterval(function () { reportPresence('/presence'); }, PRESENCE_INTERVAL);
+  }
+  reportPresence('/presence');
+}
+
+function stopPresence() {
+  if (presenceTimer) {
+    clearInterval(presenceTimer);
+    presenceTimer = null;
+  }
+}
+
 // ==================== 渲染 ====================
 function render() {
   const app = document.getElementById('app');
@@ -712,7 +769,7 @@ function gateHtml() {
   return '<div class="gate-wrap"><div class="gate-card card">'
     + '<div class="lock-badge">' + lockSvg() + '</div>'
     + '<h1>团队轮协</h1>'
-    + '<p class="subtitle">网页联调版 · 数据来自本地 Java 服务</p>'
+    + '<p class="subtitle">网页版 · 数据来自团队轮协服务</p>'
     + '<div class="field"><label>轮协密钥</label>'
     + '<input id="key-input" type="password" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="off" onkeydown="if(event.key===\'Enter\')enterApp()">'
     + '</div>'
@@ -775,6 +832,8 @@ function verifyName() {
   localStorage.setItem(LS.memberName, member.name);
   state.nameInput = '';
   state.nameError = '';
+  reportPresence('/verify');
+  startPresence();
   playCeremony(member, function () {
     state.screen = 'main';
     render();
@@ -900,7 +959,7 @@ function mainHtml() {
     + '<span><i style="background:#F0F2F5;border:1px solid #E3E7E3"></i>未安排</span>'
     + '</div>'
     + upcomingHtml()
-    + '<p class="note">网页版只验证轮协和提交逻辑；手机 App 的协管前一天 17:00 本地通知不在这里测试。</p>'
+    + '<p class="note">网页版与手机 App 共用同一份轮协数据；协管前一天 17:00 的本地通知仅在手机 App 提供。</p>'
     + '<p class="note">数据版本：' + (state.schedule ? state.schedule.revision : '-') + ' · 最后更新：' + escapeHtml(state.schedule ? state.schedule.updatedAt : '-') + '</p>'
     + '</div>';
 }
@@ -1298,6 +1357,7 @@ async function init() {
 function afterAuth() {
   if (state.memberId && memberById(state.schedule, state.memberId)) {
     state.screen = 'main';
+    startPresence();
   } else {
     state.screen = 'name';
     state.nameInput = '';
@@ -1412,6 +1472,7 @@ window.addEventListener('click', function () {
 
 function logout() {
   state.mainMenuOpen = false;
+  stopPresence();
   clearSession(true);
   state.schedule = null;
   state.banner = null;
@@ -1478,6 +1539,39 @@ function openEditor(fromSetup) {
   state.screen = 'editor';
   state.editorTab = 'schedule';
   render();
+  refreshEditorMemberStatuses();
+}
+
+async function refreshEditorMemberStatuses() {
+  if (!state.token || state.dirty || state.screen !== 'editor') return;
+  try {
+    const result = await apiFetch('/schedule', { auth: true });
+    const latest = result.status === 200 && result.data ? result.data.schedule : null;
+    if (!latest || state.dirty || state.screen !== 'editor') return;
+    state.editMembers = state.editMembers.map(function (m) {
+      const remote = memberById(latest, m.id);
+      if (!remote) return m;
+      return Object.assign({}, m, {
+        verified: remote.verified === true,
+        lastSeenAt: remote.lastSeenAt || '',
+        online: remote.online === true
+      });
+    });
+    if (state.schedule && state.schedule.members) {
+      state.schedule.members = state.schedule.members.map(function (m) {
+        const remote = memberById(latest, m.id);
+        return remote ? Object.assign({}, m, {
+          verified: remote.verified === true,
+          lastSeenAt: remote.lastSeenAt || '',
+          online: remote.online === true
+        }) : m;
+      });
+      localStorage.setItem(LS.cache, JSON.stringify(state.schedule));
+    }
+    render();
+  } catch (e) {
+    // 状态刷新失败时保留旧数据
+  }
 }
 
 function editorHtml() {
@@ -1750,6 +1844,13 @@ function applySwap() {
   toast('已对调 ' + shortDate(source) + ' 和 ' + shortDate(target), 'success');
 }
 
+function memberStatusHtml(m) {
+  if (m.verified !== true) return '<span class="status-badge unverified">未验证</span>';
+  return m.online === true
+    ? '<span class="status-badge online"><i></i>在线</span>'
+    : '<span class="status-badge offline"><i></i>离线</span>';
+}
+
 function editorMembersHtml() {
   const t = dateKey(today());
   return '<div class="section-head"><h2>成员（' + state.editMembers.length + '）</h2>'
@@ -1762,7 +1863,7 @@ function editorMembersHtml() {
           const total = Object.keys(state.editAssignments).filter(function (d) { return state.editAssignments[d] === m.id; }).length;
           return '<div class="member-row">'
             + '<div class="avatar">' + escapeHtml(String(m.name).slice(0, 1) || '?') + '</div>'
-            + '<div class="meta"><div class="name">' + escapeHtml(m.name) + (m.id === state.memberId ? '<span class="badge">我</span>' : '') + '</div>'
+            + '<div class="meta"><div class="name">' + escapeHtml(m.name) + (m.id === state.memberId ? '<span class="badge">我</span>' : '') + memberStatusHtml(m) + '</div>'
             + '<div class="sub">' + (m.seq || '-') + '号 · 未来 ' + future + ' 天 · 累计 ' + total + ' 天</div></div>'
             + '<div class="row-actions">'
             + '<button class="btn ghost small" onclick="editMember(\'' + escapeAttr(m.id) + '\')">改名</button>'
@@ -1776,6 +1877,7 @@ function editorMembersHtml() {
 function setEditorTab(tab) {
   state.editorTab = tab;
   render();
+  if (tab === 'members') refreshEditorMemberStatuses();
 }
 
 function backFromEditor() {

@@ -56,6 +56,19 @@
 
   <build>
     <finalName>schedule</finalName>
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+      </resource>
+      <!-- 网页版与仓库根目录共用同一份文件，避免复制后不同步 -->
+      <resource>
+        <directory>${project.basedir}/../../web_schedule</directory>
+        <targetPath>web_schedule</targetPath>
+        <includes>
+          <include>index.html</include>
+        </includes>
+      </resource>
+    </resources>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

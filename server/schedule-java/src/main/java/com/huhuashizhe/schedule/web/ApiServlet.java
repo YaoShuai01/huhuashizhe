@@ -31,6 +31,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.sql.Driver;
@@ -131,6 +132,11 @@ public class ApiServlet extends HttpServlet {
                 health(response);
                 return;
             }
+            if (("/web".equals(path) || "/web/".equals(path))
+                    && "GET".equalsIgnoreCase(request.getMethod())) {
+                serveWebPage(response);
+                return;
+            }
             if ("/auth".equals(path) && "POST".equalsIgnoreCase(request.getMethod())) {
                 auth(request, response);
                 return;
@@ -221,6 +227,22 @@ public class ApiServlet extends HttpServlet {
         body.put("schemaVersion", 1);
         body.put("time", Instant.now().toString());
         write(response, 200, body);
+    }
+
+    /** 打包在 war 里的轮协网页版，地址 /web */
+    private void serveWebPage(HttpServletResponse response) throws IOException {
+        try (InputStream in = getClass().getClassLoader()
+                .getResourceAsStream("web_schedule/index.html")) {
+            if (in == null) {
+                throw new ApiException(404, "not_found", "网页版未打包");
+            }
+            byte[] bytes = in.readAllBytes();
+            response.setStatus(200);
+            response.setContentType("text/html;charset=UTF-8");
+            response.setCharacterEncoding("UTF-8");
+            response.setHeader("Cache-Control", "no-cache");
+            response.getOutputStream().write(bytes);
+        }
     }
 
     private void auth(HttpServletRequest request, HttpServletResponse response) throws IOException {
