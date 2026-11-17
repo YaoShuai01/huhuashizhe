@@ -252,6 +252,19 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
     }
   }
 
+  void _toggleVerified(ScheduleMember member) {
+    setState(() {
+      final index = _members.indexWhere((m) => m.id == member.id);
+      if (index >= 0) {
+        _members[index] = _members[index].copyWith(
+          verified: !_members[index].verified,
+        );
+        _dirty = true;
+      }
+    });
+    _snack(member.verified ? '已取消验证' : '已标记为已验证');
+  }
+
   Future<void> _deleteMember(ScheduleMember member) async {
     final pastCount = _pastDutyCount(member.id);
     if (pastCount > 0) {
@@ -1167,6 +1180,27 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
                         ),
                       ),
                     ],
+                    if (!member.verified) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.textHint.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Text(
+                          '未验证',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textHint,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 subtitle: Text(
@@ -1179,6 +1213,19 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    IconButton(
+                      tooltip: member.verified ? '取消验证' : '标记已验证',
+                      onPressed: () => _toggleVerified(member),
+                      icon: Icon(
+                        member.verified
+                            ? Icons.verified_user
+                            : Icons.verified_user_outlined,
+                        size: 20,
+                        color: member.verified
+                            ? AppColors.success
+                            : AppColors.textHint,
+                      ),
+                    ),
                     IconButton(
                       tooltip: '修改姓名',
                       onPressed: () => _editMember(member),

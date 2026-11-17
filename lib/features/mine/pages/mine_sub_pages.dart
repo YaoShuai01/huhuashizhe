@@ -783,6 +783,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.9.9',
+        'date': '2026-11-17',
+        'content': [
+          '轮协日历中已过日期统一显示为浅灰色',
+          '自己的历史协管记录灰度稍深一点，便于和其他已过日期区分',
+          '成员列表新增“未验证”标识，管理员可点验证图标标记；标记后标识消失并随轮协表同步',
+        ],
+      },
+      {
         'version': 'v2.9.8',
         'date': '2026-11-17',
         'content': [
