@@ -1,0 +1,9 @@
+target/
+data/
+backups/
+config/config.properties
+*.db
+*.db-wal
+*.db-shm
+.idea/
+*.iml
