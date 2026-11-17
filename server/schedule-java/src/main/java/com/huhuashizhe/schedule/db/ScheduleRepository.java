@@ -19,6 +19,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -61,6 +62,16 @@ public class ScheduleRepository {
                                 + "updated_at TEXT NOT NULL,"
                                 + "updated_by TEXT NOT NULL"
                                 + ")");
+                statement.execute(
+                        "CREATE TABLE IF NOT EXISTS presence ("
+                                + "member_id TEXT PRIMARY KEY,"
+                                + "last_seen_at TEXT NOT NULL"
+                                + ")");
+                statement.execute(
+                        "CREATE TABLE IF NOT EXISTS meta ("
+                                + "key TEXT PRIMARY KEY,"
+                                + "value TEXT NOT NULL"
+                                + ")");
             }
             if (readRecord(connection) == null) {
                 ScheduleData seed = ScheduleData.seed();
@@ -77,6 +88,125 @@ public class ScheduleRepository {
                 LOG.info("初始化轮协数据库");
             }
             migrateLegacySeed(connection);
+            migratePresenceReset(connection);
+        }
+    }
+
+    /**
+     * 在线状态上线时，历史上无法确认谁真正用过功能，统一重置为“未验证”。
+     * 之后成员姓名验证成功会自动重新标记，并写入在线心跳。
+     */
+    private void migratePresenceReset(Connection connection) throws Exception {
+        if (readMeta(connection, "presence_reset_v1") != null) {
+            return;
+        }
+        Record current = readRecord(connection);
+        boolean changed = false;
+        if (current != null) {
+            for (Member member : current.schedule.members) {
+                if (Boolean.TRUE.equals(member.verified) || member.verifiedAt != null) {
+                    member.verified = Boolean.FALSE;
+                    member.verifiedAt = null;
+                    changed = true;
+                }
+            }
+            if (changed) {
+                current.schedule.revision = current.revision + 1;
+                current.schedule.updatedAt = Instant.now().toString();
+                current.schedule.updatedBy = "system:presence-reset";
+                try (PreparedStatement statement = connection.prepareStatement(
+                        "UPDATE schedule SET revision=?, payload=?, updated_at=?, updated_by=? WHERE id=1")) {
+                    statement.setLong(1, current.schedule.revision);
+                    statement.setString(2, mapper.writeValueAsString(current.schedule));
+                    statement.setString(3, current.schedule.updatedAt);
+                    statement.setString(4, current.schedule.updatedBy);
+                    statement.executeUpdate();
+                }
+                backup(current.schedule);
+            }
+        }
+        try (Statement statement = connection.createStatement()) {
+            statement.executeUpdate("DELETE FROM presence");
+        }
+        writeMeta(connection, "presence_reset_v1", Instant.now().toString());
+        LOG.info("已重置所有成员验证状态与在线记录");
+    }
+
+    /** 成员姓名验证成功后写入验证状态，返回 verifiedAt；成员不存在时返回 null。 */
+    public String markVerified(String memberId) throws Exception {
+        for (int attempt = 0; attempt < 3; attempt++) {
+            Record current = read();
+            Member target = null;
+            for (Member member : current.schedule.members) {
+                if (memberId.equals(member.id)) {
+                    target = member;
+                    break;
+                }
+            }
+            if (target == null) {
+                return null;
+            }
+            if (Boolean.TRUE.equals(target.verified) && target.verifiedAt != null) {
+                return target.verifiedAt;
+            }
+            String verifiedAt = target.verifiedAt == null
+                    ? Instant.now().toString()
+                    : target.verifiedAt;
+            target.verified = Boolean.TRUE;
+            target.verifiedAt = verifiedAt;
+            // 验证状态属于成员元数据，不推进 revision，避免管理员编辑时被误判冲突
+            current.schedule.updatedAt = Instant.now().toString();
+            current.schedule.updatedBy = "system:verify";
+            if (writeIfRevision(current.revision, current.schedule)) {
+                return verifiedAt;
+            }
+        }
+        throw new IllegalStateException("写入成员验证状态失败");
+    }
+
+    /** 记录成员最近一次在线时间（不进 revision，不影响轮协编辑冲突）。 */
+    public void touchPresence(String memberId, Instant now) throws Exception {
+        try (Connection connection = open();
+                PreparedStatement statement = connection.prepareStatement(
+                        "INSERT INTO presence (member_id, last_seen_at) VALUES (?, ?) "
+                                + "ON CONFLICT(member_id) DO UPDATE SET last_seen_at=excluded.last_seen_at")) {
+            statement.setString(1, memberId);
+            statement.setString(2, now.toString());
+            statement.executeUpdate();
+        }
+    }
+
+    /** memberId -> 最近在线时间 */
+    public Map<String, String> readPresence() throws Exception {
+        Map<String, String> result = new LinkedHashMap<>();
+        try (Connection connection = open();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(
+                        "SELECT member_id, last_seen_at FROM presence")) {
+            while (resultSet.next()) {
+                result.put(resultSet.getString("member_id"), resultSet.getString("last_seen_at"));
+            }
+        }
+        return result;
+    }
+
+    private String readMeta(Connection connection, String key) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT value FROM meta WHERE key=?")) {
+            statement.setString(1, key);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next() ? resultSet.getString("value") : null;
+            }
+        }
+    }
+
+    private void writeMeta(Connection connection, String key, String value) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "INSERT INTO meta (key, value) VALUES (?, ?) "
+                        + "ON CONFLICT(key) DO UPDATE SET value=excluded.value")) {
+            statement.setString(1, key);
+            statement.setString(2, value);
+            statement.executeUpdate();
         }
     }
 

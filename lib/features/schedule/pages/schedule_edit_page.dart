@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
@@ -79,8 +80,15 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
         _members =
             loaded.members
                 .map(
-                  (m) =>
-                      ScheduleMember(id: m.id, name: m.name, active: m.active),
+                  (m) => ScheduleMember(
+                    id: m.id,
+                    name: m.name,
+                    active: m.active,
+                    verified: m.verified,
+                    lastSeenAt: m.lastSeenAt,
+                    online: m.online,
+                    seq: m.seq,
+                  ),
                 )
                 .toList();
         _assignments = Map<String, String>.from(loaded.assignments);
@@ -88,6 +96,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
         _dirty = false;
         _loading = false;
       });
+      unawaited(_refreshMemberStatus());
     } on ScheduleAuthException {
       if (!mounted) return;
       setState(() {
@@ -107,6 +116,28 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
         _error = '轮协数据加载失败，请返回重试';
       });
     }
+  }
+
+  /// 静默刷新成员在线状态，避免编辑页显示过期状态
+  Future<void> _refreshMemberStatus() async {
+    final updated = await _service.refresh(force: true, silent: true);
+    if (!mounted || updated == null || _dirty) return;
+    setState(() {
+      for (final remote in updated.members) {
+        final index = _members.indexWhere((m) => m.id == remote.id);
+        if (index < 0) continue;
+        final current = _members[index];
+        _members[index] = ScheduleMember(
+          id: current.id,
+          name: current.name,
+          active: current.active,
+          verified: remote.verified,
+          lastSeenAt: remote.lastSeenAt,
+          online: remote.online,
+          seq: current.seq,
+        );
+      }
+    });
   }
 
   Future<void> _pickMemberForDate(DateTime date) async {
@@ -250,19 +281,6 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
     if (member.id == _service.memberId) {
       await _service.selectMember(updated);
     }
-  }
-
-  void _toggleVerified(ScheduleMember member) {
-    setState(() {
-      final index = _members.indexWhere((m) => m.id == member.id);
-      if (index >= 0) {
-        _members[index] = _members[index].copyWith(
-          verified: !_members[index].verified,
-        );
-        _dirty = true;
-      }
-    });
-    _snack(member.verified ? '已取消验证' : '已标记为已验证');
   }
 
   Future<void> _deleteMember(ScheduleMember member) async {
@@ -1200,6 +1218,49 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
                           ),
                         ),
                       ),
+                    ] else ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: (member.online
+                                  ? AppColors.success
+                                  : AppColors.textHint)
+                              .withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 6,
+                              height: 6,
+                              decoration: BoxDecoration(
+                                color:
+                                    member.online
+                                        ? AppColors.success
+                                        : AppColors.textHint,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              member.online ? '在线' : '离线',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color:
+                                    member.online
+                                        ? AppColors.success
+                                        : AppColors.textHint,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ],
                 ),
@@ -1213,19 +1274,6 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    IconButton(
-                      tooltip: member.verified ? '取消验证' : '标记已验证',
-                      onPressed: () => _toggleVerified(member),
-                      icon: Icon(
-                        member.verified
-                            ? Icons.verified_user
-                            : Icons.verified_user_outlined,
-                        size: 20,
-                        color: member.verified
-                            ? AppColors.success
-                            : AppColors.textHint,
-                      ),
-                    ),
                     IconButton(
                       tooltip: '修改姓名',
                       onPressed: () => _editMember(member),

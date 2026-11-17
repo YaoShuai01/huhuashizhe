@@ -82,9 +82,9 @@ public final class ScheduleValidator {
                 usedSeq.add(seq);
             }
             Member member = new Member(id, name, active, seq);
-            member.verified = raw.verified == null ? Boolean.FALSE : raw.verified;
-            String verifiedAt = trim(raw.verifiedAt);
-            member.verifiedAt = verifiedAt.isEmpty() ? null : verifiedAt;
+            // 验证状态由服务端维护，客户端提交的值一律忽略
+            member.verified = Boolean.FALSE;
+            member.verifiedAt = null;
             members.add(member);
             idLookup.put(idKey, id);
             activeLookup.put(idKey, active);

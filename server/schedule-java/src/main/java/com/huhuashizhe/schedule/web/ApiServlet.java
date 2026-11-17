@@ -1,5 +1,6 @@
 package com.huhuashizhe.schedule.web;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huhuashizhe.schedule.config.AppConfig;
 import com.huhuashizhe.schedule.db.MessageRepository;
@@ -8,6 +9,7 @@ import com.huhuashizhe.schedule.model.AuthRequest;
 import com.huhuashizhe.schedule.model.AuthResponse;
 import com.huhuashizhe.schedule.model.ConflictResponse;
 import com.huhuashizhe.schedule.model.ErrorResponse;
+import com.huhuashizhe.schedule.model.MemberRequest;
 import com.huhuashizhe.schedule.model.Message;
 import com.huhuashizhe.schedule.model.MessageRequest;
 import com.huhuashizhe.schedule.model.Member;
@@ -33,10 +35,14 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.sql.Driver;
 import java.sql.DriverManager;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.logging.Level;
@@ -47,12 +53,16 @@ import java.util.logging.Logger;
  * POST /auth         {key} -> {token, role, expiresAt}
  * GET  /schedule     Bearer token -> {schedule, serverTime}
  * PUT  /schedule     admin Bearer token -> {schedule, changes, changedMemberIds, committedAt}
+ * POST /verify       member Bearer token {memberId} -> 记录成员已验证
+ * POST /presence     member Bearer token {memberId} -> 刷新在线心跳
  * GET  /health       健康检查
  */
 @WebServlet(name = "scheduleApiServlet", urlPatterns = {"/*"}, loadOnStartup = 1)
 public class ApiServlet extends HttpServlet {
     private static final Logger LOG = Logger.getLogger(ApiServlet.class.getName());
     private static final long MAX_BODY_BYTES = 1_000_000L;
+    /** 最近 5 分钟内上报过心跳视为在线 */
+    private static final long ONLINE_WINDOW_SECONDS = 300L;
 
     private final ObjectMapper mapper = Json.mapper();
     private transient AppConfig config;
@@ -123,6 +133,16 @@ public class ApiServlet extends HttpServlet {
             }
             if ("/auth".equals(path) && "POST".equalsIgnoreCase(request.getMethod())) {
                 auth(request, response);
+                return;
+            }
+            if ("/verify".equals(path) && "POST".equalsIgnoreCase(request.getMethod())) {
+                requireAuth(request);
+                verifyMember(request, response);
+                return;
+            }
+            if ("/presence".equals(path) && "POST".equalsIgnoreCase(request.getMethod())) {
+                requireAuth(request);
+                presence(request, response);
                 return;
             }
             if ("/schedule".equals(path)) {
@@ -217,21 +237,12 @@ public class ApiServlet extends HttpServlet {
         }
 
         String role;
-        String memberId = null;
         if (constantTimeEquals(key, config.adminKey)) {
             role = "admin";
-        } else if (config.memberKeys.containsKey(key)) {
-            role = "member";
-            memberId = config.memberKeys.get(key);
         } else if (constantTimeEquals(key, config.scheduleKey)) {
             role = "member";
-            memberId = body == null ? null : trim(body.memberId);
         } else {
             throw new ApiException(401, "invalid_key", "轮协密钥错误");
-        }
-
-        if ("member".equals(role) && memberId != null && !memberId.isEmpty()) {
-            markMemberVerified(memberId);
         }
 
         long ttl = "admin".equals(role)
@@ -240,52 +251,101 @@ public class ApiServlet extends HttpServlet {
         AuthResponse result = new AuthResponse();
         result.token = tokenService.issue(role, ttl);
         result.role = role;
-        result.memberId = memberId;
         result.expiresAt = Instant.now().plusSeconds(ttl).toString();
         write(response, 200, result);
     }
 
-    /** 成员首次用专属密钥登录时，把对应成员标记为已验证。 */
-    private void markMemberVerified(String memberId) {
+    /** 姓名验证成功后记录成员已验证：之后该成员不再显示“未验证”。 */
+    private void verifyMember(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        String memberId = readMemberId(request);
         try {
-            for (int attempt = 0; attempt < 3; attempt++) {
-                ScheduleRepository.Record current = repository.read();
-                Member target = null;
-                for (Member member : current.schedule.members) {
-                    if (memberId.equals(member.id)) {
-                        target = member;
-                        break;
-                    }
-                }
-                if (target == null || Boolean.TRUE.equals(target.verified)) {
-                    return;
-                }
-                target.verified = Boolean.TRUE;
-                target.verifiedAt = Instant.now().toString();
-                current.schedule.revision = current.revision + 1;
-                current.schedule.updatedAt = target.verifiedAt;
-                current.schedule.updatedBy = "system:verify";
-                if (repository.writeIfRevision(current.revision, current.schedule)) {
-                    LOG.info("成员已验证: " + memberId);
-                    return;
-                }
+            String verifiedAt = repository.markVerified(memberId);
+            if (verifiedAt == null) {
+                throw new ApiException(404, "not_found", "成员不存在，请刷新轮协表");
             }
+            repository.touchPresence(memberId, Instant.now());
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("memberId", memberId);
+            body.put("verified", true);
+            body.put("verifiedAt", verifiedAt);
+            write(response, 200, body);
+        } catch (ApiException e) {
+            throw e;
         } catch (Exception e) {
-            LOG.log(Level.WARNING, "标记成员验证状态失败: " + memberId, e);
+            LOG.log(Level.WARNING, "记录成员验证状态失败: " + memberId, e);
+            throw new ApiException(500, "verify_failed", "验证状态保存失败");
         }
+    }
+
+    /** App 前台定时上报在线心跳。 */
+    private void presence(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        String memberId = readMemberId(request);
+        try {
+            if (repository.markVerified(memberId) == null) {
+                throw new ApiException(404, "not_found", "成员不存在，请刷新轮协表");
+            }
+            Instant now = Instant.now();
+            repository.touchPresence(memberId, now);
+            Map<String, Object> body = new LinkedHashMap<>();
+            body.put("memberId", memberId);
+            body.put("lastSeenAt", now.toString());
+            body.put("online", true);
+            write(response, 200, body);
+        } catch (ApiException e) {
+            throw e;
+        } catch (Exception e) {
+            LOG.log(Level.WARNING, "更新成员在线状态失败: " + memberId, e);
+            throw new ApiException(500, "presence_failed", "在线状态更新失败");
+        }
+    }
+
+    private String readMemberId(HttpServletRequest request) {
+        MemberRequest body = readBody(request, MemberRequest.class);
+        String memberId = body == null ? "" : trim(body.memberId);
+        if (memberId.isEmpty()) {
+            throw new ApiException(400, "bad_request", "缺少成员信息");
+        }
+        return memberId;
     }
 
     private void getSchedule(HttpServletResponse response) throws IOException {
         try {
             ScheduleRepository.Record record = repository.read();
+            Map<String, String> presence = repository.readPresence();
+            Instant now = Instant.now();
+            List<Map<String, Object>> members = new ArrayList<>();
+            for (Member member : record.schedule.members) {
+                Map<String, Object> item = mapper.convertValue(
+                        member, new TypeReference<Map<String, Object>>() {});
+                String lastSeenAt = presence.get(member.id);
+                item.put("lastSeenAt", lastSeenAt);
+                item.put("online", isOnline(member, lastSeenAt, now));
+                members.add(item);
+            }
+            Map<String, Object> schedule = mapper.convertValue(
+                    record.schedule, new TypeReference<Map<String, Object>>() {});
+            schedule.put("members", members);
+
             Map<String, Object> body = new LinkedHashMap<>();
-            body.put("schedule", record.schedule);
-            body.put("serverTime", Instant.now().toString());
+            body.put("schedule", schedule);
+            body.put("serverTime", now.toString());
             write(response, 200, body);
         } catch (RuntimeException e) {
             throw e;
         } catch (Exception e) {
             throw new ApiException(500, "read_failed", "轮协数据读取失败");
+        }
+    }
+
+    private static boolean isOnline(Member member, String lastSeenAt, Instant now) {
+        if (!Boolean.TRUE.equals(member.verified) || lastSeenAt == null || lastSeenAt.isEmpty()) {
+            return false;
+        }
+        try {
+            long seconds = Duration.between(Instant.parse(lastSeenAt), now).getSeconds();
+            return seconds >= 0 && seconds <= ONLINE_WINDOW_SECONDS;
+        } catch (Exception e) {
+            return false;
         }
     }
 
@@ -303,6 +363,18 @@ public class ApiServlet extends HttpServlet {
             ScheduleRepository.Record current = repository.read();
             if (current.revision != body.baseRevision) {
                 throw new ConflictException(current, "轮协表已被其他设备更新，请刷新后再提交");
+            }
+
+            // 验证状态只由服务端产生，管理员提交时保留服务端现有状态
+            Map<String, Member> verifiedLookup = new HashMap<>();
+            for (Member member : current.schedule.members) {
+                verifiedLookup.put(member.id.toLowerCase(Locale.ROOT), member);
+            }
+            for (Member member : payload.members) {
+                Member existing = verifiedLookup.get(member.id.toLowerCase(Locale.ROOT));
+                boolean verified = existing != null && Boolean.TRUE.equals(existing.verified);
+                member.verified = verified;
+                member.verifiedAt = verified ? existing.verifiedAt : null;
             }
 
             BuildResult built = ScheduleValidator.buildNext(current.schedule, payload, Instant.now());

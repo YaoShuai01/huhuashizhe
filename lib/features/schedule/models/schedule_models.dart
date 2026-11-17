@@ -6,8 +6,14 @@ class ScheduleMember {
   final String name;
   final bool active;
 
-  /// 是否已通过身份验证（管理员可在成员列表标记）
+  /// 是否已通过姓名验证（由服务端记录，客户端只读）
   final bool verified;
+
+  /// 最近一次在线心跳时间（服务端返回）
+  final String? lastSeenAt;
+
+  /// 是否在线（服务端按心跳时间计算，客户端只读）
+  final bool online;
 
   /// 成员编号，按加入顺序分配，用于“X号成员”
   final int? seq;
@@ -17,6 +23,8 @@ class ScheduleMember {
     required this.name,
     this.active = true,
     this.verified = false,
+    this.lastSeenAt,
+    this.online = false,
     this.seq,
   });
 
@@ -26,6 +34,8 @@ class ScheduleMember {
       name: (json['name'] as String? ?? '').trim(),
       active: json['active'] != false,
       verified: json['verified'] == true,
+      lastSeenAt: json['lastSeenAt'] as String?,
+      online: json['online'] == true,
       seq: (json['seq'] as num?)?.toInt(),
     );
   }
@@ -34,21 +44,17 @@ class ScheduleMember {
     'id': id,
     'name': name,
     'active': active,
-    'verified': verified,
     if (seq != null) 'seq': seq,
   };
 
-  ScheduleMember copyWith({
-    String? name,
-    bool? active,
-    bool? verified,
-    int? seq,
-  }) {
+  ScheduleMember copyWith({String? name, bool? active, int? seq}) {
     return ScheduleMember(
       id: id,
       name: name ?? this.name,
       active: active ?? this.active,
-      verified: verified ?? this.verified,
+      verified: verified,
+      lastSeenAt: lastSeenAt,
+      online: online,
       seq: seq ?? this.seq,
     );
   }

@@ -783,6 +783,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.10.0',
+        'date': '2026-11-18',
+        'content': [
+          '轮协成员新增在线状态：已验证成员显示“在线/离线”，从未使用过的成员显示“未验证”',
+          '成员验证由服务端自动记录：输入姓名验证成功后立即生效，无需管理员手动标记',
+          'App 前台每 2 分钟自动上报在线心跳，在线状态实时同步给所有成员',
+        ],
+      },
+      {
         'version': 'v2.9.9',
         'date': '2026-11-17',
         'content': [
