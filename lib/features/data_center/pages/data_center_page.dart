@@ -49,7 +49,10 @@ class DataCenterPage extends StatelessWidget {
             // 模块分类
             _buildSectionTitle('基础数据'),
             const SizedBox(height: 8),
-            _buildModuleGrid(context, DataModules.allModules.sublist(0, 3)),
+            _buildModuleGrid(context, [
+              ...DataModules.allModules.sublist(0, 3),
+              DataModules.scheduleModule,
+            ]),
             const SizedBox(height: 20),
             _buildSectionTitle('监测数据'),
             const SizedBox(height: 8),
@@ -111,6 +114,10 @@ class DataCenterPage extends StatelessWidget {
           // 病虫害记录模块：模型测试识别记录（专属列表卡页面）
           if (module.moduleKey == 'pest') {
             context.push('/growth-records');
+            return;
+          }
+          if (module.moduleKey == 'schedule') {
+            context.push('/schedule');
             return;
           }
           Navigator.of(context, rootNavigator: true).push(

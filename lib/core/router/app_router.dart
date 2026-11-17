@@ -18,6 +18,10 @@ import '../../features/data_center/data_module_config.dart';
 import '../../features/remote_control/pages/remote_control_page.dart';
 import '../../features/model_test/pages/model_test_page.dart';
 import '../../features/model_test/pages/growth_records_page.dart';
+import '../../features/schedule/pages/schedule_gate_page.dart';
+import '../../features/schedule/pages/schedule_page.dart';
+import '../../features/schedule/pages/schedule_edit_page.dart';
+import '../../features/schedule/pages/schedule_messages_page.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -206,6 +210,26 @@ final appRouter = GoRouter(
         final config = state.extra as DataModuleConfig;
         return DataListPage(config: config);
       },
+    ),
+    GoRoute(
+      path: '/schedule',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const ScheduleGatePage(),
+    ),
+    GoRoute(
+      path: '/schedule/home',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const SchedulePage(),
+    ),
+    GoRoute(
+      path: '/schedule/edit',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const ScheduleEditPage(),
+    ),
+    GoRoute(
+      path: '/schedule/messages',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const ScheduleMessagesPage(),
     ),
   ],
 );

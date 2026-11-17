@@ -1,0 +1,2065 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>护花使者 · 轮协管理（网页联调版）</title>
+<style>
+  :root {
+    --green: #2E7D32;
+    --green-dark: #1B5E20;
+    --green-light: #66BB6A;
+    --bg: #F5F7FA;
+    --surface: #FFFFFF;
+    --ink: #1A1A1A;
+    --muted: #666666;
+    --hint: #999999;
+    --line: #E3E7E3;
+    --amber: #FF8F00;
+    --red: #D32F2F;
+    --blue: #1976D2;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  button, input { font-family: inherit; }
+  h1, h2, h3, p { margin: 0; }
+  h1 { font-size: 20px; font-weight: 800; }
+  h2 { font-size: 15px; font-weight: 700; }
+  .shell { max-width: 760px; margin: 0 auto; padding: 16px; }
+  .muted { color: var(--muted); }
+  .hint { color: var(--hint); font-size: 12px; line-height: 1.6; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 4px 18px rgba(23, 46, 23, 0.04);
+  }
+  .topbar {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .topbar .title-group { display: flex; flex-direction: column; gap: 4px; }
+  .top-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .main-menu-wrap { position: relative; }
+  .menu-dots {
+    font-size: 20px;
+    line-height: 1;
+    padding: 2px 10px;
+    letter-spacing: 1px;
+  }
+  .main-menu {
+    position: absolute;
+    top: 38px;
+    right: 0;
+    z-index: 40;
+    min-width: 136px;
+    padding: 5px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: 0 12px 28px rgba(18, 40, 24, .14);
+  }
+  .menu-item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    border: none;
+    background: transparent;
+    color: var(--ink);
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .menu-item:hover { background: #F2F5F2; }
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 8px;
+    border-radius: 999px;
+    background: rgba(46, 125, 50, 0.1);
+    color: var(--green);
+    font-size: 11px;
+    font-weight: 700;
+    width: fit-content;
+  }
+  .btn {
+    border: none;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform .08s ease, opacity .15s ease, background .15s ease;
+    user-select: none;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.primary { background: var(--green); color: #fff; }
+  .btn.primary:hover { background: var(--green-dark); }
+  .btn.secondary { background: rgba(46, 125, 50, 0.1); color: var(--green); }
+  .btn.secondary:hover { background: rgba(46, 125, 50, 0.16); }
+  .btn.ghost { background: transparent; color: var(--muted); }
+  .btn.ghost:hover { background: rgba(0, 0, 0, 0.04); }
+  .btn.danger { background: rgba(211, 47, 47, 0.1); color: var(--red); }
+  .btn.small { padding: 7px 10px; font-size: 12px; border-radius: 8px; }
+  .btn.block { width: 100%; padding: 13px 16px; font-size: 15px; }
+  .field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .field label { font-size: 12px; font-weight: 700; color: var(--muted); }
+  .field input, .field select {
+    width: 100%;
+    border: 1px solid var(--line);
+    background: #F7F8FA;
+    border-radius: 11px;
+    padding: 12px 13px;
+    font-size: 15px;
+    outline: none;
+    color: var(--ink);
+  }
+  .field input:focus { border-color: var(--green); background: #fff; box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.1); }
+  .error { color: var(--red); font-size: 12px; margin: -4px 0 12px; }
+  .gate-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px 16px; }
+  .gate-card { width: 100%; max-width: 380px; padding: 26px 22px; }
+  .lock-badge {
+    width: 64px; height: 64px; border-radius: 50%;
+    background: rgba(46, 125, 50, 0.1);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 16px;
+  }
+  .lock-badge svg { width: 30px; height: 30px; stroke: var(--green); }
+  .gate-card h1 { margin-bottom: 4px; }
+  .gate-card .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  .service-box { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 12px; }
+  .service-box summary { cursor: pointer; color: var(--hint); font-size: 12px; user-select: none; }
+  .service-box .field { margin-top: 12px; }
+  .search {
+    width: 100%; border: 1px solid var(--line); background: #F7F8FA;
+    border-radius: 11px; padding: 11px 13px; font-size: 14px; outline: none; margin: 12px 0;
+  }
+  .member-option {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px; border: 1px solid var(--line); border-radius: 12px;
+    margin-bottom: 8px; cursor: pointer; background: #fff;
+  }
+  .member-option.selected { border-color: var(--green); box-shadow: 0 0 0 2px rgba(46, 125, 50, 0.12); }
+  .avatar {
+    width: 38px; height: 38px; border-radius: 50%;
+    background: rgba(46, 125, 50, 0.12); color: var(--green);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 15px; flex: 0 0 auto;
+  }
+  .member-option .name { font-weight: 700; }
+  .member-option .check { margin-left: auto; color: var(--green); font-weight: 800; }
+  .section-head { display: flex; align-items: baseline; justify-content: space-between; margin: 18px 4px 8px; }
+  .my-card {
+    border-radius: 18px; padding: 15px 16px 14px; color: #fff;
+    background: linear-gradient(135deg, var(--green), var(--green-dark));
+    box-shadow: 0 10px 22px rgba(27, 94, 32, 0.22);
+  }
+  .my-card .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .my-card .label { font-size: 16px; font-weight: 800; opacity: .96; letter-spacing: .3px; }
+  .my-card .name-pill {
+    background: rgba(255, 255, 255, .16); padding: 4px 10px; border-radius: 999px;
+    font-size: 13px; font-weight: 700;
+  }
+  .my-card .big { font-size: 24px; font-weight: 800; margin-top: 8px; line-height: 1.15; }
+  .my-card .sub { font-size: 12px; opacity: .9; margin-top: 4px; }
+  .my-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex: 0 0 auto; }
+  .my-card .days-badge {
+    background: rgba(255, 255, 255, .2); border-radius: 999px;
+    padding: 5px 10px; font-size: 12px; font-weight: 700; white-space: nowrap;
+  }
+  .message-entry {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(255, 255, 255, .16); color: #fff;
+    border: none; border-radius: 999px; padding: 5px 12px;
+    font-size: 12px; font-weight: 700; cursor: pointer;
+  }
+  .message-entry:hover { background: rgba(255, 255, 255, .24); }
+  .msg-badge {
+    min-width: 16px; height: 16px; padding: 0 4px; border-radius: 999px;
+    background: #fff; color: var(--green-dark);
+    font-size: 10px; font-weight: 900;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .msg-composer textarea, .reply-box textarea {
+    width: 100%; border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px; font-family: inherit; font-size: 14px;
+    resize: vertical; min-height: 88px; outline: none; background: #fff; color: var(--ink);
+  }
+  .msg-composer textarea:focus, .reply-box textarea:focus {
+    border-color: var(--green); box-shadow: 0 0 0 3px rgba(46, 125, 50, .1);
+  }
+  .msg-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+  .msg-card {
+    background: #fff; border: 1px solid var(--line); border-radius: 14px;
+    padding: 14px; margin-bottom: 10px;
+  }
+  .msg-content { white-space: pre-wrap; word-break: break-word; font-size: 14px; line-height: 1.65; }
+  .msg-meta { display: flex; align-items: center; gap: 8px; margin-top: 8px; color: var(--hint); font-size: 11px; }
+  .msg-mine { color: var(--green); font-weight: 700; }
+  .msg-actions { display: flex; gap: 4px; margin-left: auto; }
+  .msg-replies { margin-top: 12px; border-top: 1px dashed var(--line); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .reply-row { background: #F7F8FA; border-radius: 10px; padding: 9px 11px; font-size: 13px; }
+  .reply-content { white-space: pre-wrap; word-break: break-word; }
+  .reply-meta { display: flex; justify-content: space-between; gap: 8px; margin-top: 4px; color: var(--hint); font-size: 10px; }
+  .msg-empty { text-align: center; color: var(--hint); padding: 36px 12px; font-size: 13px; }
+  .msg-offline {
+    background: rgba(255, 143, 0, .09); border: 1px solid rgba(255, 143, 0, .22);
+    color: var(--muted); border-radius: 10px; padding: 10px 12px;
+    font-size: 12px; margin-bottom: 10px;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+  .chip {
+    display: inline-flex; align-items: center;
+    background: rgba(255, 255, 255, .16); color: #fff;
+    border-radius: 8px; padding: 3px 8px; font-size: 10.5px;
+  }
+  .chip.light { background: #fff; color: var(--muted); border: 1px solid var(--line); }
+  .bind-card { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .month-head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  .month-title { flex: 1; text-align: center; font-size: 15px; font-weight: 800; }
+  .icon-btn {
+    width: 32px; height: 32px; border: none; border-radius: 9px;
+    background: transparent; color: var(--muted); cursor: pointer;
+    font-size: 20px; line-height: 1; display: flex; align-items: center; justify-content: center;
+  }
+  .icon-btn:hover { background: rgba(0, 0, 0, 0.05); }
+  .weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; margin-bottom: 4px; }
+  .weekdays span { text-align: center; color: var(--hint); font-size: 11px; }
+  .calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .day {
+    min-height: 64px; border-radius: 8px; padding: 5px;
+    background: #F0F2F5; color: var(--muted);
+    display: flex; flex-direction: column; justify-content: space-between;
+    overflow: hidden; cursor: pointer;
+  }
+  .day.blank { background: transparent; cursor: default; }
+  .day.other { background: #E8F5E9; }
+  .day.mine { background: var(--green); color: #fff; }
+  .day.today { outline: 2px solid var(--green); outline-offset: -2px; }
+  .day.mine.today { outline-color: var(--amber); }
+  .day.past { opacity: .5; }
+  .day .num { font-size: 12px; font-weight: 700; display: flex; justify-content: space-between; }
+  .day .num .me { font-size: 9px; opacity: .9; }
+  .day .name {
+    font-size: 10px; line-height: 1.15; text-align: center;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .day .name.empty-name { color: var(--hint); }
+  .day.mine .name.empty-name { color: rgba(255, 255, 255, .8); }
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin: 10px 0 2px; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; color: var(--hint); font-size: 10px; }
+  .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .banner {
+    display: flex; align-items: flex-start; gap: 10px;
+    border-radius: 12px; padding: 12px; margin-bottom: 12px;
+    background: rgba(25, 118, 210, 0.08); border: 1px solid rgba(25, 118, 210, 0.2);
+    color: var(--muted); font-size: 12px;
+  }
+  .banner strong { color: var(--blue); display: block; margin-bottom: 2px; }
+  .banner.warn { background: rgba(255, 143, 0, 0.09); border-color: rgba(255, 143, 0, 0.22); }
+  .banner.warn strong { color: var(--amber); }
+  .banner .close { margin-left: auto; }
+  .note { color: var(--hint); font-size: 11px; line-height: 1.6; margin: 12px 4px; }
+  .tabs { display: flex; gap: 4px; background: rgba(0, 0, 0, 0.04); border-radius: 11px; padding: 4px; margin-bottom: 12px; }
+  .tab { flex: 1; border: none; background: transparent; padding: 9px; border-radius: 8px; font-size: 13px; font-weight: 700; color: var(--muted); cursor: pointer; }
+  .tab.active { background: #fff; color: var(--green); box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+  .member-row { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 1px solid var(--line); }
+  .member-row:last-child { border-bottom: none; }
+  .member-row .meta { flex: 1; min-width: 0; }
+  .member-row .meta .name { font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .member-row .meta .sub { color: var(--hint); font-size: 11px; }
+  .row-actions { display: flex; gap: 4px; }
+  .empty-state { text-align: center; padding: 28px 12px; color: var(--hint); font-size: 13px; }
+  .long-actions { display: flex; flex-direction: column; gap: 10px; }
+  .btn.long {
+    width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+    padding: 14px 16px; text-align: left; border-radius: 12px;
+    border: 1px solid var(--line); background: #F7F8FA; color: var(--ink);
+  }
+  .btn.long:hover { border-color: var(--green); background: rgba(46, 125, 50, .05); }
+  .btn.long strong { font-size: 15px; font-weight: 800; }
+  .btn.long span { font-size: 12px; color: var(--hint); font-weight: 400; }
+  .custom-seq { margin: 10px 0 4px; }
+  .modal-card.custom-rotation-modal { display: flex; flex-direction: column; max-height: 82vh; overflow: hidden; }
+  .custom-rotation-modal .custom-seq {
+    flex: 1 1 auto; min-height: 80px; max-height: none;
+    overflow-y: auto; -webkit-overflow-scrolling: touch;
+  }
+  .custom-rotation-modal .rotation-tags {
+    flex: 0 0 auto; max-height: 26vh; overflow-y: auto;
+    border-top: 1px solid var(--line); padding-top: 8px;
+  }
+  .custom-rotation-modal .modal-actions { flex: 0 0 auto; }
+  .custom-rotation-modal .hint { flex: 0 0 auto; }
+  .check-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); margin: 6px 0 2px; }
+  .check-row input { width: 16px; height: 16px; }
+  .seq-row { display: flex; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .seq-row:last-child { border-bottom: none; }
+  .seq-index {
+    width: 22px; height: 22px; border-radius: 50%;
+    background: rgba(46, 125, 50, .1); color: var(--green);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; flex: 0 0 auto;
+  }
+  .seq-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .rotation-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .name-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    border: 1px solid var(--line); background: #fff; color: var(--ink);
+    border-radius: 999px; padding: 7px 12px; font-size: 13px; cursor: pointer;
+  }
+  .name-tag:hover { border-color: var(--green); background: rgba(46, 125, 50, .05); }
+  .tag-count {
+    min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px;
+    background: var(--green); color: #fff;
+    font-size: 10px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .tag-count.zero { background: #E3E7E3; color: var(--hint); }
+  .swap-preview { background: #F7F8FA; border-radius: 10px; padding: 10px; margin-top: 6px; font-size: 13px; }
+  .swap-line { padding: 3px 0; color: var(--muted); }
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0, 0, 0, .45);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; z-index: 100;
+  }
+  .modal-card {
+    background: #fff; border-radius: 16px; padding: 18px;
+    width: 100%; max-width: 420px; max-height: 82vh; overflow: auto;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, .25);
+  }
+  .modal-card h3 { font-size: 16px; font-weight: 800; margin-bottom: 4px; }
+  .modal-card .modal-sub { color: var(--hint); font-size: 12px; margin-bottom: 12px; }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+  .pick-row {
+    display: flex; align-items: center; gap: 10px; padding: 11px;
+    border-radius: 10px; cursor: pointer; border: 1px solid transparent;
+  }
+  .pick-row:hover { background: #F7F8FA; border-color: var(--line); }
+  .pick-row.selected { background: rgba(46, 125, 50, .08); border-color: rgba(46, 125, 50, .25); }
+  .pick-row .check { margin-left: auto; color: var(--green); font-weight: 800; }
+  .toast {
+    position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 16px);
+    background: #1A1A1A; color: #fff; padding: 10px 16px; border-radius: 10px;
+    font-size: 13px; opacity: 0; pointer-events: none; transition: .2s ease;
+    z-index: 200; max-width: calc(100vw - 32px); text-align: center;
+  }
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+  .toast.error { background: var(--red); }
+  .toast.success { background: var(--green); }
+  .loading { min-height: 70vh; display: flex; align-items: center; justify-content: center; color: var(--hint); font-size: 13px; }
+  #ceremony-root { position: fixed; inset: 0; z-index: 300; pointer-events: none; }
+  .ceremony {
+    position: fixed; inset: 0; overflow: hidden;
+    background: radial-gradient(circle at 50% 45%, #0b1f12 0%, #050807 55%, #020303 100%);
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity .35s ease; pointer-events: auto;
+  }
+  .ceremony.show { opacity: 1; }
+  .ceremony.hide { opacity: 0; }
+  .ceremony-canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .ceremony-grid {
+    position: absolute; inset: -20%;
+    background-image:
+      linear-gradient(rgba(102, 187, 106, .18) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(102, 187, 106, .18) 1px, transparent 1px);
+    background-size: 44px 44px;
+    transform: perspective(600px) rotateX(62deg) scale(.2);
+    transform-origin: center 60%;
+    opacity: 0;
+    transition: transform 1.1s cubic-bezier(.2, .7, .2, 1), opacity .6s ease;
+  }
+  .ceremony.burst .ceremony-grid {
+    transform: perspective(600px) rotateX(62deg) scale(1.4);
+    opacity: .55;
+  }
+  .ceremony-center { position: relative; text-align: center; padding: 24px; }
+  .ceremony-success {
+    font-size: clamp(34px, 9vw, 64px); font-weight: 900; letter-spacing: .18em;
+    color: #d7ffd9;
+    text-shadow: 0 0 18px rgba(102, 187, 106, .9), 0 0 48px rgba(102, 187, 106, .5);
+    transform: scale(.78); opacity: 0;
+    transition: transform .6s cubic-bezier(.2, .9, .2, 1), opacity .4s ease;
+  }
+  .ceremony.show .ceremony-success { transform: scale(1); opacity: 1; }
+  .ceremony-greeting {
+    margin-top: 18px; color: #e8ffe9;
+    font-size: clamp(18px, 4.6vw, 28px); font-weight: 800; line-height: 1.6;
+    opacity: 0; transform: translateY(14px);
+    transition: opacity .6s ease .9s, transform .6s ease .9s;
+    text-shadow: 0 0 16px rgba(102, 187, 106, .35);
+  }
+  .ceremony-greeting .num { color: #8aff9a; }
+  .ceremony.show .ceremony-greeting { opacity: 1; transform: translateY(0); }
+  .ceremony-enter {
+    position: absolute; left: 50%; bottom: 8vh;
+    transform: translateX(-50%) translateY(10px);
+    opacity: 0; pointer-events: none;
+    border: 1px solid rgba(138, 255, 154, .55);
+    background: rgba(10, 30, 16, .55); color: #d7ffd9;
+    border-radius: 999px; padding: 12px 34px;
+    font-size: 16px; font-weight: 800; letter-spacing: .25em;
+    cursor: pointer; box-shadow: 0 0 24px rgba(102, 187, 106, .35);
+    transition: opacity .45s ease, transform .45s ease, background .2s ease;
+  }
+  .ceremony.ready .ceremony-enter {
+    opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto;
+  }
+  .ceremony.ready .ceremony-enter:hover { background: rgba(30, 70, 40, .7); }
+  .ceremony.warp .ceremony-center {
+    transform: scale(2.6); opacity: 0;
+    transition: transform .8s cubic-bezier(.3, .8, .2, 1), opacity .6s ease;
+  }
+  .ceremony.warp .ceremony-grid {
+    transform: perspective(600px) rotateX(62deg) scale(2.8);
+    opacity: 0;
+  }
+  .ceremony.warp .ceremony-enter { opacity: 0; }
+  .ceremony.warp::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(circle, rgba(215, 255, 217, .95), rgba(102, 187, 106, .4) 25%, transparent 65%);
+    opacity: 0; animation: warpFlash .9s ease forwards;
+  }
+  @keyframes warpFlash {
+    0% { opacity: 0; transform: scale(.2); }
+    35% { opacity: .9; }
+    100% { opacity: 0; transform: scale(2.4); }
+  }
+  @media (max-width: 460px) {
+    .shell { padding: 12px; }
+    .day { min-height: 56px; padding: 4px; }
+    .day .name { font-size: 9px; }
+    .my-card .big { font-size: 23px; }
+    .topbar { align-items: center; }
+    .top-actions .btn { padding: 6px 8px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="modal-root"></div>
+<div id="ceremony-root"></div>
+<div id="toast" class="toast"></div>
+<script>
+const DEFAULT_API = 'https://437iy0be1396.vicp.fun';
+const LS = {
+  api: 'hhsz_schedule_api',
+  token: 'hhsz_schedule_token',
+  role: 'hhsz_schedule_role',
+  memberId: 'hhsz_schedule_member_id',
+  memberName: 'hhsz_schedule_member_name',
+  cache: 'hhsz_schedule_cache',
+  bannerRevision: 'hhsz_schedule_banner_revision',
+  anonId: 'hhsz_message_anon_id',
+  messagesCache: 'hhsz_messages_cache',
+  messagesSeenAt: 'hhsz_messages_seen_at'
+};
+
+const state = {
+  api: localStorage.getItem(LS.api) || DEFAULT_API,
+  token: localStorage.getItem(LS.token) || '',
+  role: localStorage.getItem(LS.role) || '',
+  memberId: localStorage.getItem(LS.memberId) || '',
+  memberName: localStorage.getItem(LS.memberName) || '',
+  schedule: safeJson(localStorage.getItem(LS.cache)),
+  month: startOfMonth(new Date()),
+  screen: 'loading',
+  editorTab: 'schedule',
+  editMembers: [],
+  editAssignments: {},
+  editRotation: [],
+  dirty: false,
+  banner: null,
+  gateError: '',
+  nameInput: '',
+  nameError: '',
+  loading: false,
+  submitting: false,
+  serviceOpen: false,
+  editorReturnScreen: 'main',
+  swapSource: '',
+  batchMode: 'id',
+  customRotationOpen: false,
+  mainMenuOpen: false,
+  anonId: getOrCreateAnonId(),
+  messages: safeJson(localStorage.getItem(LS.messagesCache)) || [],
+  messageUnread: 0,
+  messageLoading: false,
+  messageOnline: false,
+  messageError: '',
+  messageDraft: '',
+  replyDraft: '',
+  replyingTo: '',
+  memberDialog: null,
+  pendingConflict: null,
+  confirmCallback: null
+};
+
+function safeJson(s) {
+  try { return s ? JSON.parse(s) : null; } catch (e) { return null; }
+}
+function pad2(n) { return String(n).padStart(2, '0'); }
+function dateKey(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+function parseDateKey(s) {
+  const p = String(s).split('-').map(Number);
+  return new Date(p[0], p[1] - 1, p[2]);
+}
+function startOfMonth(d) { return new Date(d.getFullYear(), d.getMonth(), 1); }
+function today() { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), n.getDate()); }
+function shortDate(s) {
+  const d = typeof s === 'string' ? parseDateKey(s) : s;
+  return (d.getMonth() + 1) + '月' + d.getDate() + '日';
+}
+function weekdayCN(d) { return ['周日','周一','周二','周三','周四','周五','周六'][d.getDay()]; }
+function monthLabel(d) { return d.getFullYear() + '年' + (d.getMonth() + 1) + '月'; }
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+    return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+  });
+}
+function escapeAttr(s) { return escapeHtml(s).replace(/'/g, '&#39;'); }
+function getOrCreateAnonId() {
+  let id = localStorage.getItem(LS.anonId);
+  if (!id) {
+    id = (window.crypto && window.crypto.randomUUID)
+      ? window.crypto.randomUUID()
+      : 'anon_' + Date.now() + '_' + Math.random().toString(36).slice(2);
+    localStorage.setItem(LS.anonId, id);
+  }
+  return id;
+}
+function formatMessageTime(value) {
+  const date = new Date(value || '');
+  if (isNaN(date.getTime())) return '';
+  return (date.getMonth() + 1) + '月' + date.getDate() + '日 '
+    + pad2(date.getHours()) + ':' + pad2(date.getMinutes());
+}
+function memberById(schedule, id) {
+  return ((schedule && schedule.members) || []).find(function (m) { return m.id === id; });
+}
+function memberName(schedule, id) {
+  const m = memberById(schedule, id);
+  return m ? m.name : '未安排';
+}
+function activeMembers(schedule) {
+  return ((schedule && schedule.members) || []).filter(function (m) { return m.active !== false; });
+}
+function datesForMember(schedule, id) {
+  const a = (schedule && schedule.assignments) || {};
+  return Object.keys(a).filter(function (d) { return a[d] === id; }).sort();
+}
+function upcomingDates(schedule, id) {
+  const t = dateKey(today());
+  return datesForMember(schedule, id).filter(function (d) { return d >= t; });
+}
+function myMemberId() {
+  return state.memberId || '';
+}
+function monthGrid(month) {
+  const first = new Date(month.getFullYear(), month.getMonth(), 1);
+  const leading = (first.getDay() + 6) % 7;
+  const days = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+  const cells = [];
+  for (let i = 0; i < leading; i++) cells.push(null);
+  for (let d = 1; d <= days; d++) cells.push(new Date(month.getFullYear(), month.getMonth(), d));
+  while (cells.length % 7 !== 0) cells.push(null);
+  return cells;
+}
+function normalizeApi(value) {
+  const v = String(value || '').trim().replace(/\/+$/, '');
+  if (!/^https?:\/\//i.test(v)) return null;
+  return v;
+}
+function cacheSchedule(schedule) {
+  state.schedule = schedule;
+  localStorage.setItem(LS.cache, JSON.stringify(schedule));
+}
+function clearSession(clearMember) {
+  state.token = '';
+  state.role = '';
+  localStorage.removeItem(LS.token);
+  localStorage.removeItem(LS.role);
+  if (clearMember) {
+    state.memberId = '';
+    state.memberName = '';
+    localStorage.removeItem(LS.memberId);
+    localStorage.removeItem(LS.memberName);
+  }
+}
+function toast(message, type) {
+  const el = document.getElementById('toast');
+  el.textContent = message;
+  el.className = 'toast show' + (type ? ' ' + type : '');
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(function () { el.className = 'toast'; }, 3600);
+}
+
+// ==================== API ====================
+async function apiFetch(path, options) {
+  const opts = options || {};
+  const base = normalizeApi(state.api);
+  if (!base) throw new Error('服务地址格式不正确');
+  const headers = { 'Content-Type': 'application/json' };
+  if (opts.auth && state.token) headers.Authorization = 'Bearer ' + state.token;
+  let response;
+  try {
+    response = await fetch(base + path, {
+      method: opts.method || 'GET',
+      headers: headers,
+      body: opts.body ? JSON.stringify(opts.body) : undefined
+    });
+  } catch (e) {
+    throw new Error('无法连接轮协服务，请检查网络');
+  }
+  let data = null;
+  const text = await response.text();
+  if (text) {
+    try { data = JSON.parse(text); } catch (e) { data = { message: text }; }
+  }
+  if (response.status === 401 && opts.auth) {
+    clearSession(false);
+    state.banner = null;
+    state.screen = 'gate';
+    state.gateError = (data && data.message) || '登录已失效，请重新输入轮协密钥';
+    render();
+    throw new Error(state.gateError);
+  }
+  return { status: response.status, data: data };
+}
+
+async function loadSchedule(showError) {
+  const result = await apiFetch('/schedule', { auth: true });
+  if (result.status !== 200 || !result.data || !result.data.schedule) {
+    throw new Error((result.data && result.data.message) || '轮协数据读取失败');
+  }
+  const next = result.data.schedule;
+  const old = state.schedule;
+  const own = computeOwnChanges(old, next, state.memberId);
+  if (own && old && next.revision !== old.revision) {
+    const last = parseInt(localStorage.getItem(LS.bannerRevision) || '0', 10);
+    if (next.revision !== last) {
+      state.banner = own;
+      localStorage.setItem(LS.bannerRevision, String(next.revision));
+    }
+  }
+  cacheSchedule(next);
+  return next;
+}
+
+function computeOwnChanges(oldSchedule, newSchedule, memberId) {
+  if (!memberId || !newSchedule) return null;
+  const oldDates = new Set(datesForMember(oldSchedule, memberId));
+  const newDates = new Set(datesForMember(newSchedule, memberId));
+  const added = [];
+  const removed = [];
+  newDates.forEach(function (d) { if (!oldDates.has(d)) added.push(d); });
+  oldDates.forEach(function (d) { if (!newDates.has(d)) removed.push(d); });
+  if (!added.length && !removed.length) return null;
+  added.sort(); removed.sort();
+  return { added: added, removed: removed };
+}
+
+// ==================== 渲染 ====================
+function render() {
+  const app = document.getElementById('app');
+  if (state.screen === 'loading') app.innerHTML = '<div class="loading">正在连接轮协服务...</div>';
+  else if (state.screen === 'gate') app.innerHTML = gateHtml();
+  else if (state.screen === 'name') app.innerHTML = nameHtml();
+  else if (state.screen === 'main') app.innerHTML = mainHtml();
+  else if (state.screen === 'editor') app.innerHTML = editorHtml();
+  else if (state.screen === 'messages') app.innerHTML = messagesHtml();
+  else if (state.screen === 'offline') app.innerHTML = offlineHtml();
+  else app.innerHTML = '';
+}
+
+function offlineHtml() {
+  return '<div class="shell">'
+    + '<div class="topbar"><div class="title-group"><h1>轮协管理</h1>'
+    + '<span class="hint">密钥已验证，无需重新输入</span></div>'
+    + '<div class="top-actions"><button class="btn ghost small" onclick="logout()">退出登录</button></div></div>'
+    + '<div class="card" style="text-align:center;padding:30px 18px">'
+    + '<div style="width:52px;height:52px;border-radius:50%;background:rgba(255,143,0,.12);color:var(--amber);font-size:26px;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 12px">!</div>'
+    + '<h2 style="margin:0 0 6px;font-size:20px">服务器未启动</h2>'
+    + '<p class="hint" style="margin:0 0 18px;line-height:1.7">无法连接轮协服务，请联系管理员启动服务后重试。<br>你的密钥已经记住，不需要重新输入。</p>'
+    + '<button class="btn primary block" onclick="retrySession()">重试连接</button>'
+    + '</div></div>';
+}
+
+function lockSvg() {
+  return '<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
+    + '<rect x="4" y="10" width="16" height="11" rx="2"></rect>'
+    + '<path d="M8 10V7a4 4 0 0 1 8 0v3"></path>'
+    + '</svg>';
+}
+
+function gateHtml() {
+  return '<div class="gate-wrap"><div class="gate-card card">'
+    + '<div class="lock-badge">' + lockSvg() + '</div>'
+    + '<h1>团队轮协</h1>'
+    + '<p class="subtitle">网页联调版 · 数据来自本地 Java 服务</p>'
+    + '<div class="field"><label>轮协密钥</label>'
+    + '<input id="key-input" type="password" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="off" onkeydown="if(event.key===\'Enter\')enterApp()">'
+    + '</div>'
+    + (state.gateError ? '<div class="error">' + escapeHtml(state.gateError) + '</div>' : '')
+    + '<button class="btn primary block" onclick="enterApp()" ' + (state.loading ? 'disabled' : '') + '>'
+    + (state.loading ? '验证中...' : '进入轮协管理') + '</button>'
+    + '<details class="service-box" ' + (state.serviceOpen ? 'open' : '') + ' ontoggle="state.serviceOpen=this.open">'
+    + '<summary>服务地址设置</summary>'
+    + '<div class="field"><label>Java 服务地址</label>'
+    + '<input id="api-input" type="url" value="' + escapeHtml(state.api) + '" placeholder="https://...">'
+    + '</div>'
+    + '<button class="btn secondary small" onclick="saveApi()">保存地址</button>'
+    + '<p class="hint">默认使用花生壳地址；换服务时只改这里，不用重新打包。</p>'
+    + '</details>'
+    + '<p class="hint" style="margin-top:14px">输入密钥并验证姓名后进入；有编辑权限的密钥会多一个编辑入口。</p>'
+    + '</div></div>';
+}
+
+function nameHtml() {
+  const members = activeMembers(state.schedule);
+  const noMembers = members.length === 0;
+  return '<div class="shell">'
+    + '<div class="topbar"><div class="title-group"><h1>验证姓名</h1>'
+    + '<span class="hint">密钥已验证，输入本人姓名即可进入；下次无需重新输入密钥</span></div></div>'
+    + '<div class="card">'
+    + (noMembers
+      ? '<div class="empty-state">轮协表还没有成员<br>'
+        + (state.role === 'admin' ? '先添加成员和你自己的姓名，再回来验证；第一个添加的成员为1号' : '请联系负责人添加后再进入')
+        + '</div>'
+        + (state.role === 'admin' ? '<button class="btn primary block" onclick="openSetupEditor()">去添加成员</button>' : '')
+      : '<div class="field"><label>你的姓名</label>'
+        + '<input id="name-input" maxlength="30" value="' + escapeAttr(state.nameInput) + '" placeholder="请输入本人姓名" autocomplete="off" oninput="state.nameInput=this.value" onkeydown="if(event.key===\'Enter\')verifyName()">'
+        + '</div>'
+        + (state.nameError ? '<div class="error">' + escapeHtml(state.nameError) + '</div>' : '')
+        + '<button class="btn primary block" onclick="verifyName()">验证并进入</button>'
+        + (state.role === 'admin' ? '<button class="btn ghost small" style="margin-top:10px" onclick="openSetupEditor()">管理成员</button>' : ''))
+    + '</div></div>';
+}
+
+function verifyName() {
+  const input = document.getElementById('name-input');
+  const name = (input ? input.value : state.nameInput || '').trim();
+  state.nameInput = name;
+  if (!name) {
+    state.nameError = '请输入姓名';
+    render();
+    return;
+  }
+  const member = activeMembers(state.schedule).find(function (m) {
+    return String(m.name).toLowerCase() === name.toLowerCase();
+  });
+  if (!member) {
+    state.nameError = '姓名验证失败，请重新输入';
+    render();
+    return;
+  }
+  state.memberId = member.id;
+  state.memberName = member.name;
+  localStorage.setItem(LS.memberId, member.id);
+  localStorage.setItem(LS.memberName, member.name);
+  state.nameInput = '';
+  state.nameError = '';
+  playCeremony(member, function () {
+    state.screen = 'main';
+    render();
+    refreshMessageBadge();
+  });
+}
+
+function playCeremony(member, done) {
+  const root = document.getElementById('ceremony-root');
+  const memberIndex = state.schedule && state.schedule.members
+    ? state.schedule.members.indexOf(member) + 1
+    : 1;
+  const number = member.seq || memberIndex || 1;
+  root.innerHTML = '<div class="ceremony">'
+    + '<canvas class="ceremony-canvas"></canvas>'
+    + '<div class="ceremony-grid"></div>'
+    + '<div class="ceremony-center">'
+    + '<div class="ceremony-success">验证成功</div>'
+    + '<div class="ceremony-greeting">你好，<span class="num">' + number + '号成员</span>' + escapeHtml(member.name) + '<br>欢迎加入团队</div>'
+    + '</div>'
+    + '<button class="ceremony-enter" id="ceremony-enter">进入</button>'
+    + '</div>';
+  const overlay = root.querySelector('.ceremony');
+  const canvas = overlay.querySelector('canvas');
+  const ctx = canvas.getContext('2d');
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  canvas.width = Math.floor(w * dpr);
+  canvas.height = Math.floor(h * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const cx = w / 2;
+  const cy = h / 2;
+  const maxR = Math.hypot(w, h) * 0.62;
+  const count = 150;
+  const particles = [];
+  for (let i = 0; i < count; i++) {
+    particles.push({
+      angle: (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.3,
+      speed: 0.45 + Math.random() * 0.85,
+      size: 1 + Math.random() * 2.2,
+      color: Math.random() > 0.55 ? '#8aff9a' : '#3ddc84'
+    });
+  }
+  const start = performance.now();
+  let raf = 0;
+  function frame(now) {
+    const t = Math.min((now - start) / 1500, 1);
+    ctx.clearRect(0, 0, w, h);
+    for (const p of particles) {
+      const r = maxR * t * p.speed;
+      const x = cx + Math.cos(p.angle) * r;
+      const y = cy + Math.sin(p.angle) * r;
+      ctx.globalAlpha = (1 - t) * 0.5;
+      ctx.strokeStyle = p.color;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      ctx.globalAlpha = (1 - t) * 0.9;
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(x, y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    for (let i = 0; i < 3; i++) {
+      const rr = maxR * t * (0.5 + i * 0.2);
+      ctx.globalAlpha = (1 - t) * (0.22 - i * 0.05);
+      ctx.strokeStyle = '#8aff9a';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(cx, cy, rr, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    if (t < 1) raf = requestAnimationFrame(frame);
+  }
+  raf = requestAnimationFrame(frame);
+  requestAnimationFrame(function () { overlay.classList.add('show'); });
+  setTimeout(function () { overlay.classList.add('burst'); }, 520);
+  setTimeout(function () { overlay.classList.add('ready'); }, 3000);
+
+  let finished = false;
+  function finishCeremony() {
+    if (finished) return;
+    finished = true;
+    overlay.classList.add('warp');
+    setTimeout(function () {
+      cancelAnimationFrame(raf);
+      root.innerHTML = '';
+      if (typeof done === 'function') done();
+    }, 900);
+  }
+  const enterButton = document.getElementById('ceremony-enter');
+  if (enterButton) enterButton.addEventListener('click', finishCeremony);
+}
+
+function openSetupEditor() {
+  if (state.role !== 'admin') return;
+  openEditor(true);
+}
+
+function mainHtml() {
+  return '<div class="shell">'
+    + '<div class="topbar"><div class="title-group"><h1>轮协管理</h1></div>'
+    + '<div class="top-actions main-menu-wrap">'
+    + '<button class="btn ghost small menu-dots" onclick="toggleMainMenu(event)" aria-label="菜单">⋯</button>'
+    + (state.mainMenuOpen
+      ? '<div class="main-menu">'
+        + (state.role === 'admin' ? '<button class="menu-item" onclick="mainMenuEdit()">编辑轮协</button>' : '')
+        + '<button class="menu-item" onclick="logout()">退出登录</button>'
+        + '</div>'
+      : '')
+    + '</div></div>'
+    + bannerHtml()
+    + myCardHtml()
+    + '<div class="section-head"><h2>全员轮协</h2><span class="hint">' + monthLabel(state.month) + '</span></div>'
+    + calendarHtml(false)
+    + '<div class="legend">'
+    + '<span><i style="background:var(--green)"></i>我的协管</span>'
+    + '<span><i style="background:#E8F5E9;border:1px solid #C8E6C9"></i>其他成员</span>'
+    + '<span><i style="background:#F0F2F5;border:1px solid #E3E7E3"></i>未安排</span>'
+    + '</div>'
+    + upcomingHtml()
+    + '<p class="note">网页版只验证轮协和提交逻辑；手机 App 的协管前一天 17:00 本地通知不在这里测试。</p>'
+    + '<p class="note">数据版本：' + (state.schedule ? state.schedule.revision : '-') + ' · 最后更新：' + escapeHtml(state.schedule ? state.schedule.updatedAt : '-') + '</p>'
+    + '</div>';
+}
+
+function bannerHtml() {
+  if (!state.banner) return '';
+  const parts = [];
+  if (state.banner.added.length) parts.push('新增 ' + state.banner.added.map(shortDate).join('、'));
+  if (state.banner.removed.length) parts.push('取消 ' + state.banner.removed.map(shortDate).join('、'));
+  return '<div class="banner"><div><strong>轮协变更</strong>你的协管日期有调整：' + escapeHtml(parts.join('；')) + '。</div>'
+    + '<button class="icon-btn close" onclick="dismissBanner()">×</button></div>';
+}
+
+function myCardHtml() {
+  const s = state.schedule;
+  if (!s || !state.memberId || !memberById(s, state.memberId)) {
+    return '<div class="card bind-card"><div><strong>'
+      + (state.memberId ? '你已不在最新轮协名单中' : '还没有绑定你的姓名')
+      + '</strong><p class="hint">请联系负责人更新轮协表</p></div></div>';
+  }
+  const member = memberById(s, state.memberId);
+  const t = dateKey(today());
+  const todayDuty = s.assignments && s.assignments[t] === state.memberId;
+  const upcoming = upcomingDates(s, state.memberId);
+  const next = upcoming[0];
+  const days = next ? Math.round((parseDateKey(next) - today()) / 86400000) : null;
+  let big = '暂无轮协';
+  let sub = '当前没有未来的协管安排';
+  let badge = '';
+  if (todayDuty) {
+    big = '今天你协管';
+    sub = shortDate(t) + ' ' + weekdayCN(today());
+    badge = '今天';
+  } else if (next) {
+    big = '下次协管';
+    sub = shortDate(next) + ' ' + weekdayCN(parseDateKey(next));
+    badge = days === 1 ? '明天' : '还有 ' + days + ' 天';
+  }
+  return '<div class="my-card">'
+    + '<div class="row"><div class="label">我的协管</div><div class="name-pill">' + escapeHtml(member.name) + '</div></div>'
+    + '<div class="row" style="align-items:flex-end;margin-top:8px">'
+    + '<div><div class="big">' + big + '</div><div class="sub">' + escapeHtml(sub) + '</div></div>'
+    + '<div class="my-right">'
+    + (badge ? '<div class="days-badge">' + badge + '</div>' : '')
+    + '<button class="message-entry" onclick="openMessagePool()">留言池'
+    + (state.messageUnread ? '<span class="msg-badge">' + state.messageUnread + '</span>' : '')
+    + '</button></div>'
+    + '</div>'
+    + (upcoming.length
+      ? '<div class="chips">' + upcoming.slice(0, 2).map(function (d) { return '<span class="chip">' + shortDate(d) + ' ' + weekdayCN(parseDateKey(d)) + '</span>'; }).join('') + '</div>'
+      : '')
+    + '</div>';
+}
+
+function upcomingHtml() {
+  if (!state.memberId || !state.schedule) return '';
+  const upcoming = upcomingDates(state.schedule, state.memberId);
+  return '<div class="section-head"><h2>我的协管日期</h2><span class="hint">共 ' + upcoming.length + ' 天</span></div>'
+    + '<div class="card">'
+    + (upcoming.length
+      ? upcoming.slice(0, 12).map(function (d) { return '<span class="chip light" style="margin:3px 4px 3px 0">' + shortDate(d) + ' ' + weekdayCN(parseDateKey(d)) + '</span>'; }).join('')
+        + (upcoming.length > 12 ? '<p class="hint" style="margin-top:8px">还有 ' + (upcoming.length - 12) + ' 天，请在月历中查看</p>' : '')
+      : '<p class="hint">暂无未来协管安排</p>')
+    + '</div>';
+}
+
+// ==================== 留言池 ====================
+function openMessagePool() {
+  state.screen = 'messages';
+  state.messageLoading = true;
+  state.messageError = '';
+  state.messages = safeJson(localStorage.getItem(LS.messagesCache)) || state.messages || [];
+  markMessagesSeen();
+  render();
+  loadMessages(false);
+}
+
+function backFromMessages() {
+  state.screen = 'main';
+  render();
+}
+
+function markMessagesSeen() {
+  localStorage.setItem(LS.messagesSeenAt, new Date().toISOString());
+  state.messageUnread = 0;
+}
+
+function updateUnread() {
+  const seen = localStorage.getItem(LS.messagesSeenAt);
+  if (!seen) {
+    localStorage.setItem(LS.messagesSeenAt, new Date().toISOString());
+    state.messageUnread = 0;
+    return;
+  }
+  let count = 0;
+  state.messages.forEach(function (message) {
+    if (!message.isMine) return;
+    (message.replies || []).forEach(function (reply) {
+      if (!reply.isMine && reply.createdAt > seen) count++;
+    });
+  });
+  state.messageUnread = count;
+}
+
+async function loadMessages(silent) {
+  try {
+    const result = await apiFetch(
+      '/messages?anonId=' + encodeURIComponent(state.anonId),
+      { auth: true }
+    );
+    if (result.status !== 200 || !result.data) {
+      throw new Error((result.data && result.data.message) || '留言读取失败');
+    }
+    state.messages = result.data.messages || [];
+    state.messageOnline = true;
+    state.messageError = '';
+    localStorage.setItem(LS.messagesCache, JSON.stringify(state.messages));
+    if (state.screen === 'messages') markMessagesSeen();
+    else updateUnread();
+    state.messageLoading = false;
+    if (!silent || state.screen === 'messages') render();
+  } catch (e) {
+    state.messageOnline = false;
+    state.messageError = '服务器未启动，暂时无法添加留言；当前显示本地缓存。';
+    state.messageLoading = false;
+    if (state.screen === 'messages') {
+      markMessagesSeen();
+      render();
+    } else {
+      updateUnread();
+    }
+  }
+}
+
+let lastMessageBadgeAt = 0;
+async function refreshMessageBadge() {
+  if (!state.token) return;
+  const now = Date.now();
+  if (now - lastMessageBadgeAt < 30000) return;
+  lastMessageBadgeAt = now;
+  await loadMessages(true);
+  updateUnread();
+  if (state.screen === 'main') render();
+}
+
+function messagesHtml() {
+  const offline = !state.messageOnline;
+  return '<div class="shell">'
+    + '<div class="topbar"><div class="title-group"><h1>留言池</h1>'
+    + '<span class="hint">匿名留言，管理员也看不到你的姓名</span></div>'
+    + '<div class="top-actions"><button class="btn ghost small" onclick="backFromMessages()">返回</button></div></div>'
+    + (state.messageError
+      ? '<div class="msg-offline">' + escapeHtml(state.messageError)
+        + ' <button class="btn secondary small" style="margin-left:8px" onclick="loadMessages(false)">重试</button></div>'
+      : '')
+    + '<div class="card msg-composer">'
+    + '<textarea id="message-draft" maxlength="1000" placeholder="匿名写下你的压力或想说的话..." oninput="state.messageDraft=this.value">' + escapeHtml(state.messageDraft) + '</textarea>'
+    + '<div class="msg-toolbar"><span class="hint">发布后显示为匿名；自己的留言和回复只有自己和管理员能删除</span>'
+    + '<button class="btn primary small" onclick="postMessage()" ' + (offline ? 'disabled' : '') + '>发布留言</button></div>'
+    + '</div>'
+    + (state.messageLoading && !state.messages.length
+      ? '<div class="msg-empty">正在加载留言...</div>'
+      : state.messages.length
+        ? state.messages.map(messageCardHtml).join('')
+        : '<div class="msg-empty">还没有留言，匿名写下第一句吧</div>')
+    + '</div>';
+}
+
+function messageCardHtml(message) {
+  const canDelete = state.role === 'admin' || message.isMine;
+  return '<div class="msg-card">'
+    + '<div class="msg-content">' + escapeHtml(message.content) + '</div>'
+    + '<div class="msg-meta"><span>' + formatMessageTime(message.createdAt) + '</span>'
+    + (message.isMine ? '<span class="msg-mine">我</span>' : '<span>匿名</span>')
+    + '<div class="msg-actions">'
+    + '<button class="btn ghost small" onclick="openReplyModal(\'' + escapeAttr(message.id) + '\')">回复</button>'
+    + (canDelete ? '<button class="btn danger small" onclick="deleteMessage(\'' + escapeAttr(message.id) + '\')">删除</button>' : '')
+    + '</div></div>'
+    + (message.replies && message.replies.length
+      ? '<div class="msg-replies">' + message.replies.map(replyRowHtml).join('') + '</div>'
+      : '')
+    + '</div>';
+}
+
+function replyRowHtml(reply) {
+  const canDelete = state.role === 'admin' || reply.isMine;
+  return '<div class="reply-row"><div class="reply-content">' + escapeHtml(reply.content) + '</div>'
+    + '<div class="reply-meta"><span>' + formatMessageTime(reply.createdAt) + (reply.isMine ? ' · 我' : '') + '</span>'
+    + (canDelete ? '<button class="btn danger small" onclick="deleteReply(\'' + escapeAttr(reply.id) + '\')">删除</button>' : '')
+    + '</div></div>';
+}
+
+function openReplyModal(messageId) {
+  const message = state.messages.find(function (m) { return m.id === messageId; });
+  if (!message) return;
+  state.replyingTo = messageId;
+  state.replyDraft = '';
+  openModal('<h3>回复留言</h3>'
+    + '<div class="reply-box" style="background:#F7F8FA;border-radius:10px;padding:10px;margin:10px 0;font-size:13px;color:var(--muted)">'
+    + escapeHtml(message.content) + '</div>'
+    + '<div class="field"><label>匿名回复</label><textarea id="reply-draft" maxlength="1000" placeholder="写下你的回复..." oninput="state.replyDraft=this.value"></textarea></div>'
+    + (state.messageOnline ? '' : '<p class="hint" style="color:var(--amber)">服务器未启动，暂时无法回复</p>')
+    + '<div class="modal-actions"><button class="btn secondary small" onclick="closeModal()">取消</button>'
+    + '<button class="btn primary small" onclick="postReply(\'' + escapeAttr(messageId) + '\')" ' + (state.messageOnline ? '' : 'disabled') + '>发布回复</button></div>');
+}
+
+async function postMessage() {
+  const draft = document.getElementById('message-draft');
+  const content = (draft ? draft.value : state.messageDraft || '').trim();
+  if (!content) {
+    toast('请输入留言内容', 'error');
+    return;
+  }
+  if (!state.messageOnline) {
+    toast('服务器未启动，暂时无法添加留言', 'error');
+    return;
+  }
+  try {
+    const result = await apiFetch('/messages', {
+      method: 'POST',
+      auth: true,
+      body: { anonId: state.anonId, content: content }
+    });
+    if (result.status !== 200) {
+      toast((result.data && result.data.message) || '留言发布失败', 'error');
+      return;
+    }
+    state.messages = (result.data && result.data.messages) || [];
+    state.messageDraft = '';
+    state.messageOnline = true;
+    state.messageError = '';
+    localStorage.setItem(LS.messagesCache, JSON.stringify(state.messages));
+    render();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    toast('留言已发布', 'success');
+  } catch (e) {
+    state.messageOnline = false;
+    state.messageError = '服务器未启动，暂时无法添加留言；当前显示本地缓存。';
+    render();
+    toast('服务器未启动，暂时无法添加留言', 'error');
+  }
+}
+
+async function postReply(messageId) {
+  const input = document.getElementById('reply-draft');
+  const content = (input ? input.value : state.replyDraft || '').trim();
+  if (!content) {
+    toast('请输入回复内容', 'error');
+    return;
+  }
+  if (!state.messageOnline) {
+    toast('服务器未启动，暂时无法回复', 'error');
+    return;
+  }
+  try {
+    const result = await apiFetch(
+      '/messages/' + encodeURIComponent(messageId) + '/replies',
+      { method: 'POST', auth: true, body: { anonId: state.anonId, content: content } }
+    );
+    if (result.status !== 200) {
+      toast((result.data && result.data.message) || '回复发布失败', 'error');
+      return;
+    }
+    state.messages = (result.data && result.data.messages) || [];
+    state.replyDraft = '';
+    state.replyingTo = '';
+    localStorage.setItem(LS.messagesCache, JSON.stringify(state.messages));
+    closeModal();
+    render();
+    toast('回复已发布', 'success');
+  } catch (e) {
+    state.messageOnline = false;
+    state.messageError = '服务器未启动，暂时无法回复；当前显示本地缓存。';
+    closeModal();
+    render();
+    toast('服务器未启动，暂时无法回复', 'error');
+  }
+}
+
+function deleteMessage(messageId) {
+  confirmDialog('删除留言', '删除后，这条留言下的所有回复也会一起消失，确定吗？', '删除', async function () {
+    try {
+      const result = await apiFetch(
+        '/messages/' + encodeURIComponent(messageId) + '?anonId=' + encodeURIComponent(state.anonId),
+        { method: 'DELETE', auth: true }
+      );
+      if (result.status !== 200) {
+        toast((result.data && result.data.message) || '删除失败', 'error');
+        return;
+      }
+      state.messages = (result.data && result.data.messages) || [];
+      localStorage.setItem(LS.messagesCache, JSON.stringify(state.messages));
+      render();
+      toast('留言已删除', 'success');
+    } catch (e) {
+      toast(e.message || '删除失败', 'error');
+    }
+  }, true);
+}
+
+function deleteReply(replyId) {
+  confirmDialog('删除回复', '确定删除这条回复吗？', '删除', async function () {
+    try {
+      const result = await apiFetch(
+        '/replies/' + encodeURIComponent(replyId) + '?anonId=' + encodeURIComponent(state.anonId),
+        { method: 'DELETE', auth: true }
+      );
+      if (result.status !== 200) {
+        toast((result.data && result.data.message) || '删除失败', 'error');
+        return;
+      }
+      state.messages = (result.data && result.data.messages) || [];
+      localStorage.setItem(LS.messagesCache, JSON.stringify(state.messages));
+      render();
+      toast('回复已删除', 'success');
+    } catch (e) {
+      toast(e.message || '删除失败', 'error');
+    }
+  }, true);
+}
+
+function calendarHtml(editable) {
+  const schedule = editable
+    ? { members: state.editMembers, assignments: state.editAssignments }
+    : state.schedule || { members: [], assignments: {} };
+  const cells = monthGrid(state.month);
+  return '<div class="card">'
+    + '<div class="month-head">'
+    + '<button class="icon-btn" onclick="shiftMonth(-1)">‹</button>'
+    + '<div class="month-title">' + monthLabel(state.month) + '</div>'
+    + '<button class="icon-btn" onclick="shiftMonth(1)">›</button>'
+    + '<button class="btn ghost small" onclick="goToday()">今天</button>'
+    + '</div>'
+    + '<div class="weekdays"><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span></div>'
+    + '<div class="calendar">' + cells.map(function (d) { return dayCellHtml(d, schedule, editable); }).join('') + '</div>'
+    + (editable ? '<p class="hint" style="margin-top:10px">点击日期选择当天负责人；一天只能安排一人。</p>' : '')
+    + '</div>';
+}
+
+function dayCellHtml(date, schedule, editable) {
+  if (!date) return '<div class="day blank"></div>';
+  const key = dateKey(date);
+  const memberId = (schedule.assignments || {})[key];
+  const member = memberById(schedule, memberId);
+  const mine = memberId && memberId === myMemberId();
+  const isToday = key === dateKey(today());
+  const past = key < dateKey(today());
+  const classes = ['day'];
+  if (mine) classes.push('mine');
+  else if (member) classes.push('other');
+  if (isToday) classes.push('today');
+  if (past) classes.push('past');
+  const label = member ? member.name : '';
+  return '<div class="' + classes.join(' ') + '" onclick="dayClick(\'' + escapeAttr(key) + '\',' + (editable ? 'true' : 'false') + ')">'
+    + '<div class="num"><span>' + date.getDate() + '</span>' + (mine ? '<span class="me">我</span>' : '') + '</div>'
+    + '<div class="name ' + (member ? '' : 'empty-name') + '" title="' + escapeAttr(label || '未安排') + '">'
+    + (member ? escapeHtml(label) : (editable ? '+' : '—')) + '</div>'
+    + '</div>';
+}
+
+// ==================== 交互 ====================
+async function init() {
+  state.api = localStorage.getItem(LS.api) || DEFAULT_API;
+  state.token = localStorage.getItem(LS.token) || '';
+  state.role = localStorage.getItem(LS.role) || '';
+  state.memberId = localStorage.getItem(LS.memberId) || '';
+  state.memberName = localStorage.getItem(LS.memberName) || '';
+  state.schedule = safeJson(localStorage.getItem(LS.cache));
+  if (!state.token) {
+    state.screen = 'gate';
+    render();
+    return;
+  }
+  state.screen = 'loading';
+  render();
+  try {
+    await loadSchedule(true);
+    afterAuth();
+  } catch (e) {
+    if (state.schedule && state.memberId) {
+      state.screen = 'main';
+      render();
+      toast('离线：显示上次同步的数据');
+    } else if (state.token) {
+      state.screen = 'offline';
+      render();
+    } else {
+      state.screen = 'gate';
+      state.gateError = e.message || '轮协服务连接失败';
+      render();
+    }
+  }
+}
+
+function afterAuth() {
+  if (state.memberId && memberById(state.schedule, state.memberId)) {
+    state.screen = 'main';
+  } else {
+    state.screen = 'name';
+    state.nameInput = '';
+    state.nameError = '';
+  }
+  render();
+  if (state.screen === 'main') refreshMessageBadge();
+}
+
+async function enterApp() {
+  const apiInput = document.getElementById('api-input');
+  if (apiInput) {
+    const candidate = normalizeApi(apiInput.value);
+    if (candidate) {
+      state.api = candidate;
+      localStorage.setItem(LS.api, candidate);
+    }
+  }
+  const keyInput = document.getElementById('key-input');
+  const key = keyInput ? keyInput.value.trim() : '';
+  if (!key) {
+    state.gateError = '请输入轮协密钥';
+    render();
+    return;
+  }
+  state.loading = true;
+  state.gateError = '';
+  render();
+  try {
+    const result = await apiFetch('/auth', { method: 'POST', body: { key: key } });
+    if (result.status !== 200 || !result.data || !result.data.token) {
+      state.gateError = (result.data && result.data.message) || '轮协密钥错误';
+      return;
+    }
+    state.token = result.data.token;
+    state.role = result.data.role;
+    localStorage.setItem(LS.token, state.token);
+    localStorage.setItem(LS.role, state.role);
+    await loadSchedule(true);
+    afterAuth();
+  } catch (e) {
+    if (state.token) {
+      state.screen = 'offline';
+    } else {
+      state.gateError = e.message || '轮协服务连接失败';
+    }
+  } finally {
+    state.loading = false;
+    if (state.screen === 'gate' || state.screen === 'offline') render();
+  }
+}
+
+async function retrySession() {
+  if (!state.token) {
+    state.screen = 'gate';
+    render();
+    return;
+  }
+  state.loading = true;
+  state.screen = 'loading';
+  render();
+  try {
+    await loadSchedule(true);
+    afterAuth();
+  } catch (e) {
+    state.loading = false;
+    if (state.token) {
+      state.screen = 'offline';
+    } else {
+      state.screen = 'gate';
+      state.gateError = '登录已失效，请重新输入轮协密钥';
+    }
+    render();
+  }
+}
+
+function saveApi() {
+  const input = document.getElementById('api-input');
+  const value = normalizeApi(input ? input.value : '');
+  if (!value) {
+    toast('服务地址必须以 http:// 或 https:// 开头', 'error');
+    return;
+  }
+  const changed = value !== state.api;
+  state.api = value;
+  localStorage.setItem(LS.api, value);
+  if (changed) {
+    clearSession(false);
+    state.gateError = '服务地址已更新，请重新输入密钥';
+  }
+  toast('服务地址已保存', 'success');
+  render();
+}
+
+function toggleMainMenu(event) {
+  if (event) event.stopPropagation();
+  state.mainMenuOpen = !state.mainMenuOpen;
+  render();
+}
+
+function mainMenuEdit() {
+  state.mainMenuOpen = false;
+  openEditor();
+}
+
+window.addEventListener('click', function () {
+  if (state.mainMenuOpen) {
+    state.mainMenuOpen = false;
+    render();
+  }
+});
+
+function logout() {
+  state.mainMenuOpen = false;
+  clearSession(true);
+  state.schedule = null;
+  state.banner = null;
+  localStorage.removeItem(LS.cache);
+  state.screen = 'gate';
+  state.gateError = '';
+  render();
+}
+
+function dismissBanner() {
+  state.banner = null;
+  render();
+}
+
+function shiftMonth(delta) {
+  state.month = new Date(state.month.getFullYear(), state.month.getMonth() + delta, 1);
+  render();
+}
+
+function goToday() {
+  state.month = startOfMonth(new Date());
+  render();
+}
+
+function dayClick(key, editable) {
+  if (editable) {
+    openMemberPicker(key);
+  } else {
+    showDayDetail(key);
+  }
+}
+
+function showDayDetail(key) {
+  const s = state.schedule;
+  if (!s) return;
+  const memberId = (s.assignments || {})[key];
+  const member = memberById(s, memberId);
+  const mine = memberId && memberId === state.memberId;
+  openModal('<h3>' + shortDate(key) + ' ' + weekdayCN(parseDateKey(key)) + '</h3>'
+    + '<p class="modal-sub">协管负责人</p>'
+    + '<div class="pick-row selected"><div class="avatar">' + escapeHtml(member ? String(member.name).slice(0, 1) : '—') + '</div>'
+    + '<div><div style="font-weight:800">' + escapeHtml(member ? member.name : '未安排') + '</div>'
+    + '<div class="hint">' + (mine ? '这是你的协管日' : (member ? '协管负责人' : '这一天还没有安排')) + '</div></div></div>'
+    + '<div class="modal-actions">'
+    + '<button class="btn secondary small" onclick="closeModal()">关闭</button>'
+    + (state.role === 'admin' ? '<button class="btn primary small" onclick="editFromDetail(\'' + escapeAttr(key) + '\')">去编辑这一天</button>' : '')
+    + '</div>');
+}
+
+function editFromDetail(key) {
+  closeModal();
+  state.month = startOfMonth(parseDateKey(key));
+  openEditor();
+}
+
+// ==================== 管理员编辑 ====================
+function openEditor(fromSetup) {
+  if (state.role !== 'admin' || !state.schedule) return;
+  state.editorReturnScreen = fromSetup ? 'name' : 'main';
+  state.editMembers = JSON.parse(JSON.stringify(state.schedule.members || []));
+  state.editAssignments = Object.assign({}, state.schedule.assignments || {});
+  state.editRotation = Array.isArray(state.schedule.rotation) ? state.schedule.rotation.slice() : [];
+  state.dirty = false;
+  state.screen = 'editor';
+  state.editorTab = 'schedule';
+  render();
+}
+
+function editorHtml() {
+  return '<div class="shell">'
+    + '<div class="topbar"><div class="title-group"><h1>编辑轮协表</h1>'
+    + '<span class="hint">基于版本 ' + (state.schedule ? state.schedule.revision : '-') + '</span></div>'
+    + '<div class="top-actions">'
+    + '<button class="btn ghost small" onclick="backFromEditor()">返回</button>'
+    + '<button class="btn primary small" onclick="submitSchedule()" ' + (state.submitting ? 'disabled' : '') + '>'
+    + (state.submitting ? '提交中...' : '提交') + '</button>'
+    + '</div></div>'
+    + '<div class="tabs">'
+    + '<button class="tab ' + (state.editorTab === 'schedule' ? 'active' : '') + '" onclick="setEditorTab(\'schedule\')">轮协</button>'
+    + '<button class="tab ' + (state.editorTab === 'members' ? 'active' : '') + '" onclick="setEditorTab(\'members\')">成员</button>'
+    + '</div>'
+    + (state.editorTab === 'schedule' ? editorScheduleHtml() : editorMembersHtml())
+    + '</div>';
+}
+
+function editorScheduleHtml() {
+  const count = state.editRotation.length;
+  return '<div class="card">'
+    + '<div class="section-head" style="margin:0 0 10px"><h2>顺延轮协</h2></div>'
+    + '<div class="long-actions">'
+    + '<button class="btn long" onclick="openBatchRotation(\'id\')">'
+    + '<strong>按 ID 顺序顺延</strong><span>按成员创建顺序循环填充</span></button>'
+    + '<button class="btn long" onclick="openCustomRotation()">'
+    + '<strong>自定义顺序顺延</strong><span>'
+    + (count ? '当前序列 ' + count + ' 个班次' : '自己设置成员顺序和每人班次数')
+    + '</span></button>'
+    + '</div>'
+    + '<p class="hint" style="margin-top:10px">单日修改：点击日期选择负责人；对调：在弹窗里点“对调轮协”。</p>'
+    + '</div>'
+    + calendarHtml(true)
+    + '<p class="note">当前共 ' + state.editMembers.length + ' 名成员，已安排 ' + Object.keys(state.editAssignments).length + ' 天。</p>';
+}
+
+function rotationSequenceHtml() {
+  const members = state.editMembers;
+  const seq = state.editRotation
+    .map(function (id, index) { return { id: id, index: index, member: members.find(function (m) { return m.id === id; }) }; })
+    .filter(function (x) { return x.member; });
+  if (!seq.length) return '<div class="empty-state">点击下方姓名标签添加顺序</div>';
+  return seq.map(function (x) {
+    return '<div class="seq-row">'
+      + '<span class="seq-index">' + (x.index + 1) + '</span>'
+      + '<div class="avatar" style="width:30px;height:30px;font-size:12px">' + escapeHtml(String(x.member.name).slice(0, 1) || '?') + '</div>'
+      + '<div class="seq-name">' + escapeHtml(x.member.name) + '</div>'
+      + '<div class="row-actions">'
+      + '<button class="btn ghost small" onclick="moveRotation(' + x.index + ',-1)">↑</button>'
+      + '<button class="btn ghost small" onclick="moveRotation(' + x.index + ',1)">↓</button>'
+      + '<button class="btn danger small" onclick="removeRotation(' + x.index + ')">×</button>'
+      + '</div></div>';
+  }).join('');
+}
+
+function rotationTagsHtml() {
+  const counts = {};
+  state.editRotation.forEach(function (id) { counts[id] = (counts[id] || 0) + 1; });
+  if (!state.editMembers.length) return '<p class="hint">还没有成员，请先在“成员”页添加</p>';
+  return state.editMembers.map(function (m) {
+    const count = counts[m.id] || 0;
+    return '<button type="button" class="name-tag" onclick="addRotationOccurrence(\'' + escapeAttr(m.id) + '\')">'
+      + '<span>' + escapeHtml(m.name) + '</span>'
+      + '<span class="tag-count ' + (count ? '' : 'zero') + '">' + count + '</span>'
+      + '</button>';
+  }).join('');
+}
+
+function openCustomRotation(scrollMode, prevScroll) {
+  state.customRotationOpen = true;
+  openModal('<h3>自定义顺延顺序</h3>'
+    + '<p class="modal-sub">点击姓名标签添加成员；同一成员点多次表示一个周期内值多次班</p>'
+    + '<div class="custom-seq" id="custom-seq-scroll">' + rotationSequenceHtml() + '</div>'
+    + '<div class="rotation-tags">' + rotationTagsHtml() + '</div>'
+    + '<p class="hint">序列顺序就是顺延顺序；上移、下移、删除可调整。搭好后点“开始顺延”。</p>'
+    + '<div class="modal-actions">'
+    + '<button class="btn ghost small" onclick="clearRotation()">清空</button>'
+    + '<button class="btn secondary small" onclick="closeModal()">取消</button>'
+    + '<button class="btn primary small" onclick="startCustomRotation()" ' + (state.editRotation.length ? '' : 'disabled') + '>开始顺延</button>'
+    + '</div>', 'custom-rotation-modal');
+  const seqEl = document.getElementById('custom-seq-scroll');
+  if (seqEl) {
+    if (scrollMode === 'bottom') seqEl.scrollTop = seqEl.scrollHeight;
+    else if (scrollMode === 'keep') seqEl.scrollTop = prevScroll || 0;
+    else seqEl.scrollTop = 0;
+  }
+}
+
+function refreshCustomRotation(mode) {
+  if (!state.customRotationOpen) {
+    render();
+    return;
+  }
+  const el = document.getElementById('custom-seq-scroll');
+  const prev = el ? el.scrollTop : 0;
+  openCustomRotation(mode, prev);
+}
+
+function clearRotation() {
+  state.editRotation = [];
+  state.dirty = true;
+  refreshCustomRotation('keep');
+}
+
+function startCustomRotation() {
+  if (!state.editRotation.length) {
+    toast('请先点击姓名标签添加成员', 'error');
+    return;
+  }
+  state.customRotationOpen = false;
+  closeModal();
+  openBatchRotation('custom');
+}
+
+function addRotationOccurrence(id) {
+  if (!state.editMembers.some(function (m) { return m.id === id; })) return;
+  state.editRotation.push(id);
+  state.dirty = true;
+  refreshCustomRotation('bottom');
+}
+
+function removeRotation(index) {
+  if (index < 0 || index >= state.editRotation.length) return;
+  state.editRotation.splice(index, 1);
+  state.dirty = true;
+  refreshCustomRotation('keep');
+}
+
+function moveRotation(index, delta) {
+  const target = index + delta;
+  if (index < 0 || index >= state.editRotation.length) return;
+  if (target < 0 || target >= state.editRotation.length) return;
+  const tmp = state.editRotation[index];
+  state.editRotation[index] = state.editRotation[target];
+  state.editRotation[target] = tmp;
+  state.dirty = true;
+  refreshCustomRotation('keep');
+}
+
+function editMemberName(id) {
+  const m = state.editMembers.find(function (x) { return x.id === id; });
+  return m ? m.name : '未安排';
+}
+
+function openBatchRotation(mode) {
+  state.batchMode = mode === 'custom' ? 'custom' : 'id';
+  if (state.batchMode === 'custom' && !state.editRotation.length) {
+    toast('请先添加自定义序列', 'error');
+    return;
+  }
+  const start = dateKey(new Date(state.month.getFullYear(), state.month.getMonth(), 1));
+  const end = dateKey(new Date(state.month.getFullYear(), state.month.getMonth() + 1, 0));
+  const title = state.batchMode === 'custom' ? '按自定义顺序顺延' : '按 ID 顺序顺延';
+  const sub = state.batchMode === 'custom'
+    ? '按你设置的序列循环填充日期区间'
+    : '按成员创建顺序循环填充日期区间';
+  openModal('<h3>' + title + '</h3>'
+    + '<p class="modal-sub">' + sub + '</p>'
+    + '<div class="field"><label>开始日期</label><input id="batch-start" type="date" value="' + start + '"></div>'
+    + '<div class="field"><label>结束日期</label><input id="batch-end" type="date" value="' + end + '"></div>'
+    + '<label class="check-row"><input id="batch-overwrite" type="checkbox"> 覆盖区间内已有轮协</label>'
+    + '<p class="hint">顺延会按区间内每一天推进；不覆盖时只填空缺日期，但顺序仍会前进。</p>'
+    + '<div class="modal-actions"><button class="btn secondary small" onclick="closeModal()">取消</button>'
+    + '<button class="btn primary small" onclick="applyBatchRotation()">应用顺延</button></div>');
+}
+
+function applyBatchRotation() {
+  const start = document.getElementById('batch-start').value;
+  const end = document.getElementById('batch-end').value;
+  const mode = state.batchMode;
+  const overwrite = document.getElementById('batch-overwrite').checked;
+  if (!start || !end || start > end) {
+    toast('日期区间不正确', 'error');
+    return;
+  }
+  const startDate = parseDateKey(start);
+  const endDate = parseDateKey(end);
+  const days = Math.round((endDate - startDate) / 86400000) + 1;
+  if (days > 366) {
+    toast('一次最多顺延 366 天', 'error');
+    return;
+  }
+  let seq;
+  if (mode === 'custom') {
+    seq = state.editRotation
+      .map(function (id) { return state.editMembers.find(function (m) { return m.id === id; }); })
+      .filter(Boolean);
+    if (!seq.length) {
+      toast('自定义顺延序列为空，请先添加成员', 'error');
+      return;
+    }
+  } else {
+    seq = state.editMembers.slice().sort(function (a, b) {
+      return String(a.id).localeCompare(String(b.id));
+    });
+    if (!seq.length) {
+      toast('请先添加成员', 'error');
+      return;
+    }
+  }
+  let assigned = 0;
+  let i = 0;
+  const cursor = new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate());
+  while (cursor <= endDate) {
+    const key = dateKey(cursor);
+    if (overwrite || !state.editAssignments[key]) {
+      state.editAssignments[key] = seq[i % seq.length].id;
+      assigned++;
+    }
+    i++;
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  if (!assigned) {
+    toast('区间内没有可填充的日期', 'error');
+    return;
+  }
+  state.dirty = true;
+  closeModal();
+  render();
+  toast('已按顺延填充 ' + assigned + ' 天', 'success');
+}
+
+function startSwapFromDate(sourceDate) {
+  closeModal();
+  const otherDates = Object.keys(state.editAssignments)
+    .filter(function (d) { return d !== sourceDate && state.editAssignments[d]; })
+    .sort();
+  const target = otherDates[0] || dateKey(new Date(today().getTime() + 86400000));
+  state.swapSource = sourceDate;
+  openModal('<h3>对调轮协</h3>'
+    + '<p class="modal-sub">把 ' + shortDate(sourceDate) + ' 的协管人与另一个日期交换</p>'
+    + '<div class="field"><label>要对调的日期</label><input id="swap-target" type="date" value="' + target + '" onchange="updateSwapPreview()"></div>'
+    + '<div id="swap-preview" class="swap-preview"></div>'
+    + '<div class="modal-actions"><button class="btn secondary small" onclick="closeModal()">取消</button>'
+    + '<button class="btn primary small" onclick="applySwap()">确认对调</button></div>');
+  updateSwapPreview();
+}
+
+function updateSwapPreview() {
+  const target = document.getElementById('swap-target');
+  const preview = document.getElementById('swap-preview');
+  if (!target || !preview) return;
+  const source = state.swapSource;
+  const sm = state.editAssignments[source];
+  const tm = state.editAssignments[target.value];
+  preview.innerHTML = '<div class="swap-line">' + shortDate(source) + '：' + escapeHtml(sm ? editMemberName(sm) : '未安排') + '</div>'
+    + '<div class="swap-line">' + (target.value ? shortDate(target.value) : '目标日期') + '：' + escapeHtml(tm ? editMemberName(tm) : '未安排') + '</div>';
+}
+
+function applySwap() {
+  const source = state.swapSource;
+  const target = document.getElementById('swap-target').value;
+  if (!source || !target || source === target) {
+    toast('请选择另一个日期', 'error');
+    return;
+  }
+  const sm = state.editAssignments[source];
+  const tm = state.editAssignments[target];
+  if (!sm || !tm) {
+    toast('两个日期都必须已有协管人', 'error');
+    return;
+  }
+  state.editAssignments[source] = tm;
+  state.editAssignments[target] = sm;
+  state.dirty = true;
+  state.swapSource = '';
+  closeModal();
+  render();
+  toast('已对调 ' + shortDate(source) + ' 和 ' + shortDate(target), 'success');
+}
+
+function editorMembersHtml() {
+  const t = dateKey(today());
+  return '<div class="section-head"><h2>成员（' + state.editMembers.length + '）</h2>'
+    + '<button class="btn primary small" onclick="addMember()">添加成员</button></div>'
+    + '<p class="hint" style="margin:0 4px 10px">姓名会显示在轮协表上；重名请加区分，例如“张三 A”。</p>'
+    + '<div class="card">'
+    + (state.editMembers.length
+      ? state.editMembers.map(function (m) {
+          const future = Object.keys(state.editAssignments).filter(function (d) { return d >= t && state.editAssignments[d] === m.id; }).length;
+          const total = Object.keys(state.editAssignments).filter(function (d) { return state.editAssignments[d] === m.id; }).length;
+          return '<div class="member-row">'
+            + '<div class="avatar">' + escapeHtml(String(m.name).slice(0, 1) || '?') + '</div>'
+            + '<div class="meta"><div class="name">' + escapeHtml(m.name) + (m.id === state.memberId ? '<span class="badge">我</span>' : '') + '</div>'
+            + '<div class="sub">' + (m.seq || '-') + '号 · 未来 ' + future + ' 天 · 累计 ' + total + ' 天</div></div>'
+            + '<div class="row-actions">'
+            + '<button class="btn ghost small" onclick="editMember(\'' + escapeAttr(m.id) + '\')">改名</button>'
+            + '<button class="btn danger small" onclick="deleteMember(\'' + escapeAttr(m.id) + '\')">删除</button>'
+            + '</div></div>';
+        }).join('')
+      : '<div class="empty-state">还没有成员<br>先添加成员，再到“轮协”页安排日期</div>')
+    + '</div>';
+}
+
+function setEditorTab(tab) {
+  state.editorTab = tab;
+  render();
+}
+
+function backFromEditor() {
+  const target = state.editorReturnScreen === 'name' ? 'name' : 'main';
+  if (!state.dirty) {
+    state.screen = target;
+    render();
+    return;
+  }
+  confirmDialog('放弃修改？', '当前有未提交的轮协修改，离开后这些修改会丢失。', '放弃修改', function () {
+    state.screen = target;
+    state.dirty = false;
+    render();
+  }, true);
+}
+
+function openMemberPicker(key) {
+  const members = state.editMembers.filter(function (m) { return m.active !== false; });
+  const current = state.editAssignments[key] || '';
+  openModal('<h3>选择协管成员</h3>'
+    + '<p class="modal-sub">' + shortDate(key) + ' ' + weekdayCN(parseDateKey(key)) + '</p>'
+    + '<div class="pick-row" onclick="assignMember(\'' + escapeAttr(key) + '\',\'\')">'
+    + '<div class="avatar" style="background:rgba(255,143,0,.12);color:var(--amber)">—</div>'
+    + '<div><div style="font-weight:700">清空该日</div><div class="hint">该日期变为未安排</div></div></div>'
+    + '<div class="pick-row" onclick="startSwapFromDate(\'' + escapeAttr(key) + '\')">'
+    + '<div class="avatar" style="background:rgba(25,118,210,.1);color:var(--blue);font-size:16px">⇄</div>'
+    + '<div><div style="font-weight:700">对调轮协</div><div class="hint">选择另一个日期交换协管人</div></div></div>'
+    + (members.length
+      ? members.map(function (m) {
+          return '<div class="pick-row ' + (m.id === current ? 'selected' : '') + '" onclick="assignMember(\'' + escapeAttr(key) + '\',\'' + escapeAttr(m.id) + '\')">'
+            + '<div class="avatar">' + escapeHtml(String(m.name).slice(0, 1) || '?') + '</div>'
+            + '<div><div style="font-weight:700">' + escapeHtml(m.name) + '</div></div>'
+            + '<div class="check">' + (m.id === current ? '✓' : '') + '</div></div>';
+        }).join('')
+      : '<div class="empty-state">还没有成员，请先在“成员”页添加</div>')
+    + '<div class="modal-actions"><button class="btn secondary small" onclick="closeModal()">取消</button></div>');
+}
+
+function assignMember(key, memberId) {
+  if (memberId) state.editAssignments[key] = memberId;
+  else delete state.editAssignments[key];
+  state.dirty = true;
+  closeModal();
+  render();
+}
+
+function addMember() {
+  openMemberNameDialog('添加成员', '', null, function (name) {
+    const id = 'm_' + Date.now() + '_' + Math.floor(Math.random() * 1000);
+    const nextSeq = state.editMembers.reduce(function (max, m) {
+      return Math.max(max, m.seq || 0);
+    }, 0) + 1;
+    state.editMembers.push({ id: id, name: name, active: true, seq: nextSeq });
+    state.dirty = true;
+    render();
+  });
+}
+
+function editMember(id) {
+  const member = state.editMembers.find(function (m) { return m.id === id; });
+  if (!member) return;
+  openMemberNameDialog('修改姓名', member.name, id, function (name) {
+    member.name = name;
+    if (id === state.memberId) {
+      state.memberName = name;
+      localStorage.setItem(LS.memberName, name);
+    }
+    state.dirty = true;
+    render();
+  });
+}
+
+function deleteMember(id) {
+  const member = state.editMembers.find(function (m) { return m.id === id; });
+  if (!member) return;
+  const t = dateKey(today());
+  const future = Object.keys(state.editAssignments).filter(function (d) { return d >= t && state.editAssignments[d] === id; }).length;
+  const total = Object.keys(state.editAssignments).filter(function (d) { return state.editAssignments[d] === id; }).length;
+  confirmDialog(
+    '删除成员',
+    '确定删除“' + member.name + '”吗？' + (future ? '该成员还有 ' + future + ' 个未来协管日，删除后会变为空缺。' : '') + '累计轮协记录 ' + total + ' 天也会一并清除。',
+    '删除',
+    function () {
+      state.editMembers = state.editMembers.filter(function (m) { return m.id !== id; });
+      Object.keys(state.editAssignments).forEach(function (d) {
+        if (state.editAssignments[d] === id) delete state.editAssignments[d];
+      });
+      state.editRotation = state.editRotation.filter(function (mid) { return mid !== id; });
+      state.dirty = true;
+      render();
+    },
+    true
+  );
+}
+
+function openMemberNameDialog(title, initial, excludeId, callback) {
+  state.memberDialog = { title: title, initial: initial, excludeId: excludeId, callback: callback };
+  openModal('<h3>' + escapeHtml(title) + '</h3>'
+    + '<div class="field"><label>成员姓名</label>'
+    + '<input id="member-name-input" maxlength="30" value="' + escapeAttr(initial) + '" placeholder="请输入成员姓名" onkeydown="if(event.key===\'Enter\')submitMemberName()">'
+    + '</div><div id="member-name-error" class="error"></div>'
+    + '<div class="modal-actions"><button class="btn secondary small" onclick="closeModal()">取消</button>'
+    + '<button class="btn primary small" onclick="submitMemberName()">确定</button></div>');
+  setTimeout(function () {
+    const input = document.getElementById('member-name-input');
+    if (input) input.focus();
+  }, 30);
+}
+
+function submitMemberName() {
+  const dialog = state.memberDialog;
+  if (!dialog) return;
+  const input = document.getElementById('member-name-input');
+  const error = document.getElementById('member-name-error');
+  const name = input ? input.value.trim() : '';
+  let message = '';
+  if (!name) message = '请输入姓名';
+  else if (name.length > 30) message = '姓名不能超过 30 个字';
+  else if (state.editMembers.some(function (m) { return m.id !== dialog.excludeId && String(m.name).toLowerCase() === name.toLowerCase(); })) message = '这个姓名已经存在';
+  if (message) {
+    if (error) error.textContent = message;
+    return;
+  }
+  closeModal();
+  state.memberDialog = null;
+  dialog.callback(name);
+}
+
+function submitSchedule() {
+  if (state.submitting) return;
+  if (!state.editMembers.length) {
+    toast('至少保留一个成员', 'error');
+    return;
+  }
+  const oldAssignments = (state.schedule && state.schedule.assignments) || {};
+  const changedDates = Object.keys(Object.assign({}, oldAssignments, state.editAssignments)).filter(function (d) {
+    return oldAssignments[d] !== state.editAssignments[d];
+  }).length;
+  const oldIds = new Set(((state.schedule && state.schedule.members) || []).map(function (m) { return m.id; }));
+  const newIds = new Set(state.editMembers.map(function (m) { return m.id; }));
+  const added = state.editMembers.filter(function (m) { return !oldIds.has(m.id); }).length;
+  const removed = ((state.schedule && state.schedule.members) || []).filter(function (m) { return !newIds.has(m.id); }).length;
+  const renamed = state.editMembers.filter(function (m) {
+    const old = memberById(state.schedule, m.id);
+    return old && old.name !== m.name;
+  }).length;
+  const oldRotation = (state.schedule && state.schedule.rotation) || [];
+  const rotationChanged = JSON.stringify(oldRotation) !== JSON.stringify(state.editRotation);
+  if (!changedDates && !added && !removed && !renamed && !rotationChanged) {
+    toast('没有需要提交的修改');
+    return;
+  }
+  const summary = '本次修改：轮协 ' + changedDates + ' 天'
+    + (added ? '，新增成员 ' + added + ' 人' : '')
+    + (removed ? '，删除成员 ' + removed + ' 人' : '')
+    + (renamed ? '，改名 ' + renamed + ' 人' : '')
+    + (rotationChanged ? '，顺延序列已更新' : '')
+    + '。提交后会写入 Java 服务并同步给所有成员。';
+  confirmDialog('提交轮协表', summary, '提交', function () {
+    doSubmit(state.schedule ? state.schedule.revision : 0);
+  });
+}
+
+async function doSubmit(baseRevision) {
+  state.submitting = true;
+  state.pendingConflict = null;
+  render();
+  const payload = {
+    baseRevision: baseRevision,
+    members: state.editMembers.map(function (m) { return { id: m.id, name: m.name, active: m.active !== false }; }),
+    assignments: state.editAssignments,
+    rotation: state.editRotation,
+    updatedBy: state.memberName || 'admin'
+  };
+  try {
+    const result = await apiFetch('/schedule', { method: 'PUT', auth: true, body: payload });
+    if (result.status === 200 && result.data && result.data.schedule) {
+      cacheSchedule(result.data.schedule);
+      state.dirty = false;
+      state.submitting = false;
+      const changed = (result.data.changedMemberIds || []).length;
+      if (state.editorReturnScreen === 'name') {
+        state.screen = 'name';
+        state.nameInput = '';
+        state.nameError = '';
+        toast('成员已保存，请输入你的姓名进行验证', 'success');
+      } else {
+        state.screen = 'main';
+        toast('提交成功，版本 ' + result.data.schedule.revision + (changed ? '，' + changed + ' 名成员的轮协有变化' : ''), 'success');
+      }
+      render();
+      return;
+    }
+    if (result.status === 409) {
+      state.submitting = false;
+      state.pendingConflict = result.data;
+      render();
+      openModal('<h3>轮协已被更新</h3>'
+        + '<p class="modal-sub">其他设备已经提交了新的版本（当前版本 ' + escapeHtml(result.data.currentRevision) + '）。</p>'
+        + '<p class="hint">你可以用当前编辑覆盖远程版本，或放弃修改并刷新最新数据。</p>'
+        + '<div class="modal-actions">'
+        + '<button class="btn secondary small" onclick="closeModal()">取消</button>'
+        + '<button class="btn ghost small" onclick="refreshConflict()">放弃并刷新</button>'
+        + '<button class="btn primary small" onclick="overwriteConflict()">用我的版本覆盖</button>'
+        + '</div>');
+      return;
+    }
+    state.submitting = false;
+    toast((result.data && result.data.message) || '提交失败', 'error');
+    render();
+  } catch (e) {
+    state.submitting = false;
+    if (state.screen === 'editor') render();
+    toast(e.message || '提交失败', 'error');
+  }
+}
+
+function overwriteConflict() {
+  if (!state.pendingConflict) return;
+  const revision = state.pendingConflict.currentRevision;
+  closeModal();
+  doSubmit(revision);
+}
+
+async function refreshConflict() {
+  closeModal();
+  const fromSetup = state.editorReturnScreen === 'name';
+  try {
+    await loadSchedule(true);
+    openEditor(fromSetup);
+    toast('已加载最新轮协');
+  } catch (e) {
+    toast(e.message || '刷新失败', 'error');
+  }
+}
+
+// ==================== 弹窗 ====================
+function openModal(html, extraClass) {
+  const cls = extraClass ? ' ' + extraClass : '';
+  document.getElementById('modal-root').innerHTML =
+    '<div class="modal-overlay" onclick="overlayClick(event)"><div class="modal-card' + cls + '" onclick="event.stopPropagation()">' + html + '</div></div>';
+}
+
+function closeModal() {
+  const wasCustom = state.customRotationOpen;
+  document.getElementById('modal-root').innerHTML = '';
+  state.memberDialog = null;
+  state.customRotationOpen = false;
+  if (wasCustom && state.screen === 'editor') render();
+}
+
+function overlayClick(event) {
+  if (event.target === event.currentTarget) closeModal();
+}
+
+function confirmDialog(title, message, confirmLabel, callback, danger) {
+  state.confirmCallback = callback;
+  openModal('<h3>' + escapeHtml(title) + '</h3>'
+    + '<p class="hint" style="font-size:13px;color:var(--muted)">' + escapeHtml(message) + '</p>'
+    + '<div class="modal-actions">'
+    + '<button class="btn secondary small" onclick="closeModal()">取消</button>'
+    + '<button class="btn ' + (danger ? 'danger' : 'primary') + ' small" onclick="runConfirm()">' + escapeHtml(confirmLabel) + '</button>'
+    + '</div>');
+}
+
+function runConfirm() {
+  const callback = state.confirmCallback;
+  state.confirmCallback = null;
+  closeModal();
+  if (callback) callback();
+}
+
+window.addEventListener('beforeunload', function (e) {
+  if (state.screen === 'editor' && state.dirty) {
+    e.preventDefault();
+    e.returnValue = '';
+  }
+});
+
+window.addEventListener('focus', function () {
+  if (state.token && state.screen === 'main') refreshMessageBadge();
+});
+
+init();
+</script>
+</body>
+</html>

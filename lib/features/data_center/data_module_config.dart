@@ -261,4 +261,16 @@ class DataModules {
       searchFields: ['report_code', 'field_code', 'report_title', 'report_date'],
     ),
   ];
+
+  /// 轮协管理：内部隐藏数据，走独立页面和 Worker，不进入通用 CRUD
+  static const DataModuleConfig scheduleModule = DataModuleConfig(
+    moduleKey: 'schedule',
+    moduleName: '轮协管理',
+    icon: Icons.calendar_month,
+    color: Color(0xFF00897B),
+    storageKey: 'data_schedule',
+    description: '团队协管轮协与协管提醒',
+    fields: [],
+    searchFields: [],
+  );
 }
