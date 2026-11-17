@@ -783,6 +783,17 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.9.5',
+        'date': '2026-11-17',
+        'content': [
+          '首页“连接设备”由蓝牙扫描改为 WiFi 扫描，自动识别并置顶无人机热点 HuHuaShiZhe-Drone',
+          '连接状态与任务监控改为显示 WiFi 名称与信号强度，下拉即可刷新',
+          '支持一键跳转系统 WiFi 设置，返回后自动检测并刷新连接状态',
+          '适配 Android 13+ 附近 WiFi 权限，扫描结果实时刷新',
+          '修复模型标签测试中番茄健康索引错误',
+        ],
+      },
+      {
         'version': 'v2.8.0',
         'date': '2026-11-15',
         'content': [
