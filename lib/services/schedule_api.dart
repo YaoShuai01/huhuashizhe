@@ -178,6 +178,45 @@ class ScheduleApi {
     }
   }
 
+  /// 姓名验证成功后上报服务端，记录该成员已验证
+  Future<void> verifyMember(String token, String memberId) {
+    return _memberAction(token, '/verify', memberId, '成员验证状态保存失败');
+  }
+
+  /// 在线心跳，服务端据此判断成员是否在线
+  Future<void> sendPresence(String token, String memberId) {
+    return _memberAction(token, '/presence', memberId, '在线状态更新失败');
+  }
+
+  Future<void> _memberAction(
+    String token,
+    String path,
+    String memberId,
+    String fallback,
+  ) async {
+    final dio = await _client();
+    try {
+      final response = await dio.post<dynamic>(
+        path,
+        options: Options(headers: {'Authorization': 'Bearer $token'}),
+        data: {'memberId': memberId},
+      );
+      final status = response.statusCode ?? 0;
+      if (status == 200) return;
+      final message = _messageFrom(response, fallback);
+      if (status == 401) {
+        throw ScheduleAuthException(
+          message,
+          statusCode: status,
+          code: 'unauthorized',
+        );
+      }
+      throw ScheduleApiException(message, statusCode: status);
+    } on DioException catch (e) {
+      throw ScheduleNetworkException(_dioMessage(e));
+    }
+  }
+
   /// 读取匿名留言池
   Future<List<ScheduleMessage>> fetchMessages(String token, String anonId) {
     return _messagesRequest(

@@ -33,6 +33,9 @@ class ScheduleService {
 
   static const Duration _syncInterval = Duration(minutes: 30);
 
+  /// 在线心跳间隔；服务端按最近 5 分钟判断在线
+  static const Duration _presenceInterval = Duration(minutes: 2);
+
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
   final ScheduleApi _api = ScheduleApi();
 
@@ -46,6 +49,7 @@ class ScheduleService {
   bool _lastSyncFailed = false;
   bool _initialized = false;
   Future<ScheduleData?>? _inflight;
+  Timer? _presenceTimer;
 
   /// 页面可监听这个值，实时显示轮协变更提示
   final ValueNotifier<String?> changeNotifier = ValueNotifier<String?>(null);
@@ -77,6 +81,9 @@ class ScheduleService {
     await ScheduleNotificationService.instance.init();
     // 应用重启/开机后 AlarmManager 可能被清空，按缓存重排一次
     await rescheduleNotifications();
+    if (isAuthenticated && hasMemberIdentity) {
+      _startPresence();
+    }
   }
 
   /// 用团队密钥 / 管理员密钥登录，成功后长期保存 token
@@ -87,22 +94,28 @@ class ScheduleService {
     await _writeSecure(_roleKey, result.role);
     _token = result.token;
     _role = result.role;
+    if (hasMemberIdentity) {
+      _startPresence();
+    }
     return result;
   }
 
-  /// 首次进入时绑定姓名对应的成员 ID
+  /// 首次进入时绑定姓名对应的成员 ID，并自动上报已验证与在线状态
   Future<void> selectMember(ScheduleMember member) async {
     await init();
     _memberId = member.id;
     _memberName = member.name;
     await _writeSecure(_memberIdKey, member.id);
     await _writeSecure(_memberNameKey, member.name);
+    unawaited(_reportVerified(member.id));
+    _startPresence();
     await rescheduleNotifications();
   }
 
   /// 退出轮协：清 token 和身份
   Future<void> logout() async {
     await init();
+    _stopPresence();
     _token = null;
     _role = null;
     _memberId = null;
@@ -121,9 +134,57 @@ class ScheduleService {
 
   /// 清理失效 token，但保留成员身份和缓存
   Future<void> _clearInvalidToken() async {
+    _stopPresence();
     _token = null;
     _role = null;
     await Future.wait([_deleteSecure(_tokenKey), _deleteSecure(_roleKey)]);
+  }
+
+  /// 姓名验证通过后立即通知服务端，避免成员仍显示“未验证”
+  Future<void> _reportVerified(String memberId) async {
+    final token = _token;
+    if (token == null || token.isEmpty) return;
+    try {
+      await _api.verifyMember(token, memberId);
+    } on ScheduleAuthException {
+      await _clearInvalidToken();
+    } catch (e) {
+      debugPrint('[Schedule] 上报成员验证状态失败: $e');
+    }
+  }
+
+  void _startPresence() {
+    final token = _token;
+    final member = _memberId;
+    if (token == null || token.isEmpty || member == null || member.isEmpty) {
+      return;
+    }
+    _presenceTimer ??= Timer.periodic(
+      _presenceInterval,
+      (_) => unawaited(_heartbeat()),
+    );
+    unawaited(_heartbeat());
+  }
+
+  void _stopPresence() {
+    _presenceTimer?.cancel();
+    _presenceTimer = null;
+  }
+
+  Future<void> _heartbeat() async {
+    final token = _token;
+    final member = _memberId;
+    if (token == null || token.isEmpty || member == null || member.isEmpty) {
+      _stopPresence();
+      return;
+    }
+    try {
+      await _api.sendPresence(token, member);
+    } on ScheduleAuthException {
+      await _clearInvalidToken();
+    } catch (e) {
+      debugPrint('[Schedule] 在线心跳失败: $e');
+    }
   }
 
   /// 强制/节流拉取轮协。并发调用共享同一个请求。

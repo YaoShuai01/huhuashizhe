@@ -9,8 +9,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.LinkedHashMap;
-import java.util.Map;
 import java.util.Properties;
 
 /**
@@ -27,8 +25,6 @@ public final class AppConfig {
     public final String scheduleKey;
     public final String adminKey;
     public final String tokenSecret;
-    /** 成员专属密钥 -> 成员 ID；用于登录时自动标记已验证 */
-    public final Map<String, String> memberKeys;
     public final Path dbPath;
     public final Path backupDir;
     public final long memberTokenTtlSeconds;
@@ -39,7 +35,6 @@ public final class AppConfig {
             String scheduleKey,
             String adminKey,
             String tokenSecret,
-            Map<String, String> memberKeys,
             Path dbPath,
             Path backupDir,
             long memberTokenTtlSeconds,
@@ -48,7 +43,6 @@ public final class AppConfig {
         this.scheduleKey = scheduleKey;
         this.adminKey = adminKey;
         this.tokenSecret = tokenSecret;
-        this.memberKeys = memberKeys;
         this.dbPath = dbPath;
         this.backupDir = backupDir;
         this.memberTokenTtlSeconds = memberTokenTtlSeconds;
@@ -91,29 +85,6 @@ public final class AppConfig {
             throw new IllegalStateException("token.secret 至少需要 32 位随机字符");
         }
 
-        Map<String, String> memberKeys = new LinkedHashMap<>();
-        String rawMemberKeys = trim(properties.getProperty("member.keys"));
-        if (!rawMemberKeys.isEmpty()) {
-            for (String pair : rawMemberKeys.split(",")) {
-                String[] parts = pair.split("=", 2);
-                if (parts.length != 2) {
-                    continue;
-                }
-                String key = parts[0].trim();
-                String memberId = parts[1].trim();
-                if (key.isEmpty() || memberId.isEmpty()) {
-                    continue;
-                }
-                if (key.equals(scheduleKey) || key.equals(adminKey)) {
-                    throw new IllegalStateException("member.keys 不能与 schedule.key/admin.key 相同");
-                }
-                if (memberKeys.containsKey(key)) {
-                    throw new IllegalStateException("member.keys 存在重复密钥");
-                }
-                memberKeys.put(key, memberId);
-            }
-        }
-
         Path userDir = Paths.get(System.getProperty("user.home"), ".huhuashizhe-schedule");
         Path dbPath = pathOrDefault(properties.getProperty("db.path"), userDir.resolve("schedule.db"));
         Path backupDir = pathOrDefault(properties.getProperty("backup.dir"), userDir.resolve("backups"));
@@ -128,7 +99,6 @@ public final class AppConfig {
                 scheduleKey,
                 adminKey,
                 tokenSecret,
-                memberKeys,
                 dbPath.toAbsolutePath().normalize(),
                 backupDir.toAbsolutePath().normalize(),
                 memberTtl,
