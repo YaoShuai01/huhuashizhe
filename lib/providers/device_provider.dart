@@ -1,13 +1,15 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../services/bluetooth_service.dart';
+import '../services/wifi_service.dart';
 
-final bluetoothServiceProvider = Provider<BluetoothService>((ref) {
-  final service = BluetoothService();
+final wifiServiceProvider = Provider<WifiService>((ref) {
+  final service = WifiService();
+  service.init();
   ref.onDispose(() => service.dispose());
   return service;
 });
 
-final deviceStatusProvider = StreamProvider<DeviceStatus>((ref) {
-  final service = ref.watch(bluetoothServiceProvider);
+/// 设备连接状态：以无人机 WiFi 热点是否已连接为准
+final deviceStatusProvider = StreamProvider<WifiStatus>((ref) {
+  final service = ref.watch(wifiServiceProvider);
   return service.statusStream;
 });

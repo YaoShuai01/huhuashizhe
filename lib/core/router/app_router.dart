@@ -8,7 +8,7 @@ import '../../features/presets/widgets/preset_form_page.dart';
 import '../../features/presets/widgets/preset_tuning_page.dart';
 import '../../features/classroom/widgets/course_detail_page.dart';
 import '../../features/mission/pages/map_select_page.dart';
-import '../../features/mine/widgets/device_scan_page.dart';
+import '../../features/mine/widgets/wifi_scan_page.dart';
 import '../../features/mine/pages/mine_sub_pages.dart';
 import '../../features/settings/pages/settings_page.dart';
 import '../../features/ai_chat/pages/ai_chat_page.dart';
@@ -114,7 +114,7 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/mine/device',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => const DeviceScanPage(),
+      builder: (context, state) => const WifiScanPage(),
     ),
     GoRoute(
       path: '/mine/settings',

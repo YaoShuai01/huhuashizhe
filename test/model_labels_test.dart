@@ -25,7 +25,7 @@ void main() {
         if (kModelLabels[i].healthy) healthyIndexes.add(i);
       }
       expect(healthyIndexes.contains(3), isTrue); // Apple healthy
-      expect(healthyIndexes.contains(31), isTrue); // Tomato healthy
+      expect(healthyIndexes.contains(38), isTrue); // Tomato healthy（ASCII 排序后位于末位）
       expect(isProblemClass(0), isTrue); // Apple scab
       expect(isProblemClass(16), isTrue); // 柑橘黄龙病
       for (final h in healthyIndexes) {

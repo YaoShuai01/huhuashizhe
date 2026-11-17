@@ -47,7 +47,7 @@ class MinePage extends StatelessWidget {
             _buildMenuItem(
               icon: Icons.bluetooth_outlined,
               title: '设备连接',
-              subtitle: '蓝牙设备管理、已配对设备列表',
+              subtitle: '扫描并连接无人机 WiFi 热点',
               onTap: () => context.push('/mine/device'),
             ),
             _buildMenuItem(

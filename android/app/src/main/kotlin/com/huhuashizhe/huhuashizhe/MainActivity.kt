@@ -22,12 +22,14 @@ import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.net.Uri
+import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.os.ParcelUuid
+import android.provider.Settings
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -43,6 +45,8 @@ class MainActivity : FlutterActivity() {
     private val LOCATION_CHANNEL = "com.huhuashizhe/location"
     private val BLUETOOTH_CHANNEL = "com.huhuashizhe/bluetooth"
     private val BLUETOOTH_EVENT_CHANNEL = "com.huhuashizhe/bluetooth_events"
+    private val WIFI_CHANNEL = "com.huhuashizhe/wifi"
+    private val WIFI_EVENT_CHANNEL = "com.huhuashizhe/wifi_events"
     private var locationResult: MethodChannel.Result? = null
     private var locationManager: LocationManager? = null
     private var locationListener: LocationListener? = null
@@ -62,6 +66,13 @@ class MainActivity : FlutterActivity() {
     private var scanTimeoutHandler: Handler? = null
     private var scanTimeoutRunnable: Runnable? = null
     private val discoveredDevices = mutableSetOf<String>()
+
+    // WiFi 相关
+    private var wifiEventSink: EventChannel.EventSink? = null
+    private var isWifiScanning = false
+    private var wifiScanTimeoutHandler: Handler? = null
+    private var wifiScanTimeoutRunnable: Runnable? = null
+    private var wifiReceiverRegistered = false
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -116,6 +127,30 @@ class MainActivity : FlutterActivity() {
                 "stopScan" -> stopBluetoothScan(result)
                 "getBondedDevices" -> getBondedDevices(result)
                 "isBluetoothEnabled" -> isBluetoothEnabled(result)
+                else -> result.notImplemented()
+            }
+        }
+
+        // WiFi 扫描事件通道
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, WIFI_EVENT_CHANNEL).setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    wifiEventSink = events
+                }
+                override fun onCancel(arguments: Any?) {
+                    wifiEventSink = null
+                }
+            }
+        )
+
+        // WiFi 控制通道
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WIFI_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "isWifiEnabled" -> result.success(wifiManager()?.isWifiEnabled == true)
+                "getCurrentSsid" -> result.success(currentWifiSsid())
+                "startScan" -> startWifiScan(result)
+                "stopScan" -> stopWifiScan(result)
+                "openWifiSettings" -> openWifiSettings(result)
                 else -> result.notImplemented()
             }
         }
@@ -433,6 +468,173 @@ class MainActivity : FlutterActivity() {
         }.start()
     }
 
+    // ==================== WiFi 扫描功能 ====================
+
+    private fun wifiManager(): WifiManager? =
+        applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+
+    /// 当前连接的 WiFi 名称（SSID），未连接返回 null
+    private fun currentWifiSsid(): String? {
+        return try {
+            val wm = wifiManager() ?: return null
+            @Suppress("DEPRECATION")
+            val info = wm.connectionInfo
+            @Suppress("DEPRECATION")
+            val raw = info?.ssid ?: return null
+            val ssid = raw.trim('"')
+            if (ssid.isEmpty() || ssid == "<unknown ssid>") null else ssid
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun hasWifiScanPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.NEARBY_WIFI_DEVICES) == PackageManager.PERMISSION_GRANTED
+        } else {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    private fun requestWifiScanPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.NEARBY_WIFI_DEVICES, Manifest.permission.ACCESS_FINE_LOCATION),
+                1003
+            )
+        } else {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                1003
+            )
+        }
+    }
+
+    private fun startWifiScan(result: MethodChannel.Result?) {
+        val wm = wifiManager()
+        if (wm == null) {
+            result?.error("NO_WIFI", "设备不支持 WiFi", null)
+            return
+        }
+        if (!wm.isWifiEnabled) {
+            result?.error("WIFI_DISABLED", "WiFi 未开启", null)
+            return
+        }
+        if (!hasWifiScanPermission()) {
+            requestWifiScanPermission()
+            result?.error("NO_PERMISSION", "正在请求 WiFi 扫描权限，请稍后重试", null)
+            return
+        }
+        if (isWifiScanning) {
+            result?.success(true)
+            return
+        }
+
+        isWifiScanning = true
+        result?.success(true)
+
+        // 注册扫描结果广播（只注册一次）
+        if (!wifiReceiverRegistered) {
+            try {
+                registerReceiver(wifiScanReceiver, IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION))
+                wifiReceiverRegistered = true
+            } catch (e: Exception) {
+            }
+        }
+
+        // 先推送系统缓存的扫描结果，避免列表空白
+        emitWifiScanResults(wm)
+
+        try {
+            @Suppress("DEPRECATION")
+            wm.startScan()
+        } catch (e: Exception) {
+            // 部分机型限制主动扫描，使用缓存结果兜底
+        }
+
+        // 8 秒超时，避免一直处于扫描中
+        wifiScanTimeoutHandler = Handler(Looper.getMainLooper())
+        wifiScanTimeoutRunnable = Runnable { stopWifiScan(null) }
+        wifiScanTimeoutHandler?.postDelayed(wifiScanTimeoutRunnable!!, 8000)
+    }
+
+    private fun emitWifiScanResults(wm: WifiManager) {
+        val currentSsid = currentWifiSsid()
+        val results = try {
+            wm.scanResults
+        } catch (e: Exception) {
+            emptyList<android.net.wifi.ScanResult>()
+        }
+        for (item in results) {
+            val ssid = item.SSID ?: continue
+            if (ssid.isEmpty()) continue
+            val capabilities = item.capabilities ?: ""
+            val secured = capabilities.contains("WPA") ||
+                capabilities.contains("WEP") ||
+                capabilities.contains("SAE") ||
+                capabilities.contains("EAP")
+            wifiEventSink?.success(
+                mapOf(
+                    "type" to "network",
+                    "ssid" to ssid,
+                    "bssid" to (item.BSSID ?: ""),
+                    "rssi" to item.level,
+                    "secured" to secured,
+                    "isCurrent" to (ssid == currentSsid)
+                )
+            )
+        }
+    }
+
+    private fun stopWifiScan(result: MethodChannel.Result?) {
+        if (!isWifiScanning) {
+            result?.success(true)
+            return
+        }
+        isWifiScanning = false
+
+        wifiScanTimeoutRunnable?.let { wifiScanTimeoutHandler?.removeCallbacks(it) }
+        wifiScanTimeoutRunnable = null
+
+        try {
+            if (wifiReceiverRegistered) {
+                unregisterReceiver(wifiScanReceiver)
+                wifiReceiverRegistered = false
+            }
+        } catch (e: Exception) {
+        }
+
+        wifiEventSink?.success(mapOf("type" to "scanComplete"))
+        result?.success(true)
+    }
+
+    private val wifiScanReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == WifiManager.SCAN_RESULTS_AVAILABLE_ACTION) {
+                try {
+                    wifiManager()?.let { emitWifiScanResults(it) }
+                } catch (e: Exception) {
+                }
+                stopWifiScan(null)
+            }
+        }
+    }
+
+    /// Android 10+ 无法由应用直接连接 WiFi，跳系统设置由用户确认
+    private fun openWifiSettings(result: MethodChannel.Result) {
+        try {
+            val intent = Intent(Settings.ACTION_WIFI_SETTINGS).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+            result.success(true)
+        } catch (e: Exception) {
+            result.error("OPEN_FAILED", "无法打开 WiFi 设置: ${e.message}", null)
+        }
+    }
+
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 1001) {
@@ -447,6 +649,12 @@ class MainActivity : FlutterActivity() {
             // 蓝牙权限授予后重新开始扫描
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 startBluetoothScan(null)
+            }
+        }
+        if (requestCode == 1003) {
+            // WiFi 扫描权限授予后重新开始扫描
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                startWifiScan(null)
             }
         }
     }
@@ -676,6 +884,7 @@ class MainActivity : FlutterActivity() {
 
     override fun onDestroy() {
         stopBluetoothScan(null)
+        stopWifiScan(null)
         super.onDestroy()
     }
 }
