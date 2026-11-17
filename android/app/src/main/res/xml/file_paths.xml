@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- 允许访问外部存储的缓存目录（APK下载位置） -->
+    <cache-path name="apk_cache" path="." />
+    <!-- 允许访问外部存储 -->
+    <external-path name="external" path="." />
+    <external-files-path name="external_files" path="." />
+</paths>

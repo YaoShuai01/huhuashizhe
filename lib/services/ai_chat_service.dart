@@ -1,0 +1,263 @@
+import 'dart:convert';
+import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
+import 'weather_service.dart';
+
+class AiChatMessage {
+  final String role; // 'user' or 'assistant'
+  final String content;
+  final DateTime timestamp;
+
+  const AiChatMessage({
+    required this.role,
+    required this.content,
+    required this.timestamp,
+  });
+
+  Map<String, dynamic> toJson() => {
+        'role': role,
+        'content': content,
+        'timestamp': timestamp.toIso8601String(),
+      };
+
+  factory AiChatMessage.fromJson(Map<String, dynamic> json) => AiChatMessage(
+        role: json['role'] as String,
+        content: json['content'] as String,
+        timestamp: DateTime.parse(json['timestamp'] as String),
+      );
+}
+
+/// 小米MiMo大模型AI对话服务（OpenAI兼容格式）
+class AiChatService {
+  static const _baseUrl = 'https://api.xiaomimimo.com/v1';
+  static const _model = 'mimo-v2.6-flash'; // v2.5已下线（平台2026-11升级到v2.6系列）
+  static const _apiKey = 'sk-cmg9hlk0p32xk3zvwlx3q1ui4q4b5qql3qua554jfl5lshef';
+
+  /// 护花使者智能体系统提示词
+  static const _systemPrompt = '''
+你是"护花使者"智能植保助手，专门为植保无人机飞手提供专业建议。
+
+你的身份定位：
+- 你是植保无人机领域的AI专家，精通农药喷洒、病虫害防治、飞行作业规划
+- 你的语气专业但亲切，像一位经验丰富的老师傅指导新手
+- 你了解以下作物：水稻、小麦、玉米、棉花、果树、蔬菜、茶叶、油菜等
+- 你熟悉农药知识：杀虫剂、杀菌剂、除草剂、植物生长调节剂的使用方法
+
+你的核心能力：
+1. 病虫害诊断：根据用户描述的作物症状，推荐防治方案
+2. 用药建议：推荐农药种类、配比浓度、喷洒量（升/亩）
+3. 飞行参数：推荐飞行高度、速度、行距、喷幅
+4. 安全提醒：强调安全间隔期、农药混用禁忌、防护措施
+5. 作业规划：根据地块面积估算作业时间和药剂用量
+
+回答规则：
+- 使用纯文本回答，禁止使用任何Markdown格式标记（如**、*、#、`等）
+- 每次回答控制在200字以内，简洁专业
+- 涉及到具体用药时，必须提醒"请以当地农技部门指导为准"
+- 如果用户问无关问题，引导回植保话题
+- 使用中文回答，适当使用专业术语但需解释
+''';
+
+  /// 去除AI回复中的Markdown格式标记（**、*、#、`等），所有对话入口统一调用
+  static String stripMarkdown(String text) {
+    return text
+        .replaceAll(RegExp(r'\*+'), '') // 去除任意数量的 *
+        .replaceAll(RegExp(r'#{1,6}\s'), '') // 去除 # 标题标记
+        .replaceAll(RegExp(r'`{1,3}'), '') // 去除 ` 代码标记
+        .replaceAll(RegExp(r'~~~?\s*\w*'), '') // 去除 ~~~ 代码块标记
+        .replaceAll(RegExp(r'_{1,3}'), '') // 去除 _ 斜体/粗体标记
+        .replaceAll(RegExp(r'^\s*[-+]\s', multiLine: true), '• ') // 无序列表转圆点
+        .replaceAll(RegExp(r'^\s*\d+\.\s', multiLine: true), '') // 有序列表去序号
+        .trim();
+  }
+
+  final Dio _dio = Dio(BaseOptions(
+    baseUrl: _baseUrl,
+    connectTimeout: const Duration(seconds: 15),
+    receiveTimeout: const Duration(seconds: 30),
+    headers: {
+      'api-key': _apiKey,
+      'Content-Type': 'application/json',
+    },
+  ));
+
+  /// 发送消息并获取AI回复（流式输出）
+  Stream<String> sendMessageStream(List<AiChatMessage> history, {WeatherData? weather}) async* {
+    final messages = <Map<String, dynamic>>[
+      {'role': 'system', 'content': _buildSystemPrompt(weather)},
+    ];
+
+    // 只保留最近20轮对话（40条消息），避免超出上下文
+    final recentHistory = history.length > 40 ? history.sublist(history.length - 40) : history;
+    for (final msg in recentHistory) {
+      messages.add({
+        'role': msg.role,
+        'content': msg.content,
+      });
+    }
+
+    try {
+      final response = await _dio.post(
+        '/chat/completions',
+        data: {
+          'model': _model,
+          'messages': messages,
+          'max_tokens': 1024, // v2.6为推理模型，需预留reasoning_content的token
+          'temperature': 0.7,
+          'top_p': 0.95,
+          'stream': true,
+        },
+        options: Options(
+          responseType: ResponseType.stream,
+        ),
+      );
+
+      final stream = response.data.stream as Stream<List<int>>;
+      String buffer = '';
+      String reasoningBuffer = ''; // v2.6推理模型的思维链（默认不展示）
+      bool yieldedAny = false;
+
+      await for (final chunk in stream) {
+        final text = utf8.decode(chunk);
+        buffer += text;
+
+        // 解析SSE格式: data: {...}\n\n
+        while (buffer.contains('\n\n')) {
+          final index = buffer.indexOf('\n\n');
+          final line = buffer.substring(0, index).trim();
+          buffer = buffer.substring(index + 2);
+
+          if (line.startsWith('data: ')) {
+            final data = line.substring(6);
+            if (data == '[DONE]') {
+              // 兜底：模型只输出了思维链没有任何正文时，才展示思维链
+              if (!yieldedAny && reasoningBuffer.isNotEmpty) {
+                yield reasoningBuffer;
+              }
+              return;
+            }
+
+            try {
+              final json = jsonDecode(data) as Map<String, dynamic>;
+              final choices = json['choices'] as List<dynamic>?;
+              if (choices != null && choices.isNotEmpty) {
+                final delta = choices[0]['delta'] as Map<String, dynamic>?;
+                final content = delta?['content'] as String?;
+                final reasoning = delta?['reasoning_content'] as String?;
+                if (content != null && content.isNotEmpty) {
+                  yieldedAny = true;
+                  yield content;
+                } else if (reasoning != null && reasoning.isNotEmpty) {
+                  reasoningBuffer += reasoning;
+                }
+              }
+            } catch (_) {
+              // 跳过无法解析的chunk
+            }
+          }
+        }
+      }
+      // 流结束无[DONE]标记时的兜底
+      if (!yieldedAny && reasoningBuffer.isNotEmpty) {
+        yield reasoningBuffer;
+      }
+    } catch (e) {
+      debugPrint('[AI] 流式请求异常: $e');
+      yield '抱歉，网络连接出现问题，请稍后再试。';
+    }
+  }
+
+  /// 构建带上下文的系统提示词
+  String _buildSystemPrompt(WeatherData? weather) {
+    String context = '';
+    if (weather != null) {
+      context = '当前环境信息：\n'
+          '用户位置：${weather.locationName}\n'
+          '天气：${weather.weatherDescription}，${weather.temperature.toStringAsFixed(0)}°C\n'
+          '湿度：${weather.humidity.toStringAsFixed(0)}%\n'
+          '风速：${weather.windSpeed.toStringAsFixed(1)} m/s\n'
+          '请根据以上环境信息，在回答植保问题时结合当地天气条件给出更精准的建议。\n\n';
+    }
+    return '$context$_systemPrompt';
+  }
+
+  /// 发送消息并获取AI回复（非流式，备用）
+  Future<String> sendMessage(List<AiChatMessage> history, {WeatherData? weather}) async {
+    final messages = <Map<String, dynamic>>[
+      {'role': 'system', 'content': _buildSystemPrompt(weather)},
+    ];
+
+    final recentHistory = history.length > 40 ? history.sublist(history.length - 40) : history;
+    for (final msg in recentHistory) {
+      messages.add({
+        'role': msg.role,
+        'content': msg.content,
+      });
+    }
+
+    try {
+      final response = await _dio.post(
+        '/chat/completions',
+        data: {
+          'model': _model,
+          'messages': messages,
+          'max_tokens': 1024,
+          'temperature': 0.7,
+          'top_p': 0.95,
+          'stream': false,
+        },
+      );
+
+      final choices = response.data['choices'] as List<dynamic>?;
+      if (choices != null && choices.isNotEmpty) {
+        final message = choices[0]['message'] as Map<String, dynamic>?;
+        final content = message?['content']?.toString();
+        final reasoning = message?['reasoning_content']?.toString();
+        final result = (content != null && content.isNotEmpty) ? content : (reasoning ?? '');
+        if (result.isNotEmpty) return result;
+      }
+      return '抱歉，AI暂时无法回复，请稍后再试。';
+    } catch (e) {
+      debugPrint('[AI] 请求异常: $e');
+      return '网络连接出现问题，请检查网络后重试。';
+    }
+  }
+
+  /// 一次性AI分析（供其他模块调用，如飞行参数分析、病虫害诊断等）
+  /// [prompt] 分析提示词，[context] 可选的上下文信息
+  Future<String> quickAnalysis(String prompt, {String? context}) async {
+    final messages = <Map<String, dynamic>>[
+      {'role': 'system', 'content': _systemPrompt},
+    ];
+
+    final userContent = context != null ? '$prompt\n\n相关上下文：$context' : prompt;
+    messages.add({'role': 'user', 'content': userContent});
+
+    try {
+      final response = await _dio.post(
+        '/chat/completions',
+        data: {
+          'model': _model,
+          'messages': messages,
+          'max_tokens': 1024,
+          'temperature': 0.7,
+          'top_p': 0.95,
+          'stream': false,
+        },
+      );
+
+      final choices = response.data['choices'] as List<dynamic>?;
+      if (choices != null && choices.isNotEmpty) {
+        final message = choices[0]['message'] as Map<String, dynamic>?;
+        final content = message?['content']?.toString();
+        final reasoning = message?['reasoning_content']?.toString();
+        final result = (content != null && content.isNotEmpty) ? content : (reasoning ?? '');
+        if (result.isNotEmpty) return result;
+      }
+      return '抱歉，AI暂时无法分析，请稍后再试。';
+    } catch (e) {
+      debugPrint('[AI] 分析请求异常: $e');
+      return '网络连接出现问题，请检查网络后重试。';
+    }
+  }
+}
