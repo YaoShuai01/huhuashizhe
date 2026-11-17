@@ -26,26 +26,34 @@ class ModelHotupdateService {
   static const _repo = 'YaoShuai01/huhuashizhe';
   static const _branch = 'main';
 
-  /// 清单地址：直连优先（raw 一般可通），失败走加速镜像
-  static List<String> get _manifestUrls => [
-        'https://raw.githubusercontent.com/$_repo/$_branch/models/manifest.json',
-        for (final p in const ['https://ghfast.top/', 'https://ghproxy.net/', 'https://gh-proxy.com/'])
-          '${p}https://raw.githubusercontent.com/$_repo/$_branch/models/manifest.json',
-      ];
+  /// 清单地址：国内网络优先走 ghproxy.net，最后才直连 raw。
+  /// 加时间戳参数绕过 raw/镜像缓存，避免刚发布的清单几分钟内看不到。
+  static List<String> get _manifestUrls {
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    const raw =
+        'https://raw.githubusercontent.com/$_repo/$_branch/models/manifest.json';
+    return [
+      'https://ghproxy.net/$raw?t=$ts',
+      'https://gh-proxy.com/$raw?t=$ts',
+      'https://ghfast.top/$raw?t=$ts',
+      '$raw?t=$ts',
+    ];
+  }
 
-  /// 模型二进制下载地址（Release 资产），同样镜像回退
+  /// 模型二进制下载地址（Release 资产），镜像优先，直连兜底。
   static List<String> _fileUrls(String file) {
     final base =
         'https://github.com/$_repo/releases/download/models/$file';
     return [
+      'https://ghproxy.net/$base',
+      'https://gh-proxy.com/$base',
+      'https://ghfast.top/$base',
       base,
-      for (final p in const ['https://ghfast.top/', 'https://ghproxy.net/', 'https://gh-proxy.com/'])
-        '$p$base',
     ];
   }
 
   final Dio _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 15),
+    connectTimeout: const Duration(seconds: 10),
     receiveTimeout: const Duration(minutes: 10),
   ));
 
@@ -127,14 +135,19 @@ class ModelHotupdateService {
   Future<List<RemoteModelMeta>?> _fetchManifest() async {
     for (final url in _manifestUrls) {
       try {
-        final r = await _dio.get<String>(url);
+        final r = await _dio.get<String>(
+          url,
+          options: Options(receiveTimeout: const Duration(seconds: 15)),
+        );
         final list = (jsonDecode(r.data!) as Map<String, dynamic>)['models']
             as List<dynamic>? ?? [];
-        return list
+        final models = list
             .map((e) => RemoteModelMeta.fromJson(e as Map<String, dynamic>))
             .toList();
+        debugPrint('[Hotupdate] 清单成功: $url（${models.length} 个模型）');
+        return models;
       } catch (e) {
-        debugPrint('[Hotupdate] 清单通道失败: $url');
+        debugPrint('[Hotupdate] 清单通道失败: $url（$e）');
       }
     }
     return null;
@@ -152,14 +165,22 @@ class ModelHotupdateService {
     for (final url in _fileUrls(meta.file)) {
       try {
         if (await tmp.exists()) await tmp.delete();
+        debugPrint('[Hotupdate] 开始下载: $url');
         await _dio.download(
           url,
           tmp.path,
+          options: Options(receiveTimeout: const Duration(seconds: 60)),
           onReceiveProgress: (received, total) {
-            if (total > 0) progress = received / total;
+            if (total > 0) {
+              progress = received / total;
+              if (received == total) {
+                debugPrint('[Hotupdate] 下载完成: ${meta.id}');
+              }
+            }
           },
         );
         final size = await tmp.length();
+        debugPrint('[Hotupdate] ${meta.id} 下载大小: $size / ${meta.size}');
         if (meta.size > 0 && size != meta.size) {
           debugPrint('[Hotupdate] ${meta.id} 大小不符 ($size != ${meta.size})，跳过该通道');
           continue;
