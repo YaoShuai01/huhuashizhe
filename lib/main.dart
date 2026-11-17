@@ -1,0 +1,131 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'core/theme/app_theme.dart';
+import 'core/router/app_router.dart';
+import 'data/local_database.dart';
+import 'providers/update_provider.dart';
+import 'services/ai_suggestion_worker.dart';
+import 'services/model_hotupdate_service.dart';
+import 'widgets/update_dialog.dart';
+import 'widgets/splash_page.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await LocalDatabase().init(); // 初始化本地数据持久化
+  AiSuggestionWorker().start(); // 生长检测AI建议：启动离线补全监听
+  // 模型热更新：联网后静默检查/下载新模型（不阻塞启动，可重入安全）
+  unawaited(ModelHotupdateService.instance.checkAndDownload());
+  runApp(
+    const ProviderScope(
+      child: HuHuaShiZheApp(),
+    ),
+  );
+}
+
+class HuHuaShiZheApp extends StatefulWidget {
+  const HuHuaShiZheApp({super.key});
+
+  @override
+  State<HuHuaShiZheApp> createState() => _HuHuaShiZheAppState();
+}
+
+class _HuHuaShiZheAppState extends State<HuHuaShiZheApp> {
+  bool _showSplash = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // 闪屏页显示1.5秒后切换到主应用
+    Timer(const Duration(milliseconds: 1500), () {
+      if (mounted) {
+        setState(() => _showSplash = false);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_showSplash) {
+      return const MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: SplashPage(),
+      );
+    }
+    return _UpdateChecker(
+      child: MaterialApp.router(
+        title: '护花使者',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: ThemeMode.system,
+        routerConfig: appRouter,
+        builder: (context, child) {
+          // 限制系统字体缩放最大1.2倍，防止大字号下卡片溢出报错
+          final mediaQuery = MediaQuery.of(context);
+          final clampedScale = mediaQuery.textScaler.clamp(maxScaleFactor: 1.2);
+          return MediaQuery(
+            data: mediaQuery.copyWith(textScaler: clampedScale),
+            child: child!,
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _UpdateChecker extends ConsumerStatefulWidget {
+  final Widget child;
+  const _UpdateChecker({required this.child});
+
+  @override
+  ConsumerState<_UpdateChecker> createState() => _UpdateCheckerState();
+}
+
+class _UpdateCheckerState extends ConsumerState<_UpdateChecker> with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _checkUpdate();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // 应用从后台回到前台时自动刷新
+    if (state == AppLifecycleState.resumed) {
+      _checkUpdate();
+    }
+  }
+
+  void _checkUpdate() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(updateProvider.notifier).checkForUpdate();
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.watch(updateProvider);
+    ref.listen<UpdateState>(updateProvider, (prev, next) {
+      // 检测到新版本时，使用根导航器的context弹出更新对话框
+      if (next.status == UpdateStatus.updateAvailable && prev?.status != UpdateStatus.updateAvailable) {
+        // 延迟一帧确保MaterialApp已完全构建
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (rootNavigatorKey.currentContext != null && mounted) {
+            UpdateDialog.show(rootNavigatorKey.currentContext!);
+          }
+        });
+      }
+    });
+    return widget.child;
+  }
+}
