@@ -6,8 +6,13 @@ import '../models/schedule_models.dart';
 class MemberPickResult {
   final String? memberId;
   final bool clear;
+  final bool swap;
 
-  const MemberPickResult({this.memberId, this.clear = false});
+  const MemberPickResult({
+    this.memberId,
+    this.clear = false,
+    this.swap = false,
+  });
 }
 
 Future<MemberPickResult?> showMemberPicker(
@@ -15,6 +20,7 @@ Future<MemberPickResult?> showMemberPicker(
   required List<ScheduleMember> members,
   String? selectedId,
   bool allowClear = true,
+  bool allowSwap = false,
   String? dateLabel,
 }) {
   return showModalBottomSheet<MemberPickResult>(
@@ -29,6 +35,7 @@ Future<MemberPickResult?> showMemberPicker(
       members: members,
       selectedId: selectedId,
       allowClear: allowClear,
+      allowSwap: allowSwap,
       dateLabel: dateLabel,
     ),
   );
@@ -38,12 +45,14 @@ class _MemberPickerSheet extends StatefulWidget {
   final List<ScheduleMember> members;
   final String? selectedId;
   final bool allowClear;
+  final bool allowSwap;
   final String? dateLabel;
 
   const _MemberPickerSheet({
     required this.members,
     this.selectedId,
     this.allowClear = true,
+    this.allowSwap = false,
     this.dateLabel,
   });
 
@@ -131,6 +140,16 @@ class _MemberPickerSheetState extends State<_MemberPickerSheet> {
               ),
             ),
             const SizedBox(height: 8),
+            if (widget.allowSwap)
+              ListTile(
+                leading: const Icon(Icons.swap_horiz, color: AppColors.info),
+                title: const Text('对调轮协'),
+                subtitle: const Text('与另一个日期交换协管人'),
+                onTap: () => Navigator.pop(
+                  context,
+                  const MemberPickResult(swap: true),
+                ),
+              ),
             if (widget.allowClear)
               ListTile(
                 leading: const Icon(Icons.event_busy, color: AppColors.warning),

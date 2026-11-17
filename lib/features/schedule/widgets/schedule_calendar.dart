@@ -15,6 +15,7 @@ class ScheduleCalendar extends StatelessWidget {
   final ValueChanged<DateTime>? onDayTap;
   final String? selectedDateKey;
   final bool editable;
+  final bool allowPastTap;
 
   const ScheduleCalendar({
     super.key,
@@ -28,6 +29,7 @@ class ScheduleCalendar extends StatelessWidget {
     this.onDayTap,
     this.selectedDateKey,
     this.editable = false,
+    this.allowPastTap = true,
   });
 
   @override
@@ -191,9 +193,11 @@ class ScheduleCalendar extends StatelessWidget {
       border = Border.all(color: scheme.primary, width: 1.4);
     }
 
+    final canTap = onDayTap != null && (allowPastTap || !isPast);
+
     return InkWell(
       borderRadius: BorderRadius.circular(8),
-      onTap: onDayTap == null ? null : () => onDayTap!(date),
+      onTap: canTap ? () => onDayTap!(date) : null,
       child: Container(
         padding: const EdgeInsets.fromLTRB(3, 3, 3, 3),
         decoration: BoxDecoration(
@@ -237,7 +241,7 @@ class ScheduleCalendar extends StatelessWidget {
             ),
             const Spacer(),
             Text(
-              hasMember ? member.name : (editable ? '＋' : '—'),
+              hasMember ? member.name : (editable && !isPast ? '＋' : '—'),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               textAlign: TextAlign.center,

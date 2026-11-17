@@ -783,6 +783,14 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.9.8',
+        'date': '2026-11-17',
+        'content': [
+          '轮协管理恢复“对调轮协”：点击日期后，在弹窗里选择要对调的日期',
+          '当前日期之前的轮协记录全部只读，不能单日修改、顺延覆盖或删除成员',
+        ],
+      },
+      {
         'version': 'v2.9.7',
         'date': '2026-11-17',
         'content': [

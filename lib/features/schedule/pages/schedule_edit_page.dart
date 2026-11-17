@@ -110,15 +110,25 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
   }
 
   Future<void> _pickMemberForDate(DateTime date) async {
+    final today = ScheduleDate.today();
+    if (date.isBefore(today)) {
+      _snack('过去的轮协记录不可编辑');
+      return;
+    }
     final key = ScheduleDate.key(date);
     final result = await showMemberPicker(
       context,
       members: _members,
       selectedId: _assignments[key],
+      allowSwap: true,
       dateLabel:
           '${ScheduleDate.fullLabel(date)} ${ScheduleDate.weekday(date)}',
     );
     if (result == null) return;
+    if (result.swap) {
+      await _swapWithDate(date);
+      return;
+    }
     setState(() {
       if (result.clear) {
         _assignments.remove(key);
@@ -127,6 +137,82 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
       }
       _dirty = true;
     });
+  }
+
+  String _memberName(String? id) {
+    if (id == null) return '未安排';
+    for (final member in _members) {
+      if (member.id == id) return member.name;
+    }
+    return '未知成员';
+  }
+
+  Future<void> _swapWithDate(DateTime source) async {
+    final today = ScheduleDate.today();
+    if (source.isBefore(today)) {
+      _snack('过去的轮协记录不可编辑');
+      return;
+    }
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: source.isBefore(today) ? today : source,
+      firstDate: today,
+      lastDate: DateTime(2100),
+      helpText: '选择要对调的日期',
+    );
+    if (picked == null || !mounted) return;
+    final target = ScheduleDate.dayOnly(picked);
+    if (ScheduleDate.isSameDay(target, source)) return;
+
+    final sourceKey = ScheduleDate.key(source);
+    final targetKey = ScheduleDate.key(target);
+    final sourceMember = _assignments[sourceKey];
+    final targetMember = _assignments[targetKey];
+    if (sourceMember == null && targetMember == null) {
+      _snack('这两天都没有安排，无需对调');
+      return;
+    }
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder:
+          (ctx) => AlertDialog(
+            title: const Text('对调轮协'),
+            content: Text(
+              '${ScheduleDate.fullLabel(source)}：${_memberName(sourceMember)}\n'
+              '${ScheduleDate.fullLabel(target)}：${_memberName(targetMember)}\n\n'
+              '确认交换这两天的协管人？',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('取消'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                child: const Text('确认对调'),
+              ),
+            ],
+          ),
+    );
+    if (ok != true || !mounted) return;
+
+    setState(() {
+      if (targetMember == null) {
+        _assignments.remove(sourceKey);
+      } else {
+        _assignments[sourceKey] = targetMember;
+      }
+      if (sourceMember == null) {
+        _assignments.remove(targetKey);
+      } else {
+        _assignments[targetKey] = sourceMember;
+      }
+      _dirty = true;
+    });
+    _snack(
+      '已对调 ${ScheduleDate.shortLabel(source)} 和 ${ScheduleDate.shortLabel(target)}',
+    );
   }
 
   Future<void> _addMember() async {
@@ -167,8 +253,12 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
   }
 
   Future<void> _deleteMember(ScheduleMember member) async {
+    final pastCount = _pastDutyCount(member.id);
+    if (pastCount > 0) {
+      _snack('“${member.name}”有 $pastCount 天历史轮协记录，不能删除；可改名保留');
+      return;
+    }
     final futureCount = _futureDutyCount(member.id);
-    final totalCount = _totalDutyCount(member.id);
     final ok = await showDialog<bool>(
       context: context,
       builder:
@@ -176,8 +266,8 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
             title: const Text('删除成员'),
             content: Text(
               futureCount > 0
-                  ? '“${member.name}”还有 $futureCount 个未来协管日，删除后这些日期将变为空缺。\n\n累计轮协记录 $totalCount 天，也会一并清除该成员的负责人信息。'
-                  : '确定删除“${member.name}”吗？该成员累计的 $totalCount 天轮协记录会一并清除。',
+                  ? '“${member.name}”还有 $futureCount 个未来协管日，删除后这些日期将变为空缺。'
+                  : '确定删除“${member.name}”吗？',
             ),
             actions: [
               TextButton(
@@ -274,6 +364,15 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
 
   int _totalDutyCount(String memberId) =>
       _assignments.values.where((id) => id == memberId).length;
+
+  int _pastDutyCount(String memberId) {
+    final today = ScheduleDate.today();
+    return _assignments.entries.where((entry) {
+      if (entry.value != memberId) return false;
+      final date = ScheduleDate.tryParseKey(entry.key);
+      return date != null && date.isBefore(today);
+    }).length;
+  }
 
   int _changedDateCount() {
     final old = _original?.assignments ?? const <String, String>{};
@@ -628,6 +727,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
           members: _members,
           myMemberId: _service.memberId,
           editable: true,
+          allowPastTap: false,
           onPreviousMonth: (m) => setState(() => _month = m),
           onNextMonth: (m) => setState(() => _month = m),
           onToday: () {
@@ -784,8 +884,15 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
       return;
     }
 
-    var start = DateTime(_month.year, _month.month, 1);
-    var end = DateTime(_month.year, _month.month + 1, 0);
+    final today = ScheduleDate.today();
+    final monthStart = DateTime(_month.year, _month.month, 1);
+    final monthEnd = DateTime(_month.year, _month.month + 1, 0);
+    if (monthEnd.isBefore(today)) {
+      _snack('过去的月份不可编辑');
+      return;
+    }
+    var start = monthStart.isBefore(today) ? today : monthStart;
+    var end = monthEnd;
     var overwrite = false;
     String? rangeError;
 
@@ -798,7 +905,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
                 final picked = await showDatePicker(
                   context: ctx,
                   initialDate: isStart ? start : end,
-                  firstDate: DateTime(2020),
+                  firstDate: today,
                   lastDate: DateTime(2100),
                 );
                 if (picked == null) return;
@@ -868,6 +975,14 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
                   ),
                   FilledButton(
                     onPressed: () {
+                      if (start.isBefore(today)) {
+                        setDialogState(() => rangeError = '开始日期不能早于今天');
+                        return;
+                      }
+                      if (end.isBefore(today)) {
+                        setDialogState(() => rangeError = '结束日期不能早于今天');
+                        return;
+                      }
                       final days = ScheduleDate.daysBetween(start, end) + 1;
                       if (days < 1) {
                         setDialogState(() => rangeError = '结束日期不能早于开始日期');
