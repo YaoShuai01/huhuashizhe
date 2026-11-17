@@ -580,7 +580,7 @@ class MainActivity : FlutterActivity() {
                     "type" to "network",
                     "ssid" to ssid,
                     "bssid" to (item.BSSID ?: ""),
-                    "rssi" to item.RSSI,
+                    "rssi" to item.level,
                     "secured" to secured,
                     "isCurrent" to (ssid == currentSsid)
                 )
