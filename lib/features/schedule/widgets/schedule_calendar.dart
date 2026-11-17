@@ -172,17 +172,32 @@ class ScheduleCalendar extends StatelessWidget {
     Color background;
     Color dayColor;
     Color nameColor;
-    if (isMine) {
+    if (isPast) {
+      // 已过日期统一浅灰；自己的历史协管记录灰度稍深一点，便于区分。
+      if (isMine) {
+        background = scheme.onSurface.withValues(alpha: 0.11);
+        dayColor = scheme.onSurface.withValues(alpha: 0.58);
+        nameColor = scheme.onSurface.withValues(alpha: 0.52);
+      } else if (hasMember) {
+        background = scheme.onSurface.withValues(alpha: 0.065);
+        dayColor = scheme.onSurface.withValues(alpha: 0.42);
+        nameColor = scheme.onSurface.withValues(alpha: 0.38);
+      } else {
+        background = scheme.surfaceContainerHighest.withValues(alpha: 0.42);
+        dayColor = scheme.onSurface.withValues(alpha: 0.28);
+        nameColor = scheme.onSurface.withValues(alpha: 0.26);
+      }
+    } else if (isMine) {
       background = scheme.primary;
       dayColor = scheme.onPrimary;
       nameColor = scheme.onPrimary.withValues(alpha: 0.9);
     } else if (hasMember) {
-      background = scheme.primary.withValues(alpha: isPast ? 0.05 : 0.12);
-      dayColor = scheme.onSurface.withValues(alpha: isPast ? 0.35 : 0.9);
-      nameColor = scheme.onSurface.withValues(alpha: isPast ? 0.35 : 0.7);
+      background = scheme.primary.withValues(alpha: 0.12);
+      dayColor = scheme.onSurface.withValues(alpha: 0.9);
+      nameColor = scheme.onSurface.withValues(alpha: 0.7);
     } else {
-      background = scheme.surfaceContainerHighest.withValues(alpha: isPast ? 0.35 : 0.7);
-      dayColor = scheme.onSurface.withValues(alpha: isPast ? 0.3 : 0.6);
+      background = scheme.surfaceContainerHighest.withValues(alpha: 0.7);
+      dayColor = scheme.onSurface.withValues(alpha: 0.6);
       nameColor = scheme.onSurface.withValues(alpha: 0.3);
     }
 
