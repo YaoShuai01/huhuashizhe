@@ -23,6 +23,11 @@ import '../../features/schedule/pages/schedule_gate_page.dart';
 import '../../features/schedule/pages/schedule_page.dart';
 import '../../features/schedule/pages/schedule_edit_page.dart';
 import '../../features/schedule/pages/schedule_messages_page.dart';
+import '../../features/forum/pages/forum_page.dart';
+import '../../features/forum/pages/forum_section_page.dart';
+import '../../features/forum/pages/forum_compose_page.dart';
+import '../../features/forum/pages/forum_my_posts_page.dart';
+import '../../features/forum/pages/forum_messages_page.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -50,6 +55,12 @@ final appRouter = GoRouter(
           path: '/data-center',
           pageBuilder: (context, state) => const NoTransitionPage(
             child: DataCenterPage(),
+          ),
+        ),
+        GoRoute(
+          path: '/forum',
+          pageBuilder: (context, state) => const NoTransitionPage(
+            child: ForumPage(),
           ),
         ),
         GoRoute(
@@ -115,6 +126,28 @@ final appRouter = GoRouter(
       path: '/speedometer',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const GpsSpeedometerPage(),
+    ),
+    GoRoute(
+      path: '/forum/section',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) =>
+          ForumSectionPage(section: state.extra as String),
+    ),
+    GoRoute(
+      path: '/forum/compose',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) =>
+          ForumComposePage(initialSection: state.extra as String?),
+    ),
+    GoRoute(
+      path: '/forum/my-posts',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const ForumMyPostsPage(),
+    ),
+    GoRoute(
+      path: '/forum/messages',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const ForumMessagesPage(),
     ),
     GoRoute(
       path: '/mine/account',
@@ -248,8 +281,9 @@ class AppShell extends StatelessWidget {
   int _currentIndex(BuildContext context) {
     final location = GoRouterState.of(context).uri.toString();
     if (location.startsWith('/data-center')) return 1;
-    if (location.startsWith('/classroom')) return 2;
-    if (location.startsWith('/mine')) return 3;
+    if (location.startsWith('/forum')) return 2;
+    if (location.startsWith('/classroom')) return 3;
+    if (location.startsWith('/mine')) return 4;
     return 0;
   }
 
@@ -262,9 +296,12 @@ class AppShell extends StatelessWidget {
         context.go('/data-center');
         break;
       case 2:
-        context.go('/classroom');
+        context.go('/forum');
         break;
       case 3:
+        context.go('/classroom');
+        break;
+      case 4:
         context.go('/mine');
         break;
     }
@@ -288,6 +325,11 @@ class AppShell extends StatelessWidget {
             icon: Icon(Icons.dashboard_outlined),
             activeIcon: Icon(Icons.dashboard),
             label: '数据管理',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.forum_outlined),
+            activeIcon: Icon(Icons.forum),
+            label: '论坛',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.school_outlined),
