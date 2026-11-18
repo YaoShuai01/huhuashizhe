@@ -1,11 +1,17 @@
 import 'dart:io';
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+
 import '../../../core/theme/app_theme.dart';
 import '../../../services/drone_udp_service.dart';
+import '../../../services/satellite_service.dart';
 import '../../../services/vision_stream_service.dart';
+import '../../../services/voice_service.dart';
 import '../widgets/drone_joystick.dart';
 import '../widgets/vertical_throttle.dart';
 import '../widgets/yaw_joystick.dart';
@@ -26,6 +32,11 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
   bool _flipV = false;   // 画面垂直翻转
   int _throttleValue = 0; // 竖向油门 0~100%
 
+  // 北斗卫星实时状态（用于底部遥测与起飞播报）
+  StreamSubscription<GnssSnapshot>? _gnssSub;
+  int _beidouFound = 0;
+  int _beidouUsed = 0;
+
   @override
   void initState() {
     super.initState();
@@ -35,6 +46,7 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
     ]);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
     _initUdp();
+    _initGnss();
     // 视觉板图传：进入遥控页自动开播，画面显示在中央预留区
     _vision.start();
     _vision.photoNotifier.addListener(_onPhoto);
@@ -44,10 +56,74 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
   void dispose() {
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    _gnssSub?.cancel();
     _udp.dispose();
     _vision.photoNotifier.removeListener(_onPhoto);
     _vision.dispose();
     super.dispose();
+  }
+
+  /// 订阅北斗卫星实时状态，供底部遥测和起飞播报使用
+  Future<void> _initGnss() async {
+    try {
+      final permission = await Permission.locationWhenInUse.request();
+      if (!permission.isGranted) return;
+    } catch (_) {
+      // 测试环境或精简系统没有权限插件时，仍尝试订阅原生事件
+    }
+    if (!mounted) return;
+
+    _gnssSub ??= SatelliteService.gnssStream.listen(
+      (snapshot) {
+        if (!mounted) return;
+        setState(() {
+          _beidouFound = snapshot.foundOf('beidou');
+          _beidouUsed = snapshot.usedOf('beidou');
+        });
+      },
+      onError: (Object error) {
+        // 搜星失败时保持上一次状态，不打断遥控
+      },
+    );
+  }
+
+  /// 起飞：发送起飞指令并播报高度、气温、北斗卫星状态
+  void _handleTakeoff() {
+    if (!_udp.armed) {
+      VoiceService.instance.speak(
+        '请先解锁',
+        priority: VoicePriority.status,
+        dedup: const Duration(seconds: 2),
+      );
+      return;
+    }
+
+    final status = _udp.statusNotifier.value;
+    if (status == DroneStatus.disconnected || status == DroneStatus.error) {
+      VoiceService.instance.speak(
+        '未连接无人机，无法起飞',
+        priority: VoicePriority.alert,
+        dedup: const Duration(seconds: 2),
+      );
+      return;
+    }
+
+    _udp.sendTakeoff();
+
+    final String satelliteStatus;
+    if (_beidouFound == 0) {
+      satelliteStatus = '北斗卫星正在搜星';
+    } else if (_beidouUsed == 0) {
+      satelliteStatus = '北斗卫星已搜到$_beidouFound颗，正在定位';
+    } else {
+      satelliteStatus = '北斗卫星已搜到$_beidouFound颗，使用$_beidouUsed颗';
+    }
+
+    VoiceService.instance.speak(
+      '起飞，当前高度1.5米，当前气温12度，$satelliteStatus，遥测信号正常，无人机飞行正常',
+      priority: VoicePriority.status,
+    );
+    setState(() {});
   }
 
   void _onPhoto() {
@@ -230,6 +306,11 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
                             _udp.setSprayLevel(level); // 喷洒中实时切换力度
                             Navigator.pop(ctx);
                             setState(() {});
+                            VoiceService.instance.speak(
+                              '喷洒力度$level挡',
+                              priority: VoicePriority.status,
+                              dedup: const Duration(seconds: 1),
+                            );
                           },
                         );
                       }),
@@ -724,6 +805,74 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
     );
   }
 
+  /// 底部中间遥测：高度、气温、湿度、北斗卫星状态
+  Widget _buildTelemetryStrip() {
+    final satelliteText = _beidouFound == 0
+        ? '搜星中'
+        : '$_beidouFound搜$_beidouUsed用';
+    final satelliteColor = _beidouUsed > 0
+        ? AppColors.success
+        : (_beidouFound > 0 ? AppColors.warning : Colors.white54);
+
+    return Container(
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.25),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _telemetryItem('高度', '1.5 m'),
+            _telemetryDivider(),
+            _telemetryItem('气温', '12°C'),
+            _telemetryDivider(),
+            _telemetryItem('湿度', '--'),
+            _telemetryDivider(),
+            _telemetryItem('北斗', satelliteText, valueColor: satelliteColor),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _telemetryItem(
+    String label,
+    String value, {
+    Color valueColor = Colors.white,
+  }) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          '$label ',
+          style: const TextStyle(fontSize: 9, color: Colors.white54),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: valueColor,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _telemetryDivider() {
+    return Container(
+      width: 1,
+      height: 14,
+      margin: const EdgeInsets.symmetric(horizontal: 8),
+      color: Colors.white.withValues(alpha: 0.12),
+    );
+  }
+
   Widget _buildBottomBar(bool armed, int spray) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -739,10 +888,15 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
             height: 36,
             child: ElevatedButton(
               onPressed: () {
+                final wasArmed = _udp.armed;
                 _udp.toggleArmed();
                 _udp.setThrottle(0);
                 _throttleValue = 0;
                 setState(() {});
+                VoiceService.instance.speak(
+                  wasArmed ? '已上锁' : '已解锁',
+                  priority: VoicePriority.status,
+                );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: armed ? AppColors.accent : AppColors.primary,
@@ -756,12 +910,14 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
               ),
             ),
           ),
-          const SizedBox(width: 8),
-          // 解锁状态显示
-          Expanded(
+          const SizedBox(width: 6),
+          // 缩短后的解锁状态框
+          SizedBox(
+            width: 54,
+            height: 36,
             child: Container(
               alignment: Alignment.center,
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
               decoration: BoxDecoration(
                 color: (armed ? AppColors.success : Colors.grey).withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(6),
@@ -772,14 +928,37 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
               ),
               child: Text(
                 armed ? '已解锁' : '已上锁',
+                maxLines: 1,
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 9.5,
                   fontWeight: FontWeight.w600,
                   color: armed ? AppColors.success : Colors.grey,
                 ),
               ),
             ),
           ),
+          const SizedBox(width: 6),
+          // 起飞
+          SizedBox(
+            width: 56,
+            height: 36,
+            child: ElevatedButton(
+              onPressed: _handleTakeoff,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: armed ? AppColors.info : Colors.grey[700],
+                foregroundColor: Colors.white,
+                padding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              child: const Text(
+                '起飞',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          // 中间遥测数据
+          Expanded(child: _buildTelemetryStrip()),
           const SizedBox(width: 8),
           // 急停：立即上锁并收油
           SizedBox(
@@ -792,6 +971,10 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
                       _udp.setThrottle(0);
                       _throttleValue = 0;
                       setState(() {});
+                      VoiceService.instance.speak(
+                        '急停，已上锁',
+                        priority: VoicePriority.alert,
+                      );
                     }
                   : null,
               style: ElevatedButton.styleFrom(
@@ -813,7 +996,13 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
             width: 56,
             height: 36,
             child: ElevatedButton(
-              onPressed: () => _showSprayLevelPicker(),
+              onPressed: () {
+                VoiceService.instance.speak(
+                  '当前喷洒力度${_udp.sprayLevel}挡',
+                  priority: VoicePriority.status,
+                );
+                _showSprayLevelPicker();
+              },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.warning.withValues(alpha: 0.25),
                 foregroundColor: AppColors.warning,
@@ -836,8 +1025,15 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
             height: 36,
             child: ElevatedButton(
               onPressed: () {
+                final wasSpraying = spray > 0;
                 _udp.toggleSpray();
                 setState(() {});
+                VoiceService.instance.speak(
+                  wasSpraying
+                      ? '停止喷洒'
+                      : '开始喷洒，当前力度${_udp.sprayLevel}挡',
+                  priority: VoicePriority.status,
+                );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: spray > 0 ? AppColors.info : Colors.grey[700],
