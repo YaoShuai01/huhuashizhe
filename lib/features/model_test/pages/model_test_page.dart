@@ -15,6 +15,7 @@ import '../../../services/ai_suggestion_worker.dart';
 import '../../../services/growth_record_store.dart';
 import '../../../services/model_hotupdate_service.dart';
 import '../../../services/model_inference_service.dart';
+import '../../../services/voice_service.dart';
 import '../../../services/ys_image_store.dart';
 import '../data/model_catalog.dart';
 import '../data/model_labels.dart';
@@ -265,8 +266,26 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
     _inference.inferAsync(snapshot, (result) {
       if (!mounted || _camera == null) return;
       setState(() => _lastResult = result);
+      _maybeSpeak(result);
       _maybeCapture(result);
     });
+  }
+
+  /// 识别到病虫害时语音播报（同一类别 10 秒内不重复，健康类别不播报）
+  void _maybeSpeak(InferenceResult result) {
+    final labels = _model.labels;
+    final idx = result.topIndex;
+    if (idx < 0 || idx >= labels.length) return;
+    final label = labels[idx];
+    if (label.healthy || result.topConfidence < _captureThreshold) return;
+    final percent = (result.topConfidence * 100).round();
+    VoiceService.instance.speak(
+      '检测到${label.zh}，置信度$percent%',
+      priority: VoicePriority.alert,
+      dedup: const Duration(seconds: 10),
+      // 置信度会持续变化，去重键必须用类别而不是整句
+      dedupKey: 'pest_$idx',
+    );
   }
 
   /// 命中问题类→采集入库（按类别节流，同一类3秒最多1张）

@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../providers/ai_chat_provider.dart';
 import '../../../providers/weather_provider.dart';
 import '../../../services/ai_chat_service.dart';
+import '../../../services/voice_service.dart';
 
 class AiChatPage extends ConsumerStatefulWidget {
   const AiChatPage({super.key});
@@ -271,6 +272,10 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
                     );
                   }),
                   if (!isUser) ...[
+                    const SizedBox(width: 4),
+                    _actionButton(Icons.volume_up, '朗读', () {
+                      VoiceService.instance.speakAiReply(msg.content);
+                    }),
                     const SizedBox(width: 4),
                     _actionButton(Icons.refresh, '重新回答', () {
                       final state = ref.read(aiChatProvider);

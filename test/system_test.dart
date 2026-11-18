@@ -74,24 +74,26 @@ void main() {
 
     // ==================== TC-SYS-02: SettingsPage ====================
     group('TC-SYS-02: 设置页', () {
-      testWidgets('三个开关存在', (tester) async {
+      testWidgets('五个开关存在', (tester) async {
         await tester.pumpWidget(providerScope(const SettingsPage()));
         await tester.pump();
         expect(find.text('设置'), findsOneWidget);
         expect(find.text('深色模式'), findsOneWidget);
         expect(find.text('推送通知'), findsOneWidget);
         expect(find.text('自动获取天气'), findsOneWidget);
-        expect(find.byType(SwitchListTile), findsNWidgets(3));
+        expect(find.text('语音播报'), findsOneWidget);
+        expect(find.text('朗读AI回复'), findsOneWidget);
+        expect(find.byType(SwitchListTile), findsNWidgets(5));
       });
 
       testWidgets('深色模式开关可切换', (tester) async {
         await tester.pumpWidget(providerScopeWithOverrides(const SettingsPage()));
         await tester.pump();
         final switches = find.byType(Switch);
-        expect(switches, findsNWidgets(3));
+        expect(switches, findsNWidgets(5));
         // 验证开关存在且可交互
         final switchFinder = find.byType(SwitchListTile);
-        expect(switchFinder, findsNWidgets(3));
+        expect(switchFinder, findsNWidgets(5));
       });
 
       testWidgets('分区标题存在', (tester) async {

@@ -783,6 +783,16 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.11.0',
+        'date': '2026-11-18',
+        'content': [
+          '新增北斗/GPS 卫星地图与罗盘页：卫星影像地图、当前位置与精度圈、方位刻度与卫星数显示',
+          '快速遥控页左上角新增“北斗/GPS”入口，返回后自动恢复横屏',
+          '新增本地离线语音播报：飞机连接、病虫害识别、作业告警与 AI 回复均可朗读',
+          '设置页新增“语音播报 / 朗读AI回复”开关，断网时自动回退手机本地语音引擎',
+        ],
+      },
+      {
         'version': 'v2.10.0',
         'date': '2026-11-18',
         'content': [

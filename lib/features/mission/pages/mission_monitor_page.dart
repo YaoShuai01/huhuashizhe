@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/device_provider.dart';
 import '../../../services/wifi_service.dart';
+import '../../../services/voice_service.dart';
 
 class MissionMonitorPage extends ConsumerStatefulWidget {
   final String missionId;
@@ -24,8 +25,16 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
   bool _isFlying = false;
   bool _isSpraying = false;
 
+  /// 上一次连接状态，用于识别“连接断开”事件
+  bool _wasConnected = false;
+
   @override
   Widget build(BuildContext context) {
+    // 设备状态变化 → 语音告警（断连、信号弱）
+    ref.listen<AsyncValue<WifiStatus>>(deviceStatusProvider, (prev, next) {
+      final status = next.valueOrNull;
+      if (status != null) _handleStatus(status);
+    });
     final deviceStatus = ref.watch(deviceStatusProvider).valueOrNull;
 
     return Scaffold(
@@ -86,6 +95,39 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
         ],
       ),
     );
+  }
+
+  /// 设备状态告警播报：连接成功 / 连接断开 / 信号弱
+  void _handleStatus(WifiStatus status) {
+    if (!status.isConnected) {
+      if (_wasConnected) {
+        VoiceService.instance.speak(
+          '设备连接已断开',
+          priority: VoicePriority.alert,
+          dedup: const Duration(seconds: 30),
+        );
+      }
+      _wasConnected = false;
+      return;
+    }
+
+    if (!_wasConnected) {
+      VoiceService.instance.speak(
+        '飞机连接成功',
+        priority: VoicePriority.status,
+        dedup: const Duration(seconds: 10),
+      );
+    }
+    _wasConnected = true;
+
+    // 与状态栏一致的判定：弱于 -75 dBm 提示信号弱
+    if (status.rssi <= -75) {
+      VoiceService.instance.speak(
+        '信号较弱，请注意作业安全',
+        priority: VoicePriority.status,
+        dedup: const Duration(seconds: 120),
+      );
+    }
   }
 
   Widget _buildStatusBar(WifiStatus? status) {
@@ -171,7 +213,13 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
             _isFlying ? '暂停' : '起飞',
             _isFlying ? Icons.pause : Icons.flight_takeoff,
             _isFlying ? AppColors.warning : AppColors.primary,
-            () => setState(() => _isFlying = !_isFlying),
+            () {
+              setState(() => _isFlying = !_isFlying);
+              VoiceService.instance.speak(
+                _isFlying ? '作业开始，无人机已起飞' : '作业已暂停',
+                priority: VoicePriority.status,
+              );
+            },
           ),
         ),
         const SizedBox(width: 8),
@@ -180,7 +228,13 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
             _isSpraying ? '停止喷洒' : '开始喷洒',
             Icons.water_drop,
             _isSpraying ? AppColors.warning : AppColors.info,
-            () => setState(() => _isSpraying = !_isSpraying),
+            () {
+              setState(() => _isSpraying = !_isSpraying);
+              VoiceService.instance.speak(
+                _isSpraying ? '开始喷洒' : '已停止喷洒',
+                priority: VoicePriority.status,
+              );
+            },
           ),
         ),
         const SizedBox(width: 8),
@@ -189,7 +243,13 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
             '返航',
             Icons.flight_land,
             AppColors.accent,
-            () {},
+            () {
+              setState(() => _isSpraying = false);
+              VoiceService.instance.speak(
+                '正在返航，请保持信号通畅',
+                priority: VoicePriority.alert,
+              );
+            },
           ),
         ),
         const SizedBox(width: 8),
@@ -206,6 +266,10 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
                 _isFlying = false;
                 _isSpraying = false;
               });
+              VoiceService.instance.speak(
+                '已紧急停止',
+                priority: VoicePriority.alert,
+              );
             },
             icon: const Icon(Icons.stop, color: Colors.white),
           ),

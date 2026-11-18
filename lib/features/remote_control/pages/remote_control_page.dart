@@ -1,9 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/drone_udp_service.dart';
+import '../../../services/voice_service.dart';
 import '../../../services/vision_stream_service.dart';
 import '../widgets/drone_joystick.dart';
 import '../widgets/vertical_throttle.dart';
@@ -91,6 +93,12 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
     try {
       await _udp.init();
       _udp.startSending();
+      // UDP 无握手，以开始发送指令作为连接成功节点
+      VoiceService.instance.speak(
+        '飞机连接成功',
+        priority: VoicePriority.status,
+        dedup: const Duration(seconds: 10),
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -299,6 +307,8 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
                   _buildIconButton(Icons.settings, '设置', _showSettings),
                   const SizedBox(width: 4),
                   _buildIconButton(Icons.exit_to_app, '退出', _showExitConfirm),
+                  const SizedBox(width: 6),
+                  _buildSatelliteEntry(),
                 ],
               ),
             ),
@@ -662,6 +672,46 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
           ),
         );
       },
+    );
+  }
+
+  /// 北斗/GPS 入口：进入卫星地图 / 罗盘（机载 GPS 未接入，先用手机定位）
+  Widget _buildSatelliteEntry() {
+    return Material(
+      color: Colors.black45,
+      borderRadius: BorderRadius.circular(6),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: () async {
+          await context.push('/speedometer');
+          // 卫星页退出时会恢复全部方向，这里重新锁定横屏
+          if (!mounted) return;
+          SystemChrome.setPreferredOrientations([
+            DeviceOrientation.landscapeLeft,
+            DeviceOrientation.landscapeRight,
+          ]);
+          SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+        },
+        child: Container(
+          height: 30,
+          padding: const EdgeInsets.symmetric(horizontal: 7),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.satellite_alt, size: 14, color: AppColors.primaryLight),
+              SizedBox(width: 4),
+              Text(
+                '北斗/GPS',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
