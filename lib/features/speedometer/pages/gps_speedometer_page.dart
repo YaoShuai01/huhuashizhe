@@ -99,7 +99,11 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
     _headingSub?.cancel();
     _pulseCtrl.dispose();
     _sweepCtrl.dispose();
-    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
+    // 搜星页只从横屏遥控页进入；退出时保持横屏，避免底层遥控页被系统转成竖屏
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
     super.dispose();
   }
 
@@ -194,36 +198,24 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
     return strongest;
   }
 
-  void _applyTheme(BuildContext context) {
-    _dark = Theme.of(context).brightness == Brightness.dark;
-    if (_dark) {
-      _bgTop = const Color(0xFF0E1812);
-      _bgMid = const Color(0xFF15231A);
-      _bgBottom = const Color(0xFF0A100C);
-      _cardColor = const Color(0xFF1E2A22);
-      _cardBorder = Colors.white.withValues(alpha: 0.08);
-      _textPrimary = const Color(0xFFE8F0E9);
-      _textSecondary = Colors.white.withValues(alpha: 0.70);
-      _textMuted = Colors.white.withValues(alpha: 0.42);
-      _green = AppColors.primaryLight;
-      _amber = AppColors.accent;
-    } else {
-      _bgTop = AppColors.background;
-      _bgMid = const Color(0xFFEAF3EC);
-      _bgBottom = AppColors.background;
-      _cardColor = AppColors.surface;
-      _cardBorder = AppColors.primary.withValues(alpha: 0.14);
-      _textPrimary = AppColors.textPrimary;
-      _textSecondary = AppColors.textSecondary;
-      _textMuted = AppColors.textHint;
-      _green = AppColors.primary;
-      _amber = AppColors.accent;
-    }
+  void _applyTheme() {
+    // 搜星页固定使用深色科技风底色，不跟随系统浅色模式变白
+    _dark = true;
+    _bgTop = const Color(0xFF0E1812);
+    _bgMid = const Color(0xFF15231A);
+    _bgBottom = const Color(0xFF0A100C);
+    _cardColor = const Color(0xFF1E2A22);
+    _cardBorder = Colors.white.withValues(alpha: 0.08);
+    _textPrimary = const Color(0xFFE8F0E9);
+    _textSecondary = Colors.white.withValues(alpha: 0.70);
+    _textMuted = Colors.white.withValues(alpha: 0.42);
+    _green = AppColors.primaryLight;
+    _amber = AppColors.accent;
   }
 
   @override
   Widget build(BuildContext context) {
-    _applyTheme(context);
+    _applyTheme();
     return Scaffold(
       backgroundColor: _bgMid,
       body: Container(
