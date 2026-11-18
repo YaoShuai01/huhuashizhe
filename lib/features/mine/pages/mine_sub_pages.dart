@@ -783,6 +783,14 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.11.2',
+        'date': '2026-11-18',
+        'content': [
+          '搜星页保留深色科技风底色，不再跟随系统浅色模式变白',
+          '修复从搜星页返回遥控器后被系统转成竖屏的问题，返回后保持横屏',
+        ],
+      },
+      {
         'version': 'v2.11.1',
         'date': '2026-11-18',
         'content': [
