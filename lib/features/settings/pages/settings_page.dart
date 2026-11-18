@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/local_database.dart';
+import '../../../services/voice_service.dart';
 
 class SettingsPage extends StatefulWidget {
   const SettingsPage({super.key});
@@ -13,6 +14,8 @@ class _SettingsPageState extends State<SettingsPage> {
   bool _darkMode = false;
   bool _notifications = true;
   bool _autoWeather = true;
+  bool _voicePrompt = true;
+  bool _aiVoiceReply = true;
 
   final _db = LocalDatabase();
 
@@ -27,6 +30,13 @@ class _SettingsPageState extends State<SettingsPage> {
       _darkMode = _db.getBool('dark_mode');
       _notifications = _db.getBool('notifications');
       _autoWeather = _db.getBool('auto_weather');
+      // 语音播报首次使用默认开启
+      _voicePrompt = _db.get(VoiceService.settingKey) == null
+          ? true
+          : _db.getBool(VoiceService.settingKey);
+      _aiVoiceReply = _db.get(VoiceService.aiReplySettingKey) == null
+          ? true
+          : _db.getBool(VoiceService.aiReplySettingKey);
     });
   }
 
@@ -60,6 +70,28 @@ class _SettingsPageState extends State<SettingsPage> {
             value: _autoWeather,
             activeColor: AppColors.primary,
             onChanged: (v) => setState(() { _autoWeather = v; _db.setBool('auto_weather', v); }),
+          ),
+          SwitchListTile(
+            title: const Text('语音播报'),
+            subtitle: const Text('识别结果、作业告警与操作提示的语音播报'),
+            value: _voicePrompt,
+            activeColor: AppColors.primary,
+            onChanged: (v) {
+              setState(() => _voicePrompt = v);
+              VoiceService.instance.setEnabled(v);
+            },
+          ),
+          SwitchListTile(
+            title: const Text('朗读AI回复'),
+            subtitle: const Text('AI助手回复完成后自动朗读开头部分'),
+            value: _aiVoiceReply,
+            activeColor: AppColors.primary,
+            onChanged: _voicePrompt
+                ? (v) => setState(() {
+                      _aiVoiceReply = v;
+                      _db.setBool(VoiceService.aiReplySettingKey, v);
+                    })
+                : null,
           ),
         ],
       ),

@@ -108,5 +108,9 @@
             <action android:name="android.intent.action.INSTALL_PACKAGE"/>
             <data android:scheme="package"/>
         </intent>
+        <!-- 系统TTS引擎（语音播报）：Android 11+ 需要声明才能检测/使用 -->
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE"/>
+        </intent>
     </queries>
 </manifest>
