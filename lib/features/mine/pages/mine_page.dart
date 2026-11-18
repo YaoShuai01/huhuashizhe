@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_version.dart' show appVersion;
-import '../pages/mine_sub_pages.dart';
 
 class MinePage extends StatelessWidget {
   const MinePage({super.key});
@@ -62,6 +61,18 @@ class MinePage extends StatelessWidget {
               title: '操作文档',
               subtitle: '内置用户手册、教学视频',
               onTap: () => context.push('/mine/manual'),
+            ),
+            _buildMenuItem(
+              icon: Icons.article_outlined,
+              title: '我的帖子',
+              subtitle: '查看我在论坛发布的内容',
+              onTap: () => context.push('/forum/my-posts'),
+            ),
+            _buildMenuItem(
+              icon: Icons.notifications_none,
+              title: '消息提醒',
+              subtitle: '版本公告、帖子回复与版务通知',
+              onTap: () => context.push('/forum/messages'),
             ),
             _buildMenuItem(
               icon: Icons.description_outlined,
