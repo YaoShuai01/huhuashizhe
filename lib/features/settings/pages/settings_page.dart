@@ -83,7 +83,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           SwitchListTile(
             title: const Text('朗读AI回复'),
-            subtitle: const Text('AI助手回复完成后自动朗读开头部分'),
+            subtitle: const Text('AI助手回复完成后自动朗读（超长内容提示查看屏幕）'),
             value: _aiVoiceReply,
             activeColor: AppColors.primary,
             onChanged: _voicePrompt

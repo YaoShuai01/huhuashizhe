@@ -97,22 +97,36 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
     );
   }
 
-  /// 设备状态告警播报：连接断开 / 信号弱
+  /// 设备状态告警播报：连接成功 / 连接断开 / 信号弱
   void _handleStatus(WifiStatus status) {
     if (!status.isConnected) {
       if (_wasConnected) {
-        VoiceService.instance.speak('设备连接已断开',
-            interrupt: true, dedup: const Duration(seconds: 30));
+        VoiceService.instance.speak(
+          '设备连接已断开',
+          priority: VoicePriority.alert,
+          dedup: const Duration(seconds: 30),
+        );
       }
       _wasConnected = false;
       return;
+    }
+
+    if (!_wasConnected) {
+      VoiceService.instance.speak(
+        '飞机连接成功',
+        priority: VoicePriority.status,
+        dedup: const Duration(seconds: 10),
+      );
     }
     _wasConnected = true;
 
     // 与状态栏一致的判定：弱于 -75 dBm 提示信号弱
     if (status.rssi <= -75) {
-      VoiceService.instance.speak('信号较弱，请注意作业安全',
-          dedup: const Duration(seconds: 120));
+      VoiceService.instance.speak(
+        '信号较弱，请注意作业安全',
+        priority: VoicePriority.status,
+        dedup: const Duration(seconds: 120),
+      );
     }
   }
 
@@ -203,7 +217,7 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
               setState(() => _isFlying = !_isFlying);
               VoiceService.instance.speak(
                 _isFlying ? '作业开始，无人机已起飞' : '作业已暂停',
-                interrupt: true,
+                priority: VoicePriority.status,
               );
             },
           ),
@@ -218,7 +232,7 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
               setState(() => _isSpraying = !_isSpraying);
               VoiceService.instance.speak(
                 _isSpraying ? '开始喷洒' : '已停止喷洒',
-                interrupt: true,
+                priority: VoicePriority.status,
               );
             },
           ),
@@ -231,8 +245,10 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
             AppColors.accent,
             () {
               setState(() => _isSpraying = false);
-              VoiceService.instance
-                  .speak('正在返航，请保持信号通畅', interrupt: true);
+              VoiceService.instance.speak(
+                '正在返航，请保持信号通畅',
+                priority: VoicePriority.alert,
+              );
             },
           ),
         ),
@@ -250,7 +266,10 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
                 _isFlying = false;
                 _isSpraying = false;
               });
-              VoiceService.instance.speak('已紧急停止', interrupt: true);
+              VoiceService.instance.speak(
+                '已紧急停止',
+                priority: VoicePriority.alert,
+              );
             },
             icon: const Icon(Icons.stop, color: Colors.white),
           ),

@@ -34,5 +34,10 @@ void main() {
       final exactly = 'a' * 80;
       expect(VoiceService.condenseForSpeech(exactly), exactly);
     });
+
+    test('200字AI回复在300字上限下完整朗读', () {
+      final reply = 'a' * 200;
+      expect(VoiceService.condenseForSpeech(reply, maxChars: 300), reply);
+    });
   });
 }

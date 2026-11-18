@@ -271,7 +271,7 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
     });
   }
 
-  /// 识别到病虫害时语音播报（同一类别 8 秒内不重复，健康类别不播报）
+  /// 识别到病虫害时语音播报（同一类别 10 秒内不重复，健康类别不播报）
   void _maybeSpeak(InferenceResult result) {
     final labels = _model.labels;
     final idx = result.topIndex;
@@ -281,7 +281,10 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
     final percent = (result.topConfidence * 100).round();
     VoiceService.instance.speak(
       '检测到${label.zh}，置信度$percent%',
-      dedup: const Duration(seconds: 8),
+      priority: VoicePriority.alert,
+      dedup: const Duration(seconds: 10),
+      // 置信度会持续变化，去重键必须用类别而不是整句
+      dedupKey: 'pest_$idx',
     );
   }
 

@@ -15,7 +15,7 @@ import 'widgets/splash_page.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await LocalDatabase().init(); // 初始化本地数据持久化
-  await VoiceService.instance.init(); // 语音播报（系统TTS，失败不影响启动）
+  unawaited(VoiceService.instance.init()); // 语音播报预热（系统TTS，不阻塞启动）
   AiSuggestionWorker().start(); // 生长检测AI建议：启动离线补全监听
   // 模型热更新：联网后静默检查/下载新模型（不阻塞启动，可重入安全）
   unawaited(ModelHotupdateService.instance.checkAndDownload());
