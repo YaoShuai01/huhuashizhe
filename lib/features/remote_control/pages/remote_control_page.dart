@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/drone_udp_service.dart';
-import '../../../services/voice_service.dart';
 import '../../../services/vision_stream_service.dart';
 import '../widgets/drone_joystick.dart';
 import '../widgets/vertical_throttle.dart';
@@ -93,12 +92,6 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
     try {
       await _udp.init();
       _udp.startSending();
-      // UDP 无握手，以开始发送指令作为连接成功节点
-      VoiceService.instance.speak(
-        '飞机连接成功',
-        priority: VoicePriority.status,
-        dedup: const Duration(seconds: 10),
-      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

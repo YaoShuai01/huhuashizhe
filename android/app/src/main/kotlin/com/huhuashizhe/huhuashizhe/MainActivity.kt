@@ -14,6 +14,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.location.Geocoder
 import android.location.GnssStatus
 import android.location.GpsSatellite
@@ -30,6 +34,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.ParcelUuid
 import android.provider.Settings
+import android.view.Surface
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -47,6 +52,8 @@ class MainActivity : FlutterActivity() {
     private val BLUETOOTH_EVENT_CHANNEL = "com.huhuashizhe/bluetooth_events"
     private val WIFI_CHANNEL = "com.huhuashizhe/wifi"
     private val WIFI_EVENT_CHANNEL = "com.huhuashizhe/wifi_events"
+    private val GNSS_EVENT_CHANNEL = "com.huhuashizhe/gnss_events"
+    private val COMPASS_EVENT_CHANNEL = "com.huhuashizhe/compass_events"
     private var locationResult: MethodChannel.Result? = null
     private var locationManager: LocationManager? = null
     private var locationListener: LocationListener? = null
@@ -56,7 +63,17 @@ class MainActivity : FlutterActivity() {
 
     // GNSS卫星状态追踪（北斗+GPS+GLONASS+Galileo）
     private var gnssStatusCallback: GnssStatus.Callback? = null
-    private var satelliteInfo: Map<String, Int> = mapOf("gps" to 0, "beidou" to 0, "glonass" to 0, "galileo" to 0, "total" to 0)
+    private var satelliteInfo: Map<String, Int> =
+        mapOf("gps" to 0, "beidou" to 0, "glonass" to 0, "galileo" to 0, "total" to 0, "used" to 0)
+    private var gnssEventSink: EventChannel.EventSink? = null
+    private var gnssSatellites: List<Map<String, Any>> = emptyList()
+    private var gnssKeepAliveListener: LocationListener? = null
+
+    // 罗盘方向传感器
+    private var compassEventSink: EventChannel.EventSink? = null
+    private var sensorManager: SensorManager? = null
+    private var compassSensor: Sensor? = null
+    private var compassListener: SensorEventListener? = null
 
     // 蓝牙相关
     private var bluetoothAdapter: BluetoothAdapter? = null
@@ -154,6 +171,48 @@ class MainActivity : FlutterActivity() {
                 else -> result.notImplemented()
             }
         }
+
+        // GNSS 逐星状态事件通道（实时卫星方位/仰角/信噪比）
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, GNSS_EVENT_CHANNEL).setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    gnssEventSink = events
+                    locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
+                    if (ContextCompat.checkSelfPermission(
+                            this@MainActivity,
+                            Manifest.permission.ACCESS_FINE_LOCATION
+                        ) != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        events?.error("permission", "需要定位权限才能搜星", null)
+                        return
+                    }
+                    startGnssMonitoring()
+                    startGnssKeepAlive()
+                    sendGnssSnapshot()
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    gnssEventSink = null
+                    stopGnssKeepAlive()
+                    if (locationResult == null) stopGnssMonitoring()
+                }
+            }
+        )
+
+        // 罗盘方向事件通道（手机朝向，供卫星罗盘指北）
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, COMPASS_EVENT_CHANNEL).setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    compassEventSink = events
+                    startCompass()
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    compassEventSink = null
+                    stopCompass()
+                }
+            }
+        )
     }
 
     private fun getDownloadDir(result: MethodChannel.Result) {
@@ -381,25 +440,47 @@ class MainActivity : FlutterActivity() {
     @SuppressLint("MissingPermission")
     private fun startGnssMonitoring() {
         if (gnssStatusCallback != null) return // 已在监听
+        locationManager = locationManager ?: getSystemService(LOCATION_SERVICE) as LocationManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             gnssStatusCallback = object : GnssStatus.Callback() {
                 override fun onSatelliteStatusChanged(status: GnssStatus) {
                     var gps = 0; var beidou = 0; var glonass = 0; var galileo = 0; var used = 0
+                    val sats = mutableListOf<Map<String, Any>>()
                     for (i in 0 until status.satelliteCount) {
-                        if (status.usedInFix(i)) used++
-                        when (status.getConstellationType(i)) {
-                            GnssStatus.CONSTELLATION_GPS -> gps++
-                            GnssStatus.CONSTELLATION_BEIDOU -> beidou++
-                            GnssStatus.CONSTELLATION_GLONASS -> glonass++
-                            GnssStatus.CONSTELLATION_GALILEO -> galileo++
+                        val constellation = status.getConstellationType(i)
+                        val system = when (constellation) {
+                            GnssStatus.CONSTELLATION_GPS -> "gps"
+                            GnssStatus.CONSTELLATION_BEIDOU -> "beidou"
+                            GnssStatus.CONSTELLATION_GLONASS -> "glonass"
+                            GnssStatus.CONSTELLATION_GALILEO -> "galileo"
+                            else -> "unknown"
                         }
+                        val isUsed = status.usedInFix(i)
+                        if (isUsed) used++
+                        when (system) {
+                            "gps" -> gps++
+                            "beidou" -> beidou++
+                            "glonass" -> glonass++
+                            "galileo" -> galileo++
+                        }
+                        sats.add(mapOf(
+                            "system" to system,
+                            "constellation" to constellation,
+                            "svid" to status.getSvid(i),
+                            "azimuth" to status.getAzimuthDegrees(i).toDouble(),
+                            "elevation" to status.getElevationDegrees(i).toDouble(),
+                            "snr" to status.getCn0DbHz(i).toDouble(),
+                            "used" to isUsed
+                        ))
                     }
                     satelliteInfo = mapOf(
                         "gps" to gps, "beidou" to beidou,
                         "glonass" to glonass, "galileo" to galileo,
                         "total" to status.satelliteCount, "used" to used
                     )
+                    gnssSatellites = sats
+                    sendGnssSnapshot()
                 }
             }
             locationManager?.registerGnssStatusCallback(gnssStatusCallback!!)
@@ -414,21 +495,75 @@ class MainActivity : FlutterActivity() {
             if (event == GpsStatus.GPS_EVENT_SATELLITE_STATUS) {
                 val status = locationManager?.getGpsStatus(null)
                 if (status != null) {
-                    var gps = 0; var beidou = 0; var glonass = 0; var galileo = 0
+                    val sats = mutableListOf<Map<String, Any>>()
+                    var used = 0
                     val iter = status.satellites.iterator()
                     while (iter.hasNext()) {
                         val sat = iter.next()
+                        if (sat.usedInFix()) used++
                         // Android 6以下无法区分星座，全部归为GPS
-                        gps++
+                        sats.add(mapOf(
+                            "system" to "gps",
+                            "constellation" to 1,
+                            "svid" to sat.prn,
+                            "azimuth" to sat.azimuth.toDouble(),
+                            "elevation" to sat.elevation.toDouble(),
+                            "snr" to sat.snr.toDouble(),
+                            "used" to sat.usedInFix()
+                        ))
                     }
                     satelliteInfo = mapOf(
-                        "gps" to gps, "beidou" to beidou,
-                        "glonass" to glonass, "galileo" to galileo,
-                        "total" to gps, "used" to 0
+                        "gps" to sats.size, "beidou" to 0,
+                        "glonass" to 0, "galileo" to 0,
+                        "total" to sats.size, "used" to used
                     )
+                    gnssSatellites = sats
+                    sendGnssSnapshot()
                 }
             }
         }
+    }
+
+    /// 搜星页打开期间保持 GPS 引擎工作，保证卫星状态持续上报
+    @SuppressLint("MissingPermission")
+    private fun startGnssKeepAlive() {
+        if (gnssKeepAliveListener != null) return
+        locationManager = locationManager ?: getSystemService(LOCATION_SERVICE) as LocationManager
+        val listener = object : LocationListener {
+            override fun onLocationChanged(location: Location) {}
+            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+            override fun onProviderEnabled(provider: String) {}
+            override fun onProviderDisabled(provider: String) {}
+        }
+        gnssKeepAliveListener = listener
+        try {
+            locationManager?.requestLocationUpdates(
+                LocationManager.GPS_PROVIDER, 1000L, 0f, listener, Looper.getMainLooper()
+            )
+        } catch (e: Exception) {
+            gnssKeepAliveListener = null
+        }
+    }
+
+    private fun stopGnssKeepAlive() {
+        gnssKeepAliveListener?.let {
+            try {
+                locationManager?.removeUpdates(it)
+            } catch (e: Exception) {}
+        }
+        gnssKeepAliveListener = null
+    }
+
+    private fun sendGnssSnapshot() {
+        val sink = gnssEventSink ?: return
+        val payload = mapOf(
+            "timestamp" to System.currentTimeMillis(),
+            "total" to (satelliteInfo["total"] ?: 0),
+            "used" to (satelliteInfo["used"] ?: 0),
+            "counts" to satelliteInfo,
+            "satellites" to gnssSatellites
+        )
+        runOnUiThread { sink.success(payload) }
     }
 
     private fun stopGnssMonitoring() {
@@ -443,6 +578,58 @@ class MainActivity : FlutterActivity() {
 
     private fun getSatelliteInfo(result: MethodChannel.Result) {
         result.success(satelliteInfo)
+    }
+
+    // ==================== 罗盘方向传感器 ====================
+
+    private fun startCompass() {
+        if (compassListener != null) return
+        sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
+        compassSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+            ?: sensorManager?.getDefaultSensor(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR)
+        val sensor = compassSensor
+        if (sensor == null) {
+            compassEventSink?.error("unavailable", "设备没有方向传感器", null)
+            return
+        }
+
+        val rotationMatrix = FloatArray(9)
+        val orientation = FloatArray(3)
+        val listener = object : SensorEventListener {
+            override fun onSensorChanged(event: SensorEvent) {
+                SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
+                SensorManager.getOrientation(rotationMatrix, orientation)
+                var degrees = Math.toDegrees(orientation[0].toDouble()).toFloat()
+                degrees = (degrees + 360f) % 360f
+
+                // 补偿屏幕方向，让 heading 相对于当前屏幕顶部
+                val screenRotation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    display?.rotation ?: Surface.ROTATION_0
+                } else {
+                    @Suppress("DEPRECATION")
+                    windowManager.defaultDisplay.rotation
+                }
+                when (screenRotation) {
+                    Surface.ROTATION_90 -> degrees = (degrees + 90f) % 360f
+                    Surface.ROTATION_180 -> degrees = (degrees + 180f) % 360f
+                    Surface.ROTATION_270 -> degrees = (degrees + 270f) % 360f
+                }
+
+                compassEventSink?.success(mapOf(
+                    "heading" to degrees.toDouble(),
+                    "accuracy" to event.accuracy
+                ))
+            }
+
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+        }
+        compassListener = listener
+        sensorManager?.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_UI)
+    }
+
+    private fun stopCompass() {
+        compassListener?.let { sensorManager?.unregisterListener(it) }
+        compassListener = null
     }
 
     private fun reverseGeocode(lat: Double, lng: Double, result: MethodChannel.Result) {
@@ -885,6 +1072,9 @@ class MainActivity : FlutterActivity() {
     override fun onDestroy() {
         stopBluetoothScan(null)
         stopWifiScan(null)
+        stopGnssKeepAlive()
+        stopGnssMonitoring()
+        stopCompass()
         super.onDestroy()
     }
 }

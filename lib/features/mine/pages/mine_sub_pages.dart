@@ -783,6 +783,17 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v2.11.1',
+        'date': '2026-11-18',
+        'content': [
+          '修正连接播报：仅在手机真正连接无人机 WiFi 时播报“飞机连接成功”',
+          '北斗/GPS 搜星页接入手机 GNSS 实时数据：逐星方位、仰角、信噪比与搜到/使用数量实时刷新',
+          '卫星罗盘改为默认视图，并跟随手机朝向旋转，始终指北',
+          '“北斗卫星 / GPS”切换后，罗盘卫星与左右数量同步切换',
+          '搜星页新增返回按钮、搜星动画，并统一为 App 的森林绿/琥珀橙科技风格',
+        ],
+      },
+      {
         'version': 'v2.11.0',
         'date': '2026-11-18',
         'content': [

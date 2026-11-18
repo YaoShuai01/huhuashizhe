@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 
@@ -5,13 +6,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/coord_transform.dart';
 import '../../../services/gps_location_service.dart';
+import '../../../services/satellite_service.dart';
 import '../widgets/speedometer_painters.dart';
 
-/// 卫星地图 / 卫星罗盘界面（横屏 · 真实卫星瓦片 + GPS/北斗定位）
+/// 北斗/GPS 搜星界面（横屏）
+///
+/// - 默认展示卫星罗盘，可切换到卫星地图
+/// - 罗盘跟随手机朝向旋转，始终指北
+/// - 卫星数量、方位、仰角、信噪比来自手机 GNSS 实时数据
+/// - 机载北斗模块接入前，先使用手机 GNSS 搜星
 class GpsSpeedometerPage extends StatefulWidget {
   const GpsSpeedometerPage({super.key});
 
@@ -21,10 +29,6 @@ class GpsSpeedometerPage extends StatefulWidget {
 
 class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
     with TickerProviderStateMixin {
-  static const Color _green = AppColors.primaryLight;
-  static const Color _amber = AppColors.accent;
-  static const Color _muted = Color(0xFF8A9690);
-
   static const LatLng _fallbackCenter = LatLng(31.2304, 121.4737);
   static const double _zoom = 16;
 
@@ -32,45 +36,36 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
   late final AnimationController _sweepCtrl;
   final MapController _mapController = MapController();
 
-  bool _mapMode = true;
+  /// 默认展示卫星罗盘（搜星）
+  bool _mapMode = false;
   bool _beidou = true;
   bool _mapReady = false;
   bool _locating = false;
+  bool _permissionDenied = false;
+  String? _gnssError;
+
+  GnssSnapshot? _gnss;
+  double _heading = 0;
   GpsLocation? _location;
 
-  static const List<SatelliteInfo> _satellites = [
-    SatelliteInfo(azimuth: 336, elevation: 0.58, prn: 19),
-    SatelliteInfo(azimuth: 316, elevation: 0.72, prn: 24, strong: true),
-    SatelliteInfo(azimuth: 304, elevation: 0.50, prn: 14),
-    SatelliteInfo(azimuth: 293, elevation: 0.78, prn: 20, strong: true),
-    SatelliteInfo(azimuth: 263, elevation: 0.86, prn: 22, strong: true),
-    SatelliteInfo(azimuth: 243, elevation: 0.67, prn: 5),
-    SatelliteInfo(azimuth: 226, elevation: 0.86, prn: 25),
-    SatelliteInfo(azimuth: 207, elevation: 0.74, prn: 9),
-    SatelliteInfo(azimuth: 185, elevation: 0.56, prn: 21),
-    SatelliteInfo(azimuth: 178, elevation: 0.78, prn: 26),
-    SatelliteInfo(azimuth: 158, elevation: 0.86, prn: 3, strong: true),
-    SatelliteInfo(azimuth: 137, elevation: 0.76, prn: 16),
-    SatelliteInfo(azimuth: 118, elevation: 0.81, prn: 27),
-    SatelliteInfo(azimuth: 105, elevation: 0.85, prn: 4),
-    SatelliteInfo(azimuth: 90, elevation: 0.62, prn: 28),
-    SatelliteInfo(azimuth: 77, elevation: 0.82, prn: 2),
-    SatelliteInfo(azimuth: 61, elevation: 0.71, prn: 6),
-    SatelliteInfo(azimuth: 58, elevation: 0.40, prn: 18),
-    SatelliteInfo(azimuth: 50, elevation: 0.22, prn: 7),
-    SatelliteInfo(azimuth: 28, elevation: 0.46, prn: 29),
-    SatelliteInfo(azimuth: 19, elevation: 0.31, prn: 30),
-    SatelliteInfo(azimuth: 0, elevation: 0.14, prn: 8),
-    SatelliteInfo(azimuth: 320, elevation: 0.32, prn: 11),
-    SatelliteInfo(azimuth: 280, elevation: 0.26, prn: 13),
-    SatelliteInfo(azimuth: 240, elevation: 0.30, prn: 1),
-    SatelliteInfo(azimuth: 200, elevation: 0.26, prn: 10),
-    SatelliteInfo(azimuth: 160, elevation: 0.26, prn: 15),
-    SatelliteInfo(azimuth: 94, elevation: 0.46, prn: 23),
-  ];
+  StreamSubscription<GnssSnapshot>? _gnssSub;
+  StreamSubscription<double>? _headingSub;
 
   /// 高德卫星瓦片使用 GCJ-02 坐标
   LatLng _center = _initialCenter();
+
+  // 跟随 App 深浅色主题的页面色板
+  bool _dark = true;
+  Color _bgTop = const Color(0xFF0E1812);
+  Color _bgMid = const Color(0xFF15231A);
+  Color _bgBottom = const Color(0xFF0A100C);
+  Color _cardColor = const Color(0xFF1E2A22);
+  Color _cardBorder = Colors.white12;
+  Color _textPrimary = const Color(0xFFE8F0E9);
+  Color _textSecondary = Colors.white70;
+  Color _textMuted = Colors.white38;
+  Color _green = AppColors.primaryLight;
+  Color _amber = AppColors.accent;
 
   static LatLng _initialCenter() {
     final cached = GpsLocationService.cachedLocation;
@@ -94,16 +89,64 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
       DeviceOrientation.landscapeRight,
     ]);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _locate();
+      if (mounted) _initSensors();
     });
   }
 
   @override
   void dispose() {
+    _gnssSub?.cancel();
+    _headingSub?.cancel();
     _pulseCtrl.dispose();
     _sweepCtrl.dispose();
     SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     super.dispose();
+  }
+
+  Future<void> _initSensors() async {
+    try {
+      final status = await Permission.locationWhenInUse.request();
+      if (!status.isGranted) {
+        if (mounted) setState(() => _permissionDenied = true);
+        return;
+      }
+    } catch (_) {
+      // 测试环境或精简系统没有权限插件时，继续尝试订阅原生事件
+    }
+
+    _gnssSub ??= SatelliteService.gnssStream.listen(
+      (snapshot) {
+        if (!mounted) return;
+        setState(() {
+          _gnss = snapshot;
+          _gnssError = null;
+        });
+      },
+      onError: (Object error) {
+        if (!mounted) return;
+        setState(() => _gnssError = error.toString());
+      },
+    );
+
+    _headingSub ??= SatelliteService.headingStream.listen(
+      (heading) {
+        if (!mounted) return;
+        setState(() => _heading = heading);
+      },
+      onError: (Object error) {
+        // 没有方向传感器时保持上一次朝向，不打断搜星
+      },
+    );
+
+    await _locate();
+  }
+
+  Future<void> _retryPermission() async {
+    setState(() {
+      _permissionDenied = false;
+      _gnssError = null;
+    });
+    await _initSensors();
   }
 
   /// 卫星定位：GPS 返回 WGS-84，转换为 GCJ-02 后再上图
@@ -127,73 +170,190 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
     }
   }
 
+  List<GnssSatellite> get _selectedSats {
+    final snapshot = _gnss;
+    if (snapshot == null) return const [];
+    final list = snapshot.satellitesOf(_beidou ? 'beidou' : 'gps');
+    // 过滤掉尚未收到信号的空卫星，避免“搜到”数量虚高
+    return list
+        .where((sat) => sat.snr > 0 || sat.usedInFix)
+        .toList(growable: false);
+  }
+
+  int get _foundCount => _selectedSats.length;
+
+  int get _usedCount => _selectedSats.where((s) => s.usedInFix).length;
+
+  String get _systemName => _beidou ? '北斗' : 'GPS';
+
+  GnssSatellite? get _strongestSat {
+    GnssSatellite? strongest;
+    for (final sat in _selectedSats) {
+      if (strongest == null || sat.snr > strongest.snr) strongest = sat;
+    }
+    return strongest;
+  }
+
+  void _applyTheme(BuildContext context) {
+    _dark = Theme.of(context).brightness == Brightness.dark;
+    if (_dark) {
+      _bgTop = const Color(0xFF0E1812);
+      _bgMid = const Color(0xFF15231A);
+      _bgBottom = const Color(0xFF0A100C);
+      _cardColor = const Color(0xFF1E2A22);
+      _cardBorder = Colors.white.withValues(alpha: 0.08);
+      _textPrimary = const Color(0xFFE8F0E9);
+      _textSecondary = Colors.white.withValues(alpha: 0.70);
+      _textMuted = Colors.white.withValues(alpha: 0.42);
+      _green = AppColors.primaryLight;
+      _amber = AppColors.accent;
+    } else {
+      _bgTop = AppColors.background;
+      _bgMid = const Color(0xFFEAF3EC);
+      _bgBottom = AppColors.background;
+      _cardColor = AppColors.surface;
+      _cardBorder = AppColors.primary.withValues(alpha: 0.14);
+      _textPrimary = AppColors.textPrimary;
+      _textSecondary = AppColors.textSecondary;
+      _textMuted = AppColors.textHint;
+      _green = AppColors.primary;
+      _amber = AppColors.accent;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    _applyTheme(context);
     return Scaffold(
-      backgroundColor: const Color(0xFF121212),
+      backgroundColor: _bgMid,
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [Color(0xFF0B120F), Color(0xFF16201A), Color(0xFF090D0B)],
-            stops: [0.0, 0.5, 1.0],
+            colors: [_bgTop, _bgMid, _bgBottom],
+            stops: const [0.0, 0.5, 1.0],
           ),
         ),
         child: Stack(
           children: [
             _buildAmbientGlow(),
             SafeArea(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final panelWidth =
-                      math.min(300.0, constraints.maxWidth * 0.32);
-                  return Padding(
-                    padding: const EdgeInsets.all(14),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(
-                          child: _mapMode
-                              ? _buildMapCard()
-                              : _buildCompassCard(),
-                        ),
-                        const SizedBox(width: 14),
-                        SizedBox(
-                          width: panelWidth,
-                          child: Column(
+              child: Column(
+                children: [
+                  _buildTopBar(),
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        final panelWidth =
+                            math.min(280.0, constraints.maxWidth * 0.30);
+                        return Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+                          child: Row(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              _buildViewSwitch(),
-                              const Spacer(),
-                              _buildLocateButton(),
-                              const SizedBox(height: 10),
-                              _sourceButton(
-                                label: '北斗卫星',
-                                icon: Icons.satellite_alt,
-                                color: _green,
-                                active: _beidou,
-                                onTap: () => setState(() => _beidou = true),
+                              Expanded(
+                                child: _mapMode
+                                    ? _buildMapCard()
+                                    : _buildCompassCard(),
                               ),
-                              const SizedBox(height: 10),
-                              _sourceButton(
-                                label: 'GPS',
-                                icon: Icons.gps_fixed,
-                                color: _amber,
-                                active: !_beidou,
-                                onTap: () => setState(() => _beidou = false),
+                              const SizedBox(width: 14),
+                              SizedBox(
+                                width: panelWidth,
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    _buildViewSwitch(),
+                                    const Spacer(),
+                                    _buildLocateButton(),
+                                    const SizedBox(height: 10),
+                                    _sourceButton(
+                                      label: '北斗卫星',
+                                      icon: Icons.satellite_alt,
+                                      color: _green,
+                                      active: _beidou,
+                                      onTap: () =>
+                                          setState(() => _beidou = true),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    _sourceButton(
+                                      label: 'GPS',
+                                      icon: Icons.gps_fixed,
+                                      color: _amber,
+                                      active: !_beidou,
+                                      onTap: () =>
+                                          setState(() => _beidou = false),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      '当前使用手机 GNSS\n机载北斗模块未接入',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: _textMuted,
+                                        fontSize: 11,
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
-                        ),
-                      ],
+                        );
+                      },
                     ),
-                  );
-                },
+                  ),
+                ],
               ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTopBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+      child: Row(
+        children: [
+          Material(
+            color: _cardColor,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => Navigator.of(context).pop(),
+              child: SizedBox(
+                width: 44,
+                height: 44,
+                child: Icon(Icons.arrow_back, color: _textPrimary, size: 22),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '北斗 / GPS 搜星',
+                style: TextStyle(
+                  color: _textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '$_systemName · ${_permissionDenied ? '等待定位权限' : (_foundCount == 0 ? '正在搜索卫星' : '已搜到 $_foundCount 颗，使用 $_usedCount 颗')}',
+                style: TextStyle(color: _textSecondary, fontSize: 12),
+              ),
+            ],
+          ),
+          const Spacer(),
+          _liveChip(),
+        ],
       ),
     );
   }
@@ -205,12 +365,12 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
           Positioned(
             left: -140,
             top: -80,
-            child: _glowOrb(380, AppColors.primary, 0.20),
+            child: _glowOrb(380, _green, _dark ? 0.18 : 0.10),
           ),
           Positioned(
             right: -160,
             bottom: -120,
-            child: _glowOrb(420, AppColors.accent, 0.08),
+            child: _glowOrb(420, _amber, _dark ? 0.08 : 0.05),
           ),
         ],
       ),
@@ -230,22 +390,19 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
     );
   }
 
-  Widget _glass({
-    required Widget child,
-    double radius = 16,
-  }) {
+  Widget _glass({required Widget child, double radius = 16}) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
       child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF1E1E1E).withValues(alpha: 0.78),
+            color: _cardColor.withValues(alpha: _dark ? 0.88 : 0.94),
             borderRadius: BorderRadius.circular(radius),
-            border: Border.all(color: const Color(0xFF2C2C2C), width: 1),
+            border: Border.all(color: _cardBorder, width: 1),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
+                color: Colors.black.withValues(alpha: _dark ? 0.35 : 0.08),
                 blurRadius: 20,
                 offset: const Offset(0, 8),
               ),
@@ -257,7 +414,7 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
     );
   }
 
-  /// 地图 / 罗盘 视图切换
+  /// 地图 / 罗盘 视图切换（罗盘在前，便于搜星时快速切换）
   Widget _buildViewSwitch() {
     Widget segment(String label, bool mapMode) {
       final active = _mapMode == mapMode;
@@ -269,7 +426,9 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
             duration: const Duration(milliseconds: 220),
             margin: const EdgeInsets.symmetric(horizontal: 2),
             decoration: BoxDecoration(
-              color: active ? _green.withValues(alpha: 0.16) : Colors.transparent,
+              color: active
+                  ? _green.withValues(alpha: 0.16)
+                  : Colors.transparent,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
                 color: active
@@ -281,7 +440,7 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
             child: Text(
               label,
               style: TextStyle(
-                color: active ? _green : Colors.white.withValues(alpha: 0.55),
+                color: active ? _green : _textMuted,
                 fontSize: 14,
                 fontWeight: active ? FontWeight.w600 : FontWeight.w400,
                 letterSpacing: 0.5,
@@ -300,8 +459,8 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
           padding: const EdgeInsets.all(4),
           child: Row(
             children: [
-              segment('卫星地图', true),
               segment('卫星罗盘', false),
+              segment('卫星地图', true),
             ],
           ),
         ),
@@ -309,8 +468,20 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
     );
   }
 
-  /// 卫星罗盘
   Widget _buildCompassCard() {
+    final sats = _selectedSats
+        .map((sat) => SatelliteInfo(
+              azimuth: sat.azimuth,
+              // 仰角 90°（天顶）在圆心，0°（地平线）在边缘
+              elevation: (1 - sat.elevation.clamp(0.0, 90.0) / 90.0)
+                  .clamp(0.0, 1.0),
+              prn: sat.svid,
+              locked: sat.usedInFix,
+              strong: sat.snr >= 30,
+            ))
+        .toList(growable: false);
+    final strongest = _strongestSat;
+
     return _glass(
       radius: 18,
       child: ClipRRect(
@@ -320,22 +491,22 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
             Positioned(
               left: -40,
               top: -40,
-              child: _glowOrb(260, AppColors.primary, 0.10),
+              child: _glowOrb(260, _green, _dark ? 0.10 : 0.06),
             ),
             Positioned(
               right: -60,
               bottom: -60,
-              child: _glowOrb(280, AppColors.accent, 0.07),
+              child: _glowOrb(280, _amber, _dark ? 0.07 : 0.04),
             ),
             Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(28, 18, 28, 0),
+                  padding: const EdgeInsets.fromLTRB(28, 16, 28, 0),
                   child: Row(
                     children: [
-                      _statLabel('全部:28', Colors.white.withValues(alpha: 0.70)),
+                      _statLabel('搜到 $_foundCount', _textSecondary),
                       Expanded(child: Center(child: _liveChip())),
-                      _statLabel('使用:0', _green, glow: true),
+                      _statLabel('使用 $_usedCount', _green, glow: true),
                     ],
                   ),
                 ),
@@ -352,20 +523,46 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
                           child: Stack(
                             children: [
                               Positioned.fill(
-                                child: AnimatedBuilder(
-                                  animation: _sweepCtrl,
-                                  builder: (context, _) => CustomPaint(
-                                    painter: SkyPlotPainter(
-                                      satellites: _satellites,
-                                      sweep: _sweepCtrl.value * 2 * math.pi,
-                                    ),
+                                child: Transform.rotate(
+                                  angle: -_heading * math.pi / 180,
+                                  child: Stack(
+                                    children: [
+                                      Positioned.fill(
+                                        child: AnimatedBuilder(
+                                          animation: _sweepCtrl,
+                                          builder: (context, _) => CustomPaint(
+                                            painter: SkyPlotPainter(
+                                              satellites: sats,
+                                              sweep:
+                                                  _sweepCtrl.value * 2 * math.pi,
+                                              green: _green,
+                                              amber: _amber,
+                                              muted: _textMuted,
+                                              tickColor: _textSecondary,
+                                              dark: _dark,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      _compassLabel('北', 0, side, radius,
+                                          north: true),
+                                      _compassLabel('东', 90, side, radius),
+                                      _compassLabel('南', 180, side, radius),
+                                      _compassLabel('西', 270, side, radius),
+                                    ],
                                   ),
                                 ),
                               ),
-                              _compassLabel('北', 0, side, radius, north: true),
-                              _compassLabel('东', 90, side, radius),
-                              _compassLabel('南', 180, side, radius),
-                              _compassLabel('西', 270, side, radius),
+                              if (_permissionDenied)
+                                Positioned.fill(child: _buildPermissionOverlay())
+                              else if (sats.isEmpty)
+                                Positioned.fill(
+                                  child: IgnorePointer(
+                                    child: Center(
+                                      child: _buildSearchingOverlay(),
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
                         ),
@@ -377,17 +574,126 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
                   padding: const EdgeInsets.fromLTRB(28, 0, 28, 14),
                   child: Row(
                     children: [
-                      _telemetry('PRN', '28'),
+                      _telemetry(
+                        'PRN',
+                        strongest == null
+                            ? '--'
+                            : strongest.svid.toString().padLeft(2, '0'),
+                      ),
                       const SizedBox(width: 18),
-                      _telemetry('SNR', '42 dB'),
+                      _telemetry(
+                        'SNR',
+                        strongest == null
+                            ? '--'
+                            : '${strongest.snr.toStringAsFixed(0)} dB',
+                      ),
                       const Spacer(),
-                      _telemetry('FIX', '3D'),
+                      _telemetry(
+                        'FIX',
+                        _usedCount >= 4
+                            ? '3D'
+                            : (_usedCount > 0 ? '2D' : '--'),
+                      ),
                     ],
                   ),
                 ),
               ],
             ),
             ..._hudCorners(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchingOverlay() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedBuilder(
+          animation: _sweepCtrl,
+          builder: (context, _) => Transform.rotate(
+            angle: _sweepCtrl.value * 2 * math.pi,
+            child: Container(
+              width: 58,
+              height: 58,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: _green.withValues(alpha: 0.35),
+                  width: 1.5,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: _green.withValues(alpha: 0.16),
+                    blurRadius: 18,
+                  ),
+                ],
+              ),
+              child: Icon(Icons.satellite_alt, color: _green, size: 26),
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        Text(
+          '正在搜星…',
+          style: TextStyle(
+            color: _textPrimary,
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 1.2,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '请到空旷处等待 $_systemName 卫星锁定',
+          style: TextStyle(color: _textSecondary, fontSize: 12),
+        ),
+        if (_gnssError != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            _gnssError!,
+            style: TextStyle(color: _amber, fontSize: 11),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildPermissionOverlay() {
+    return Center(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        margin: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: _cardColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _cardBorder),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.location_off, color: _amber, size: 30),
+            const SizedBox(height: 10),
+            Text(
+              '需要定位权限才能搜星',
+              style: TextStyle(
+                color: _textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '请在系统设置中允许“护花使者”使用位置信息',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: _textSecondary, fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: _retryPermission,
+              child: Text('授权定位', style: TextStyle(color: _green)),
+            ),
           ],
         ),
       ),
@@ -421,9 +727,9 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
               fontSize: side * 0.042,
               fontWeight: FontWeight.w600,
               height: 1,
-              shadows: [
-                Shadow(color: color.withValues(alpha: 0.75), blurRadius: 10),
-              ],
+              shadows: _dark
+                  ? [Shadow(color: color.withValues(alpha: 0.75), blurRadius: 10)]
+                  : null,
             ),
           ),
         ),
@@ -464,7 +770,8 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
                       CircleMarker(
                         point: _center,
                         radius: math.max(
-                          _location!.accuracy > 0 && _location!.accuracy.isFinite
+                          _location!.accuracy > 0 &&
+                                  _location!.accuracy.isFinite
                               ? _location!.accuracy
                               : 5,
                           5,
@@ -538,9 +845,9 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
             right: 28,
             child: Row(
               children: [
-                _statusIndicator(),
+                _statusIndicator(onMap: true),
                 const Spacer(),
-                _liveChip(),
+                _liveChip(color: Colors.white70),
                 const Spacer(),
                 _statLabel(
                   _location == null
@@ -562,6 +869,8 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
                   _location == null
                       ? '--'
                       : _center.latitude.toStringAsFixed(6),
+                  labelColor: Colors.white70,
+                  valueColor: Colors.white,
                 ),
                 const SizedBox(width: 18),
                 _telemetry(
@@ -569,9 +878,16 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
                   _location == null
                       ? '--'
                       : _center.longitude.toStringAsFixed(6),
+                  labelColor: Colors.white70,
+                  valueColor: Colors.white,
                 ),
                 const Spacer(),
-                _telemetry('卫星', _satelliteCount()),
+                _telemetry(
+                  '卫星',
+                  _gnss == null ? '--' : '${_gnss!.total}',
+                  labelColor: Colors.white70,
+                  valueColor: Colors.white,
+                ),
               ],
             ),
           ),
@@ -579,12 +895,6 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
         ],
       ),
     );
-  }
-
-  String _satelliteCount() {
-    final sats = _location?.satellites;
-    if (sats == null || sats.isEmpty) return '--';
-    return sats.values.fold<int>(0, (a, b) => a + b).toString();
   }
 
   /// 当前位置标记（呼吸光圈 + 实心点）
@@ -633,15 +943,18 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
   }
 
   /// 定位状态指示
-  Widget _statusIndicator() {
+  Widget _statusIndicator({bool onMap = false}) {
     final String text;
     final Color color;
-    if (_locating) {
+    if (_permissionDenied) {
+      text = '未授权';
+      color = onMap ? AppColors.accent : _amber;
+    } else if (_locating) {
       text = '定位中';
-      color = _amber;
+      color = onMap ? AppColors.accent : _amber;
     } else if (_location != null) {
       text = '已定位';
-      color = _green;
+      color = onMap ? AppColors.primaryLight : _green;
     } else {
       text = '未定位';
       color = Colors.white.withValues(alpha: 0.65);
@@ -674,7 +987,7 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
     );
   }
 
-  Widget _liveChip() {
+  Widget _liveChip({Color? color}) {
     return AnimatedBuilder(
       animation: _pulseCtrl,
       builder: (context, _) {
@@ -683,7 +996,7 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
         return Text(
           'LIVE',
           style: TextStyle(
-            color: Colors.white.withValues(alpha: pulse * 0.65),
+            color: (color ?? _textSecondary).withValues(alpha: pulse),
             fontSize: 11,
             fontWeight: FontWeight.w600,
             fontFamily: 'monospace',
@@ -695,14 +1008,14 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
   }
 
   Widget _buildLocateButton() {
-    final foreground = _locating ? _green : const Color(0xFF12200F);
+    final foreground = _dark ? const Color(0xFF12200F) : Colors.white;
     return GestureDetector(
       key: const Key('locate_button'),
       behavior: HitTestBehavior.opaque,
       onTap: _locating ? null : _locate,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
-        height: 56,
+        height: 54,
         decoration: BoxDecoration(
           color: _green.withValues(alpha: _locating ? 0.14 : 0.95),
           borderRadius: BorderRadius.circular(14),
@@ -763,12 +1076,10 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
         decoration: BoxDecoration(
           color: active
               ? color.withValues(alpha: 0.16)
-              : const Color(0xFF1E1E1E).withValues(alpha: 0.78),
+              : _cardColor.withValues(alpha: 0.88),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: active
-                ? color.withValues(alpha: 0.55)
-                : const Color(0xFF2C2C2C),
+            color: active ? color.withValues(alpha: 0.55) : _cardBorder,
           ),
           boxShadow: active
               ? [
@@ -786,8 +1097,8 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
             Icon(
               icon,
               size: 20,
-              color: active ? color : _muted,
-              shadows: active
+              color: active ? color : _textMuted,
+              shadows: active && _dark
                   ? [Shadow(color: color.withValues(alpha: 0.6), blurRadius: 10)]
                   : null,
             ),
@@ -795,11 +1106,11 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
             Text(
               label,
               style: TextStyle(
-                color: active ? color : _muted,
+                color: active ? color : _textMuted,
                 fontSize: 16,
                 fontWeight: active ? FontWeight.w600 : FontWeight.w400,
                 letterSpacing: 1.2,
-                shadows: active
+                shadows: active && _dark
                     ? [Shadow(color: color.withValues(alpha: 0.5), blurRadius: 10)]
                     : null,
               ),
@@ -811,10 +1122,7 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
   }
 
   List<Widget> _hudCorners() {
-    Widget corner({
-      required bool top,
-      required bool left,
-    }) {
+    Widget corner({required bool top, required bool left}) {
       final side = BorderSide(color: _green.withValues(alpha: 0.45), width: 1.2);
       return Positioned(
         top: top ? 9 : null,
@@ -846,14 +1154,19 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
     ];
   }
 
-  Widget _telemetry(String label, String value) {
+  Widget _telemetry(
+    String label,
+    String value, {
+    Color? labelColor,
+    Color? valueColor,
+  }) {
     return RichText(
       text: TextSpan(
         children: [
           TextSpan(
             text: '$label ',
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.55),
+              color: labelColor ?? _textSecondary,
               fontSize: 11,
               fontFamily: 'monospace',
               letterSpacing: 0.8,
@@ -862,7 +1175,7 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
           TextSpan(
             text: value,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.85),
+              color: valueColor ?? _textPrimary,
               fontSize: 11,
               fontWeight: FontWeight.w600,
               fontFamily: 'monospace',
@@ -882,7 +1195,7 @@ class _GpsSpeedometerPageState extends State<GpsSpeedometerPage>
         fontSize: 12,
         fontWeight: FontWeight.w500,
         letterSpacing: 0.8,
-        shadows: glow
+        shadows: glow && _dark
             ? [Shadow(color: color.withValues(alpha: 0.6), blurRadius: 10)]
             : null,
       ),
