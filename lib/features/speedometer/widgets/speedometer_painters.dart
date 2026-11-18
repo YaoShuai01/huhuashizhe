@@ -386,16 +386,26 @@ class SpeedGaugePainter extends CustomPainter {
 
 /// 罗盘式卫星星空图（品牌绿 / 琥珀配色）
 class SkyPlotPainter extends CustomPainter {
-  SkyPlotPainter({required this.satellites, this.sweep = 0});
+  SkyPlotPainter({
+    required this.satellites,
+    this.sweep = 0,
+    this.green = const Color(0xFF66BB6A),
+    this.amber = const Color(0xFFFF8F00),
+    this.muted = const Color(0xFF8A9690),
+    this.tickColor = Colors.white70,
+    this.dark = true,
+  });
 
   final List<SatelliteInfo> satellites;
 
   /// 雷达扫描角（弧度，0 指向正北）
   final double sweep;
 
-  static const Color _green = Color(0xFF66BB6A);
-  static const Color _amber = Color(0xFFFF8F00);
-  static const Color _muted = Color(0xFF8A9690);
+  final Color green;
+  final Color amber;
+  final Color muted;
+  final Color tickColor;
+  final bool dark;
 
   /// 罗盘方位：0=正北，顺时针
   static const Map<int, String> _compass = {
@@ -417,14 +427,21 @@ class SkyPlotPainter extends CustomPainter {
       center,
       r,
       Paint()
-        ..shader = const RadialGradient(
-          colors: [
-            Color(0x332E7D32),
-            Color(0x1A1B5E20),
-            Color(0x0D0F1A14),
-            Color(0x00000000),
-          ],
-          stops: [0.0, 0.45, 0.8, 1.0],
+        ..shader = RadialGradient(
+          colors: dark
+              ? [
+                  green.withValues(alpha: 0.20),
+                  green.withValues(alpha: 0.10),
+                  const Color(0x0D0F1A14),
+                  const Color(0x00000000),
+                ]
+              : [
+                  green.withValues(alpha: 0.14),
+                  green.withValues(alpha: 0.06),
+                  Colors.transparent,
+                  Colors.transparent,
+                ],
+          stops: const [0.0, 0.45, 0.8, 1.0],
         ).createShader(discRect),
     );
 
@@ -441,7 +458,7 @@ class SkyPlotPainter extends CustomPainter {
         ..shader = SweepGradient(
           startAngle: sweepCanvas - 0.65,
           endAngle: sweepCanvas,
-          colors: [const Color(0x0066BB6A), _green.withValues(alpha: 0.17)],
+          colors: [const Color(0x0066BB6A), green.withValues(alpha: 0.17)],
           tileMode: TileMode.clamp,
         ).createShader(discRect),
     );
@@ -451,7 +468,7 @@ class SkyPlotPainter extends CustomPainter {
       center,
       center + sweepDir * r,
       Paint()
-        ..color = _green.withValues(alpha: 0.55)
+        ..color = green.withValues(alpha: 0.55)
         ..strokeWidth = 1.2
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4),
     );
@@ -462,7 +479,7 @@ class SkyPlotPainter extends CustomPainter {
         center,
         r * f,
         Paint()
-          ..color = _green.withValues(alpha: f == 1.0 ? 0.38 : 0.14)
+          ..color = green.withValues(alpha: f == 1.0 ? 0.38 : 0.14)
           ..style = PaintingStyle.stroke
           ..strokeWidth = f == 1.0 ? 1.4 : 1,
       );
@@ -471,7 +488,7 @@ class SkyPlotPainter extends CustomPainter {
           center,
           r * f,
           Paint()
-            ..color = _green.withValues(alpha: 0.10)
+            ..color = green.withValues(alpha: 0.10)
             ..style = PaintingStyle.stroke
             ..strokeWidth = 6
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8),
@@ -483,7 +500,7 @@ class SkyPlotPainter extends CustomPainter {
     final dashPath = Path()
       ..addOval(Rect.fromCircle(center: center, radius: r + s * 0.028));
     final dashPaint = Paint()
-      ..color = _green.withValues(alpha: 0.30)
+      ..color = green.withValues(alpha: 0.30)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     for (final metric in dashPath.computeMetrics()) {
@@ -509,7 +526,7 @@ class SkyPlotPainter extends CustomPainter {
         center + dir * (r + s * 0.003),
         center + dir * (r + s * 0.007),
         Paint()
-          ..color = Colors.white.withValues(alpha: 0.10)
+          ..color = tickColor.withValues(alpha: dark ? 0.10 : 0.16)
           ..strokeWidth = 0.6,
       );
     }
@@ -522,7 +539,7 @@ class SkyPlotPainter extends CustomPainter {
         center - dir * r,
         center + dir * r,
         Paint()
-          ..color = Colors.white.withValues(alpha: 0.06)
+          ..color = tickColor.withValues(alpha: dark ? 0.06 : 0.10)
           ..strokeWidth = 1,
       );
     }
@@ -536,7 +553,9 @@ class SkyPlotPainter extends CustomPainter {
         center + dir * (r + s * 0.004),
         center + dir * (r + s * (major ? 0.018 : 0.011)),
         Paint()
-          ..color = Colors.white.withValues(alpha: major ? 0.40 : 0.16)
+          ..color = tickColor.withValues(
+            alpha: dark ? (major ? 0.40 : 0.16) : (major ? 0.55 : 0.28),
+          )
           ..strokeWidth = major ? 1.2 : 0.7,
       );
       if (!major) continue;
@@ -547,7 +566,7 @@ class SkyPlotPainter extends CustomPainter {
         deg.toString().padLeft(3, '0'),
         center + dir * (r + s * 0.046),
         TextStyle(
-          color: Colors.white.withValues(alpha: 0.38),
+          color: tickColor.withValues(alpha: dark ? 0.38 : 0.60),
           fontSize: s * 0.026,
           fontWeight: FontWeight.w400,
           fontFamily: 'monospace',
@@ -563,11 +582,17 @@ class SkyPlotPainter extends CustomPainter {
       r * 0.20,
       Paint()
         ..shader = RadialGradient(
-          colors: [
-            Colors.white.withValues(alpha: 0.55),
-            _green.withValues(alpha: 0.28),
-            Colors.transparent,
-          ],
+          colors: dark
+              ? [
+                  Colors.white.withValues(alpha: 0.55),
+                  green.withValues(alpha: 0.28),
+                  Colors.transparent,
+                ]
+              : [
+                  green.withValues(alpha: 0.18),
+                  green.withValues(alpha: 0.08),
+                  Colors.transparent,
+                ],
           stops: const [0.0, 0.35, 1.0],
         ).createShader(Rect.fromCircle(center: center, radius: r * 0.20)),
     );
@@ -578,8 +603,8 @@ class SkyPlotPainter extends CustomPainter {
       final dist = r * sat.elevation.clamp(0.0, 1.0);
       final pos = center + Offset(math.sin(rad), -math.cos(rad)) * dist;
       final color = sat.locked
-          ? _green
-          : (sat.strong ? _amber : _muted);
+          ? green
+          : (sat.strong ? amber : muted);
       final strength = sat.locked || sat.strong ? 1.0 : 0.65;
       final dotR = s * 0.023;
 
@@ -611,7 +636,9 @@ class SkyPlotPainter extends CustomPainter {
         sat.prn.toString().padLeft(2, '0'),
         pos,
         TextStyle(
-          color: Colors.white.withValues(alpha: 0.92),
+          color: dark
+              ? Colors.white.withValues(alpha: 0.92)
+              : Colors.black.withValues(alpha: 0.78),
           fontSize: 9,
           fontWeight: FontWeight.w500,
           fontFamily: 'monospace',
@@ -630,7 +657,7 @@ class SkyPlotPainter extends CustomPainter {
         12 * math.pi / 180,
         false,
         Paint()
-          ..color = _green.withValues(alpha: 0.45)
+          ..color = green.withValues(alpha: 0.45)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 6
           ..strokeCap = StrokeCap.round
@@ -642,7 +669,7 @@ class SkyPlotPainter extends CustomPainter {
         12 * math.pi / 180,
         false,
         Paint()
-          ..color = _green.withValues(alpha: 0.95)
+          ..color = green.withValues(alpha: 0.95)
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2
           ..strokeCap = StrokeCap.round,
@@ -661,5 +688,11 @@ class SkyPlotPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant SkyPlotPainter oldDelegate) =>
-      oldDelegate.satellites != satellites || oldDelegate.sweep != sweep;
+      oldDelegate.satellites != satellites ||
+      oldDelegate.sweep != sweep ||
+      oldDelegate.green != green ||
+      oldDelegate.amber != amber ||
+      oldDelegate.muted != muted ||
+      oldDelegate.tickColor != tickColor ||
+      oldDelegate.dark != dark;
 }

@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'data/local_database.dart';
+import 'providers/device_provider.dart';
 import 'providers/update_provider.dart';
 import 'services/ai_suggestion_worker.dart';
 import 'services/model_hotupdate_service.dart';
 import 'services/schedule_service.dart';
 import 'services/voice_service.dart';
+import 'services/wifi_service.dart';
 import 'widgets/update_dialog.dart';
 import 'widgets/splash_page.dart';
 
@@ -88,6 +90,9 @@ class _UpdateChecker extends ConsumerStatefulWidget {
 }
 
 class _UpdateCheckerState extends ConsumerState<_UpdateChecker> with WidgetsBindingObserver {
+  /// 上一次无人机 WiFi 连接状态；null 表示尚未收到初始状态
+  bool? _lastDroneConnected;
+
   @override
   void initState() {
     super.initState();
@@ -131,6 +136,22 @@ class _UpdateCheckerState extends ConsumerState<_UpdateChecker> with WidgetsBind
           }
         });
       }
+    });
+
+    // 无人机 WiFi 连接成功播报：只在“未连接 → 已连接”时触发，
+    // 打开遥控页或 App 启动时已连接都不会误播。
+    ref.listen<AsyncValue<WifiStatus>>(deviceStatusProvider, (prev, next) {
+      final status = next.valueOrNull;
+      if (status == null) return;
+      final connected = status.isConnected;
+      if (_lastDroneConnected == false && connected) {
+        VoiceService.instance.speak(
+          '飞机连接成功',
+          priority: VoicePriority.status,
+          dedup: const Duration(seconds: 10),
+        );
+      }
+      _lastDroneConnected = connected;
     });
     return widget.child;
   }

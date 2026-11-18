@@ -111,13 +111,6 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
       return;
     }
 
-    if (!_wasConnected) {
-      VoiceService.instance.speak(
-        '飞机连接成功',
-        priority: VoicePriority.status,
-        dedup: const Duration(seconds: 10),
-      );
-    }
     _wasConnected = true;
 
     // 与状态栏一致的判定：弱于 -75 dBm 提示信号弱
