@@ -28,10 +28,28 @@ class AiChatMessage {
 }
 
 /// 小米MiMo大模型AI对话服务（OpenAI兼容格式）
+///
+/// 支持通过编译参数覆盖接口配置（用于功能调试，不进代码仓库）：
+/// ```
+/// flutter run \
+///   --dart-define=AI_BASE_URL=https://api.example.com/v1 \
+///   --dart-define=AI_API_KEY=sk-xxx \
+///   --dart-define=AI_MODEL=some-model
+/// ```
+/// 未提供参数时使用默认的小米 MiMo 配置，正式发布构建不受影响。
 class AiChatService {
-  static const _baseUrl = 'https://api.xiaomimimo.com/v1';
-  static const _model = 'mimo-v2.6-flash'; // v2.5已下线（平台2026-11升级到v2.6系列）
-  static const _apiKey = '';
+  static const _baseUrl = String.fromEnvironment(
+    'AI_BASE_URL',
+    defaultValue: 'https://api.xiaomimimo.com/v1',
+  );
+  static const _model = String.fromEnvironment(
+    'AI_MODEL',
+    defaultValue: 'mimo-v2.6-flash', // v2.5已下线（平台2026-11升级到v2.6系列）
+  );
+  static const _apiKey = String.fromEnvironment(
+    'AI_API_KEY',
+    defaultValue: '',
+  );
 
   /// 护花使者智能体系统提示词
   static const _systemPrompt = '''
