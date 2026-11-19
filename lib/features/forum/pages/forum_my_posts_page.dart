@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/forum_repository.dart';
 import '../forum_scope.dart';
+import '../widgets/forum_back_button.dart';
 import '../widgets/forum_empty_state.dart';
 import '../widgets/forum_post_list.dart';
 
@@ -19,7 +20,10 @@ class ForumMyPostsPage extends StatelessWidget {
     final repo = repository ?? ForumScope.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('我的帖子')),
+      appBar: AppBar(
+        leading: const ForumBackButton(),
+        title: const Text('我的帖子'),
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/forum/compose'),
         icon: const Icon(Icons.edit_outlined),
@@ -42,6 +46,10 @@ class ForumMyPostsPage extends StatelessWidget {
           return ForumPostList(
             posts: posts,
             onLike: repo.toggleLike,
+            onRefresh: repo.refresh,
+            isFavorite: repo.isFavorite,
+            onFavorite: repo.toggleFavorite,
+            onTapPost: (post) => context.push('/forum/post', extra: post),
           );
         },
       ),

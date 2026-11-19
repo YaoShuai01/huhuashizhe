@@ -30,13 +30,36 @@ abstract class ForumRepository extends ChangeNotifier {
 
   void toggleLike(ForumPost post);
 
+  /// 帖子评论（按时间正序）
+  List<ForumComment> commentsOf(String postId);
+
+  ForumComment addComment({
+    required ForumPost post,
+    required String content,
+  });
+
+  bool isFavorite(ForumPost post);
+
+  /// 收藏 / 取消收藏
+  void toggleFavorite(ForumPost post);
+
+  List<ForumPost> get favoritePosts;
+
   List<ForumMessage> get messages;
+
+  /// 按类型筛选消息（点赞 / 回复）
+  List<ForumMessage> messagesOf(ForumMessageKind kind);
 
   bool get hasUnreadMessages;
 
   void markAllMessagesRead();
 
   void markMessageRead(ForumMessage message);
+
+  /// 下拉手动刷新时调用，外部数据源可在此拉取最新数据后通知界面
+  Future<void> refresh() async {
+    notifyListeners();
+  }
 }
 
 /// 默认的内存实现（App 重启后恢复示例数据）。
@@ -48,6 +71,8 @@ class InMemoryForumRepository extends ForumRepository {
     List<ForumSection>? sections,
     List<ForumPost>? posts,
     List<ForumMessage>? messages,
+    Map<String, List<ForumComment>>? comments,
+    List<String>? favoritePostIds,
     bool seed = true,
   })  : _categories = List.unmodifiable(categories ?? forumCategories),
         _sections = List.unmodifiable(sections ?? forumSections) {
@@ -61,6 +86,16 @@ class InMemoryForumRepository extends ForumRepository {
     } else if (seed) {
       _messages.addAll(_seedMessages());
     }
+    if (comments != null) {
+      comments.forEach((postId, list) {
+        _comments[postId] = [...list];
+      });
+    } else if (seed) {
+      _seedComments();
+    }
+    if (favoritePostIds != null) {
+      _favoriteIds.addAll(favoritePostIds);
+    }
   }
 
   static const String currentUserName = '我';
@@ -69,6 +104,8 @@ class InMemoryForumRepository extends ForumRepository {
   final List<ForumSection> _sections;
   final List<ForumPost> _posts = [];
   final List<ForumMessage> _messages = [];
+  final Map<String, List<ForumComment>> _comments = {};
+  final Set<String> _favoriteIds = {};
   int _idSeed = 0;
 
   @override
@@ -134,7 +171,53 @@ class InMemoryForumRepository extends ForumRepository {
   }
 
   @override
+  List<ForumComment> commentsOf(String postId) {
+    final list = [...?_comments[postId]];
+    list.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    return List.unmodifiable(list);
+  }
+
+  @override
+  ForumComment addComment({
+    required ForumPost post,
+    required String content,
+  }) {
+    final comment = ForumComment(
+      id: 'comment_${DateTime.now().microsecondsSinceEpoch}_${_idSeed++}',
+      postId: post.id,
+      author: currentUserName,
+      content: content.trim(),
+      createdAt: DateTime.now(),
+    );
+    _comments.putIfAbsent(post.id, () => []).add(comment);
+    notifyListeners();
+    return comment;
+  }
+
+  @override
+  bool isFavorite(ForumPost post) => _favoriteIds.contains(post.id);
+
+  @override
+  void toggleFavorite(ForumPost post) {
+    if (!_favoriteIds.remove(post.id)) {
+      _favoriteIds.add(post.id);
+    }
+    notifyListeners();
+  }
+
+  @override
+  List<ForumPost> get favoritePosts {
+    final list = _posts.where((p) => _favoriteIds.contains(p.id)).toList();
+    list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return list;
+  }
+
+  @override
   List<ForumMessage> get messages => List.unmodifiable(_messages);
+
+  @override
+  List<ForumMessage> messagesOf(ForumMessageKind kind) =>
+      List.unmodifiable(_messages.where((message) => message.kind == kind));
 
   @override
   bool get hasUnreadMessages => _messages.any((m) => m.unread);
@@ -218,31 +301,89 @@ class InMemoryForumRepository extends ForumRepository {
     ];
   }
 
+  void _seedComments() {
+    final now = DateTime.now();
+    _comments['seed_1'] = [
+      ForumComment(
+        id: 'comment_1',
+        postId: 'seed_1',
+        author: '飞防小王',
+        content: '3 米高度、4 米每秒我们这边也常用，行距 5 米没问题，注意下风向留出缓冲带。',
+        createdAt: now.subtract(const Duration(minutes: 12)),
+      ),
+      ForumComment(
+        id: 'comment_2',
+        postId: 'seed_1',
+        author: '种田的老李',
+        content: '风大的时候建议降到 2.5 米，雾滴飘移会小很多。',
+        createdAt: now.subtract(const Duration(minutes: 5)),
+      ),
+    ];
+    _comments['seed_3'] = [
+      ForumComment(
+        id: 'comment_3',
+        postId: 'seed_3',
+        author: '农技小陈',
+        content: '看描述像稻瘟病，建议拍几张清晰照片，再结合天气和品种判断。',
+        createdAt: now.subtract(const Duration(hours: 4)),
+      ),
+    ];
+  }
+
   List<ForumMessage> _seedMessages() {
     final now = DateTime.now();
     return [
       ForumMessage(
-        id: 'msg_1',
-        kind: ForumMessageKind.announcement,
-        title: 'v2.9.6 版本已发布',
-        body: '修复覆盖安装提示“无法降级安装”的问题，建议尽快更新。',
-        createdAt: now.subtract(const Duration(days: 3)),
+        id: 'msg_like_1',
+        kind: ForumMessageKind.like,
+        title: '农友 种田的老张 赞了你的帖子',
+        body: '「第一次使用护花使者，求作业参数参考」',
+        createdAt: now.subtract(const Duration(minutes: 25)),
         unread: true,
       ),
       ForumMessage(
-        id: 'msg_2',
+        id: 'msg_like_2',
+        kind: ForumMessageKind.like,
+        title: '农友 李师傅 赞了你的评论',
+        body: '你在「病虫害问答」的回复获得了 3 个赞。',
+        createdAt: now.subtract(const Duration(hours: 6)),
+      ),
+      ForumMessage(
+        id: 'msg_reply_1',
         kind: ForumMessageKind.reply,
-        title: '有人回复了你的帖子',
-        body: '飞防小王：这个高度我们这边一般用 2.8 米，风大再降一点。',
+        title: '意见反馈已回复',
+        body: '管理员：你反馈的作业记录导出问题已记录，下个版本将支持 Excel 导出。',
         createdAt: now.subtract(const Duration(hours: 2)),
         unread: true,
       ),
       ForumMessage(
-        id: 'msg_3',
-        kind: ForumMessageKind.moderation,
-        title: '版务通知',
-        body: '社区版规已更新，请勿发布广告与联系方式，违规内容将被删除。',
-        createdAt: now.subtract(const Duration(days: 5)),
+        id: 'msg_reply_2',
+        kind: ForumMessageKind.reply,
+        title: '举报处理结果通知',
+        body: '你举报的广告帖已核实并删除，感谢你对社区环境的维护。',
+        createdAt: now.subtract(const Duration(days: 1)),
+      ),
+      ForumMessage(
+        id: 'msg_reply_3',
+        kind: ForumMessageKind.reply,
+        title: '「举报与版规」版规更新通知',
+        body: '新增违规广告与联系方式的处理细则，发布前请先阅读版规。',
+        createdAt: now.subtract(const Duration(days: 3)),
+      ),
+      ForumMessage(
+        id: 'msg_fav_1',
+        kind: ForumMessageKind.favorite,
+        title: '农友 农机手阿伟 收藏了你的帖子',
+        body: '「作业记录导出能不能加个 Excel？」',
+        createdAt: now.subtract(const Duration(hours: 1)),
+        unread: true,
+      ),
+      ForumMessage(
+        id: 'msg_fav_2',
+        kind: ForumMessageKind.favorite,
+        title: '农友 飞防小王 收藏了你的评论',
+        body: '你在「意见反馈」的回复被收藏。',
+        createdAt: now.subtract(const Duration(hours: 5)),
       ),
     ];
   }

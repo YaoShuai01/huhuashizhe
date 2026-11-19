@@ -4,10 +4,16 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../core/constants/app_version.dart' show appVersion;
+import '../core/constants/server_config.dart';
 import 'apk_installer.dart';
+
+/// 自有服务器版本信息（发布 APK 时由后端写入）
+const String _serverVersionApi = '$scheduleApiBaseUrl/version';
+
+/// 旧 GitHub 通道：仅在自有服务器不可达时兜底，不再主动维护
 const String _githubReleaseApi = 'https://api.github.com/repos/YaoShuai01/huhuashizhe/releases/latest';
 
-/// GitHub 下载加速前缀（国内直连 release 文件服务器经常超时，按顺序回退）
+/// GitHub 下载加速前缀（仅 GitHub 兜底通道使用，国内直连 release 服务器经常超时）
 const List<String> _downloadMirrors = [
   'https://ghfast.top/',
   'https://ghproxy.net/',
@@ -52,6 +58,20 @@ class UpdateInfo {
     );
   }
 
+  /// 自有服务器返回的版本信息
+  factory UpdateInfo.fromServerJson(Map<String, dynamic> json) {
+    final versionName = (json['versionName'] as String? ?? '').trim();
+    return UpdateInfo(
+      versionName: versionName,
+      versionCode:
+          (json['versionCode'] as num?)?.toInt() ?? _parseVersionCode(versionName),
+      releaseNotes: json['releaseNotes'] as String? ?? '',
+      downloadUrl: (json['downloadUrl'] as String? ?? '').trim(),
+      publishedAt: DateTime.tryParse(json['publishedAt'] as String? ?? '') ??
+          DateTime.now(),
+    );
+  }
+
   static int _parseVersionCode(String tag) {
     final clean = tag.replaceFirst('v', '');
     final parts = clean.split('.');
@@ -76,7 +96,44 @@ class UpdateService {
   String _downloadPath = '';
 
   /// 检查是否有新版本，返回 (结果, 更新信息)
+  ///
+  /// 先查自有服务器；服务器不可用或还没有发布记录时，再回退旧 GitHub 通道。
   Future<(CheckResult, UpdateInfo?)> checkForUpdate() async {
+    final own = await _checkOwnServer();
+    if (own != null) return own;
+    return _checkGitHub();
+  }
+
+  /// 自有服务器版本检查；返回 null 表示需要回退 GitHub
+  Future<(CheckResult, UpdateInfo?)?> _checkOwnServer() async {
+    try {
+      final response = await _dio.get<dynamic>(
+        _serverVersionApi,
+        options: Options(headers: {'cache-control': 'no-cache'}),
+      );
+      if (response.statusCode != 200 || response.data is! Map) {
+        return null;
+      }
+      final info = UpdateInfo.fromServerJson(
+        Map<String, dynamic>.from(response.data as Map),
+      );
+      if (info.versionName.isEmpty || info.downloadUrl.isEmpty) {
+        return null;
+      }
+      return (
+        _isNewerVersion(info.versionName)
+            ? CheckResult.hasUpdate
+            : CheckResult.upToDate,
+        info,
+      );
+    } catch (_) {
+      // 服务器不可达（未部署、断网、超时）时静默回退
+      return null;
+    }
+  }
+
+  /// 旧 GitHub 通道（保留但不再维护）
+  Future<(CheckResult, UpdateInfo?)> _checkGitHub() async {
     try {
       final response = await _dio.get(_githubReleaseApi);
       if (response.statusCode == 200 && response.data != null) {
@@ -161,16 +218,18 @@ class UpdateService {
   /// - 全部通道失败时保留 .part 文件供下次续传，APK 下载完成才落地正式文件名
   Future<bool> downloadUpdate(
     String url,
-    void Function(int received, int total) onProgress,
-  ) async {
+    void Function(int received, int total) onProgress, {
+    String versionTag = '',
+  }) async {
     lastError = '';
     final dir = await ApkInstaller.getDownloadDir();
     final filePath = '$dir/huhuashizhe_update.apk';
     _downloadPath = filePath;
 
     // 半包按版本命名：不同版本的残留自然失效，同名残留就是可续传的
-    final tagMatch = RegExp(r'/download/(v[\d.]+)/').firstMatch(url);
-    final tag = tagMatch?.group(1) ?? 'unknown';
+    final tag = versionTag.isNotEmpty
+        ? 'v$versionTag'
+        : (RegExp(r'/download/(v[\d.]+)/').firstMatch(url)?.group(1) ?? 'unknown');
     final partPath = '$dir/${tag}_update.apk.part';
     // 清掉其他版本的过期残留
     final dirEntity = Directory(dir);
@@ -184,14 +243,15 @@ class UpdateService {
       }
     }
 
-    // 镜像 + 直连全部候选，竞速排序
+    // 自有服务器直连；只有 GitHub 兜底通道才加镜像并竞速
+    final isGitHub = url.contains('github.com');
     final all = <String>[
-      for (final prefix in _downloadMirrors) '$prefix$url',
+      if (isGitHub) for (final prefix in _downloadMirrors) '$prefix$url',
       url,
     ];
-    final fastest = await _probeFastest(all);
+    final fastest = isGitHub ? await _probeFastest(all) : null;
     final candidates = fastest == null ? all : [fastest, ...all.where((c) => c != fastest)];
-    debugPrint('[Update] 竞速通道: ${fastest ?? '全部探测失败，按原顺序回退'}');
+    debugPrint('[Update] 下载通道: ${fastest ?? (isGitHub ? '全部探测失败，按原顺序回退' : url)}');
 
     for (var i = 0; i < candidates.length; i++) {
       final source = candidates[i];
