@@ -191,6 +191,26 @@ class VoiceService {
     );
   }
 
+  /// 朗读屏幕文字（老年关怀模式）
+  ///
+  /// 不受“语音播报”设置开关影响，点击文字即读；重复点击会打断上一段
+  void speakReading(String text) {
+    final content = text.trim();
+    if (content.isEmpty) return;
+    unawaited(_speakReading(content));
+  }
+
+  Future<void> _speakReading(String content) async {
+    final ok = await _ensureInit();
+    if (!ok) return;
+    try {
+      await _tts.stop();
+      await _tts.speak(content);
+    } catch (e) {
+      debugPrint('[Voice] 朗读文字失败: $e');
+    }
+  }
+
   /// 停止当前播报并清空待播队列
   Future<void> stop() async {
     _queue.clear();

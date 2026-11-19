@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/accessibility/elder_care_scope.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_version.dart' show appVersion;
 
@@ -55,6 +56,7 @@ class MinePage extends StatelessWidget {
               subtitle: '语言、通知、缓存、深色模式',
               onTap: () => context.push('/mine/settings'),
             ),
+            _buildElderCareSwitch(context),
             const SizedBox(height: 12),
             _buildMenuItem(
               icon: Icons.menu_book_outlined,
@@ -145,6 +147,49 @@ class MinePage extends StatelessWidget {
             const SizedBox(height: 40),
           ],
         ),
+      ),
+    );
+  }
+
+  /// 老年关怀模式开关：放大字体 + 轻触文字朗读
+  Widget _buildElderCareSwitch(BuildContext context) {
+    final controller = ElderCareScope.of(context);
+    return Container(
+      color: AppColors.surface,
+      child: SwitchListTile(
+        secondary: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: AppColors.primaryLight.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(Icons.accessibility_new, color: AppColors.primary, size: 20),
+        ),
+        title: const Text(
+          '老年关怀模式',
+          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppColors.textPrimary),
+        ),
+        subtitle: const Text(
+          '放大字体，轻触屏幕上的文字即可朗读',
+          style: TextStyle(fontSize: 12, color: AppColors.textHint),
+        ),
+        value: controller.enabled,
+        activeColor: AppColors.primary,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+        onChanged: (value) {
+          controller.setEnabled(value);
+          if (value) {
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(
+                const SnackBar(
+                  content: Text('老年关怀模式已开启：轻触文字即可朗读'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+          }
+        },
       ),
     );
   }
