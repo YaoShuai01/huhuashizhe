@@ -58,6 +58,17 @@ const List<ModelLabel> kModelLabels = [
   ModelLabel(en: 'Tomato___healthy', zh: '番茄健康', desc: '叶片健康无病变。', healthy: true),
 ];
 
+/// 白菜病虫害 4 分类模型标签（assets/models/cabbage_4_448.tflite）
+///
+/// 顺序严格等于训练时类别目录名的 ASCII 排序：caterpillar / downy_mildew /
+/// healthy / webworm，错位会导致识别结果整体串类。
+const List<ModelLabel> kCabbageLabels = [
+  ModelLabel(en: 'caterpillar', zh: '白菜菜青虫危害', desc: '菜青虫啃食叶肉形成的缺刻与虫粪，严重时仅剩叶脉。'),
+  ModelLabel(en: 'downy_mildew', zh: '白菜霜霉病', desc: '叶面黄褐色多角形病斑，叶背有白色霉层。'),
+  ModelLabel(en: 'healthy', zh: '白菜健康', desc: '叶片健康，无明显虫害或病斑。', healthy: true),
+  ModelLabel(en: 'webworm', zh: '白菜螟危害', desc: '白菜螟蛀食造成的孔洞与心叶受损。'),
+];
+
 /// 判断类别是否为可预警的"作物问题"
 bool isProblemClass(int index) {
   if (index < 0 || index >= kModelLabels.length) return false;
