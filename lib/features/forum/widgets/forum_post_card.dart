@@ -118,7 +118,14 @@ class ForumPostCard extends StatelessWidget {
                     Expanded(
                       child: Align(
                         alignment: Alignment.centerLeft,
-                        child: _tag(post.section),
+                        child: Wrap(
+                          spacing: 6,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            if (post.pendingReview) _pendingTag(),
+                            _tag(post.section),
+                          ],
+                        ),
                       ),
                     )
                   else
@@ -182,6 +189,25 @@ class ForumPostCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _pendingTag() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.accent.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: const Text(
+        '待复审',
+        maxLines: 1,
+        style: TextStyle(
+          fontSize: 11,
+          color: AppColors.accent,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );

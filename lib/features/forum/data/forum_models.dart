@@ -38,6 +38,7 @@ class ForumPost {
     required this.author,
     required this.createdAt,
     this.likes = 0,
+    this.pendingReview = false,
   });
 
   final String id;
@@ -47,6 +48,9 @@ class ForumPost {
   final String author;
   final DateTime createdAt;
   int likes;
+
+  /// 是否等待人工复审（AI 初审无法直接判定时标记）
+  final bool pendingReview;
 }
 
 /// 帖子评论

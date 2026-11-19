@@ -4,6 +4,7 @@ import '../../../core/theme/app_theme.dart';
 import '../data/forum_models.dart';
 import '../data/forum_repository.dart';
 import '../forum_scope.dart';
+import '../services/forum_moderation_service.dart';
 import '../services/forum_voice_input.dart';
 import '../widgets/forum_back_button.dart';
 import '../widgets/forum_comment_tile.dart';
@@ -17,6 +18,7 @@ class ForumPostDetailPage extends StatefulWidget {
     required this.post,
     this.repository,
     this.voiceRecognizer,
+    this.moderationService,
   });
 
   final ForumPost post;
@@ -27,6 +29,9 @@ class ForumPostDetailPage extends StatefulWidget {
   /// 外部注入的语音识别实现，为空时使用系统语音识别
   final ForumVoiceRecognizer? voiceRecognizer;
 
+  /// 外部注入的内容初审实现，为空时使用 AI 初审
+  final ForumModerationService? moderationService;
+
   @override
   State<ForumPostDetailPage> createState() => _ForumPostDetailPageState();
 }
@@ -35,6 +40,7 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   bool _canSend = false;
+  bool _sending = false;
 
   @override
   void dispose() {
@@ -43,13 +49,58 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
     super.dispose();
   }
 
-  void _send(ForumRepository repository) {
+  void _send(ForumRepository repository) async {
     final text = _controller.text.trim();
-    if (text.isEmpty) return;
-    repository.addComment(post: widget.post, content: text);
+    if (text.isEmpty || _sending) return;
+    setState(() => _sending = true);
+
+    final service = widget.moderationService ?? defaultForumModerationService;
+    final result = await service.review(
+      title: '评论：${widget.post.title}',
+      content: text,
+    );
+    if (!mounted) return;
+    setState(() => _sending = false);
+
+    if (result.rejected) {
+      await _showRejectDialog(result);
+      return;
+    }
+
+    repository.addComment(
+      post: widget.post,
+      content: text,
+    );
     _controller.clear();
     _focusNode.unfocus();
     setState(() => _canSend = false);
+    if (result.needsManualReview) {
+      _toast('评论已提交，人工复审通过后展示');
+    }
+  }
+
+  Future<void> _showRejectDialog(ForumAuditResult result) {
+    return showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('评论未通过审核'),
+        content: Text(
+          '违规类型：${result.violationType}\n\n${result.reason}\n\n请修改后重新发送。',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('我知道了'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _toast(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _toggleFavorite(ForumRepository repository) {
