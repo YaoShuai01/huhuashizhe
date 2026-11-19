@@ -783,6 +783,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.3.0',
+        'date': '2026-11-19',
+        'content': [
+          '论坛发帖与评论支持系统语音输入，自动申请麦克风权限',
+          '论坛新增帖子详情页：查看评论、收藏帖子与消息分类',
+          '论坛新增返回按钮与下拉刷新，切换标签页时保持浏览位置',
+        ],
+      },
+      {
         'version': 'v3.1.1',
         'date': '2026-11-19',
         'content': [
