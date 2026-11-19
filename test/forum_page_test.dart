@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:huhuashizhe/features/forum/data/forum_models.dart';
 import 'package:huhuashizhe/features/forum/data/forum_repository.dart';
 import 'package:huhuashizhe/features/forum/forum_scope.dart';
+import 'package:huhuashizhe/features/forum/pages/forum_compose_page.dart';
 import 'package:huhuashizhe/features/forum/pages/forum_favorites_page.dart';
 import 'package:huhuashizhe/features/forum/pages/forum_messages_page.dart';
 import 'package:huhuashizhe/features/forum/pages/forum_page.dart';
 import 'package:huhuashizhe/features/forum/pages/forum_post_detail_page.dart';
+import 'package:huhuashizhe/features/forum/services/forum_moderation_service.dart';
 import 'package:huhuashizhe/features/forum/services/forum_voice_input.dart';
 import 'package:huhuashizhe/features/forum/widgets/forum_message_bell.dart';
 import 'package:huhuashizhe/features/forum/pages/forum_section_page.dart';
@@ -217,7 +220,11 @@ void main() {
 
     await tester.pumpWidget(
       wrap(
-        ForumPostDetailPage(post: post, repository: repository),
+        ForumPostDetailPage(
+          post: post,
+          repository: repository,
+          moderationService: _FakeModerationService(_passResult),
+        ),
       ),
     );
 
@@ -312,6 +319,174 @@ void main() {
 
     expect(find.byIcon(Icons.mic_none), findsOneWidget);
   });
+
+  test('解析 AI 审核返回的固定 JSON', () {
+    final pass = parseModerationResponse(
+      '{"audit_result":"通过","reason":"内容正常","violation_type":"无"}',
+    );
+    expect(pass.verdict, ForumAuditVerdict.pass);
+    expect(pass.rejected, isFalse);
+    expect(pass.needsManualReview, isFalse);
+
+    final reject = parseModerationResponse(
+      '{"audit_result":"驳回","reason":"含外部联系方式","violation_type":"导流营销"}',
+    );
+    expect(reject.verdict, ForumAuditVerdict.reject);
+    expect(reject.violationType, '导流营销');
+
+    final manual = parseModerationResponse(
+      '结论如下：\n```json\n'
+      '{"audit_result":"待人工复审","reason":"专业内容需人工确认",'
+      '"violation_type":"其他违规"}\n```',
+    );
+    expect(manual.needsManualReview, isTrue);
+    expect(manual.reason, '专业内容需人工确认');
+
+    // 非 JSON / 空结果一律转人工复审，不直接放行
+    expect(parseModerationResponse('我觉得还行').needsManualReview, isTrue);
+    expect(parseModerationResponse('').needsManualReview, isTrue);
+  });
+
+  testWidgets('发帖被 AI 驳回时不入库并提示原因', (tester) async {
+    final repository = InMemoryForumRepository();
+    final moderator = _FakeModerationService(
+      const ForumAuditResult(
+        verdict: ForumAuditVerdict.reject,
+        reason: '正文包含微信联系方式',
+        violationType: '导流营销',
+      ),
+    );
+    final section = repository.sectionTitles.first;
+    final before = repository.countOf(section);
+
+    final router = _composeRouter(repository, moderator);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    router.push('/compose');
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, '加我微信领补贴');
+    await tester.enterText(find.byType(TextField).last, '需要的私聊，微信同号');
+    await tester.tap(find.text('发布'));
+    await tester.pumpAndSettle();
+
+    expect(moderator.calls, 1);
+    expect(find.text('未通过审核'), findsOneWidget);
+    expect(find.textContaining('导流营销'), findsOneWidget);
+    expect(repository.countOf(section), before);
+
+    await tester.tap(find.text('我知道了'));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('AI 无法判定时帖子标记待人工复审', (tester) async {
+    final repository = InMemoryForumRepository();
+    final moderator = _FakeModerationService(
+      const ForumAuditResult(
+        verdict: ForumAuditVerdict.manualReview,
+        reason: '专业内容需人工确认',
+        violationType: '其他违规',
+      ),
+    );
+    final section = repository.sectionTitles.first;
+    const title = '无人机药害补救经验分享';
+
+    final router = _composeRouter(repository, moderator);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    router.push('/compose');
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, title);
+    await tester.enterText(find.byType(TextField).last, '先说结论，再讲过程。');
+    await tester.tap(find.text('发布'));
+    await tester.pumpAndSettle();
+
+    final post = repository.myPosts.firstWhere((p) => p.title == title);
+    expect(post.section, section);
+    expect(post.pendingReview, isTrue);
+    expect(find.text('已提交，人工复审通过后展示'), findsOneWidget);
+
+    repository.markAllMessagesRead();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('评论被 AI 驳回时不写入', (tester) async {
+    final repository = InMemoryForumRepository();
+    final post = repository.postsOf('农友留言区').first;
+    final before = repository.commentsOf(post.id).length;
+    final moderator = _FakeModerationService(
+      const ForumAuditResult(
+        verdict: ForumAuditVerdict.reject,
+        reason: '含人身攻击',
+        violationType: '其他违规',
+      ),
+    );
+
+    await tester.pumpWidget(
+      wrap(
+        ForumPostDetailPage(
+          post: post,
+          repository: repository,
+          moderationService: moderator,
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField), '你就是个骗子');
+    await tester.pump();
+    await tester.tap(find.byTooltip('发送评论'));
+    await tester.pumpAndSettle();
+
+    expect(moderator.calls, 1);
+    expect(find.text('评论未通过审核'), findsOneWidget);
+    expect(repository.commentsOf(post.id).length, before);
+  });
+}
+
+const ForumAuditResult _passResult = ForumAuditResult(
+  verdict: ForumAuditVerdict.pass,
+  reason: '内容正常',
+);
+
+GoRouter _composeRouter(
+  InMemoryForumRepository repository,
+  ForumModerationService moderator,
+) {
+  return GoRouter(
+    routes: [
+      GoRoute(
+        path: '/',
+        builder: (context, state) => const Scaffold(body: Text('首页')),
+      ),
+      GoRoute(
+        path: '/compose',
+        builder: (context, state) => ForumComposePage(
+          repository: repository,
+          moderationService: moderator,
+        ),
+      ),
+    ],
+  );
+}
+
+class _FakeModerationService implements ForumModerationService {
+  _FakeModerationService(this.result);
+
+  final ForumAuditResult result;
+  int calls = 0;
+  String? lastTitle;
+  String? lastContent;
+
+  @override
+  Future<ForumAuditResult> review({
+    required String title,
+    String content = '',
+    String extraText = '',
+  }) async {
+    calls++;
+    lastTitle = title;
+    lastContent = content;
+    return result;
+  }
 }
 
 class _FakeVoiceRecognizer implements ForumVoiceRecognizer {
