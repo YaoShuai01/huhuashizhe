@@ -49,8 +49,25 @@ class ForumPost {
   int likes;
 }
 
+/// 帖子评论
+class ForumComment {
+  ForumComment({
+    required this.id,
+    required this.postId,
+    required this.author,
+    required this.content,
+    required this.createdAt,
+  });
+
+  final String id;
+  final String postId;
+  final String author;
+  final String content;
+  final DateTime createdAt;
+}
+
 /// 消息类型（决定图标与语义）
-enum ForumMessageKind { announcement, reply, moderation }
+enum ForumMessageKind { like, reply, favorite, announcement, moderation }
 
 /// 论坛消息
 class ForumMessage {

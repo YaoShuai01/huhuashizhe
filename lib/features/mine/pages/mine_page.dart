@@ -69,6 +69,12 @@ class MinePage extends StatelessWidget {
               onTap: () => context.push('/forum/my-posts'),
             ),
             _buildMenuItem(
+              icon: Icons.bookmark_border,
+              title: '我的收藏',
+              subtitle: '收藏的帖子都在这里',
+              onTap: () => context.push('/forum/favorites'),
+            ),
+            _buildMenuItem(
               icon: Icons.notifications_none,
               title: '消息提醒',
               subtitle: '版本公告、帖子回复与版务通知',

@@ -1,23 +1,36 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../data/forum_models.dart';
 import '../data/forum_repository.dart';
 import '../forum_scope.dart';
 import '../widgets/forum_back_button.dart';
 import '../widgets/forum_empty_state.dart';
+import '../widgets/forum_message_category_card.dart';
 import '../widgets/forum_message_tile.dart';
 import '../widgets/forum_responsive_body.dart';
 
-/// 消息提醒
-class ForumMessagesPage extends StatelessWidget {
+/// 消息提醒：点赞 / 回复两个分支
+class ForumMessagesPage extends StatefulWidget {
   const ForumMessagesPage({super.key, this.repository});
 
   /// 外部注入的数据源，为空时取 ForumScope 或默认实现
   final ForumRepository? repository;
 
   @override
+  State<ForumMessagesPage> createState() => _ForumMessagesPageState();
+}
+
+class _ForumMessagesPageState extends State<ForumMessagesPage> {
+  static const Color _likeColor = AppColors.accent;
+  static const Color _replyColor = AppColors.primary;
+  static const Color _favoriteColor = AppColors.primaryLight;
+
+  ForumMessageKind _kind = ForumMessageKind.like;
+
+  @override
   Widget build(BuildContext context) {
-    final repo = repository ?? ForumScope.of(context);
+    final repository = widget.repository ?? ForumScope.of(context);
 
     return Scaffold(
       appBar: AppBar(
@@ -25,11 +38,11 @@ class ForumMessagesPage extends StatelessWidget {
         title: const Text('消息提醒'),
         actions: [
           AnimatedBuilder(
-            animation: repo,
+            animation: repository,
             builder: (context, _) {
-              final hasUnread = repo.hasUnreadMessages;
+              final hasUnread = repository.hasUnreadMessages;
               return TextButton(
-                onPressed: hasUnread ? repo.markAllMessagesRead : null,
+                onPressed: hasUnread ? repository.markAllMessagesRead : null,
                 child: Text(
                   '全部已读',
                   style: TextStyle(
@@ -45,29 +58,119 @@ class ForumMessagesPage extends StatelessWidget {
         ],
       ),
       body: AnimatedBuilder(
-        animation: repo,
+        animation: repository,
         builder: (context, _) {
-          final messages = repo.messages;
-          if (messages.isEmpty) {
-            return const ForumEmptyState(
-              icon: Icons.notifications_none,
-              text: '暂无消息',
-            );
-          }
+          final likeMessages =
+              repository.messagesOf(ForumMessageKind.like);
+          final replyMessages =
+              repository.messagesOf(ForumMessageKind.reply);
+          final favoriteMessages =
+              repository.messagesOf(ForumMessageKind.favorite);
+          final messages = switch (_kind) {
+            ForumMessageKind.reply => replyMessages,
+            ForumMessageKind.favorite => favoriteMessages,
+            _ => likeMessages,
+          };
+
           return ForumResponsiveBody(
-            padding: const EdgeInsets.symmetric(vertical: 8),
             child: RefreshIndicator(
-              onRefresh: repo.refresh,
-              child: ListView.builder(
+              onRefresh: repository.refresh,
+              child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                itemCount: messages.length,
-                itemBuilder: (context, index) {
-                  final message = messages[index];
-                  return ForumMessageTile(
-                    message: message,
-                    onTap: () => repo.markMessageRead(message),
-                  );
-                },
+                padding: const EdgeInsets.only(bottom: 24),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: ForumMessageCategoryCard(
+                            label: '点赞',
+                            icon: Icons.thumb_up_alt_outlined,
+                            color: _likeColor,
+                            selected: _kind == ForumMessageKind.like,
+                            unreadCount: _unreadCount(likeMessages),
+                            onTap: () => setState(
+                              () => _kind = ForumMessageKind.like,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ForumMessageCategoryCard(
+                            label: '收藏',
+                            icon: Icons.bookmark_border,
+                            color: _favoriteColor,
+                            selected: _kind == ForumMessageKind.favorite,
+                            unreadCount: _unreadCount(favoriteMessages),
+                            onTap: () => setState(
+                              () => _kind = ForumMessageKind.favorite,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: ForumMessageCategoryCard(
+                            label: '回复',
+                            icon: Icons.chat_bubble_outline,
+                            color: _replyColor,
+                            selected: _kind == ForumMessageKind.reply,
+                            unreadCount: _unreadCount(replyMessages),
+                            onTap: () => setState(
+                              () => _kind = ForumMessageKind.reply,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 6),
+                    child: Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            '消息列表',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.textPrimary,
+                            ),
+                          ),
+                        ),
+                        Flexible(
+                          child: Text(
+                            '共 ${messages.length} 条',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: AppColors.textHint,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (messages.isEmpty)
+                    SizedBox(
+                      height: 320,
+                      child: ForumEmptyState(
+                        icon: Icons.notifications_none,
+                        text: switch (_kind) {
+                          ForumMessageKind.reply => '暂无回复消息',
+                          ForumMessageKind.favorite => '暂无收藏消息',
+                          _ => '暂无点赞消息',
+                        },
+                      ),
+                    )
+                  else
+                    for (final message in messages)
+                      ForumMessageTile(
+                        message: message,
+                        onTap: () => repository.markMessageRead(message),
+                      ),
+                ],
               ),
             ),
           );
@@ -75,4 +178,7 @@ class ForumMessagesPage extends StatelessWidget {
       ),
     );
   }
+
+  int _unreadCount(List<ForumMessage> messages) =>
+      messages.where((m) => m.unread).length;
 }

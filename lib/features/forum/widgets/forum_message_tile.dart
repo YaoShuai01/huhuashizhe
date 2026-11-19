@@ -6,16 +6,35 @@ import '../data/forum_models.dart';
 /// 消息类型到图标的映射
 IconData forumMessageIcon(ForumMessageKind kind) {
   switch (kind) {
-    case ForumMessageKind.announcement:
-      return Icons.campaign_outlined;
+    case ForumMessageKind.like:
+      return Icons.favorite_border;
     case ForumMessageKind.reply:
       return Icons.reply_outlined;
+    case ForumMessageKind.favorite:
+      return Icons.bookmark_border;
+    case ForumMessageKind.announcement:
+      return Icons.campaign_outlined;
     case ForumMessageKind.moderation:
       return Icons.shield_outlined;
   }
 }
 
-/// 单条消息卡片
+/// 消息类型到主题色的映射
+Color forumMessageColor(ForumMessageKind kind) {
+  switch (kind) {
+    case ForumMessageKind.like:
+      return AppColors.accent;
+    case ForumMessageKind.reply:
+      return AppColors.primary;
+    case ForumMessageKind.favorite:
+      return AppColors.primaryLight;
+    case ForumMessageKind.announcement:
+    case ForumMessageKind.moderation:
+      return AppColors.primary;
+  }
+}
+
+/// 单条消息
 class ForumMessageTile extends StatelessWidget {
   const ForumMessageTile({
     super.key,
@@ -29,12 +48,19 @@ class ForumMessageTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final unread = message.unread;
-    return Card(
+    final color = forumMessageColor(message.kind);
+
+    return Material(
+      color: AppColors.surface,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(14),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: const BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: AppColors.surfaceVariant),
+            ),
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -42,28 +68,32 @@ class ForumMessageTile extends StatelessWidget {
                 clipBehavior: Clip.none,
                 children: [
                   Container(
-                    width: 38,
-                    height: 38,
+                    width: 44,
+                    height: 44,
                     decoration: BoxDecoration(
-                      color: AppColors.primaryLight.withValues(alpha: 0.14),
-                      shape: BoxShape.circle,
+                      color: color.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
                       forumMessageIcon(message.kind),
-                      size: 20,
-                      color: AppColors.primary,
+                      size: 22,
+                      color: color,
                     ),
                   ),
                   if (unread)
                     Positioned(
-                      right: -1,
-                      top: -1,
+                      right: -2,
+                      top: -2,
                       child: Container(
-                        width: 7,
-                        height: 7,
-                        decoration: const BoxDecoration(
+                        width: 9,
+                        height: 9,
+                        decoration: BoxDecoration(
                           color: AppColors.error,
                           shape: BoxShape.circle,
+                          border: Border.all(
+                            color: AppColors.surface,
+                            width: 1.5,
+                          ),
                         ),
                       ),
                     ),

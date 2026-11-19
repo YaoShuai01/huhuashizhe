@@ -53,6 +53,9 @@ class ForumSectionPage extends StatelessWidget {
             posts: posts,
             onLike: repo.toggleLike,
             onRefresh: repo.refresh,
+            isFavorite: repo.isFavorite,
+            onFavorite: repo.toggleFavorite,
+            onTapPost: (post) => context.push('/forum/post', extra: post),
           );
         },
       ),

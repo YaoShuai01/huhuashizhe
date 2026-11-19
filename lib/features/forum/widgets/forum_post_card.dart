@@ -11,6 +11,8 @@ class ForumPostCard extends StatelessWidget {
     required this.onLike,
     this.onTap,
     this.showSection = true,
+    this.favorited = false,
+    this.onFavorite,
   });
 
   final ForumPost post;
@@ -19,6 +21,12 @@ class ForumPostCard extends StatelessWidget {
 
   /// 是否展示所属版块标签（我的帖子页可关闭）
   final bool showSection;
+
+  /// 当前是否已收藏
+  final bool favorited;
+
+  /// 收藏切换回调，为空时不展示收藏入口
+  final VoidCallback? onFavorite;
 
   String get _avatarText {
     if (post.author.isEmpty) return '?';
@@ -115,6 +123,29 @@ class ForumPostCard extends StatelessWidget {
                     )
                   else
                     const Spacer(),
+                  if (onFavorite != null)
+                    Tooltip(
+                      message: favorited ? '取消收藏' : '收藏',
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: onFavorite,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          child: Icon(
+                            favorited
+                                ? Icons.bookmark
+                                : Icons.bookmark_border,
+                            size: 16,
+                            color: favorited
+                                ? AppColors.primary
+                                : AppColors.textHint,
+                          ),
+                        ),
+                      ),
+                    ),
                   InkWell(
                     borderRadius: BorderRadius.circular(12),
                     onTap: onLike,

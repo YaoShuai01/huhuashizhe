@@ -3,8 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:huhuashizhe/features/forum/data/forum_models.dart';
 import 'package:huhuashizhe/features/forum/data/forum_repository.dart';
 import 'package:huhuashizhe/features/forum/forum_scope.dart';
+import 'package:huhuashizhe/features/forum/pages/forum_favorites_page.dart';
 import 'package:huhuashizhe/features/forum/pages/forum_messages_page.dart';
 import 'package:huhuashizhe/features/forum/pages/forum_page.dart';
+import 'package:huhuashizhe/features/forum/pages/forum_post_detail_page.dart';
 import 'package:huhuashizhe/features/forum/pages/forum_section_page.dart';
 
 void main() {
@@ -93,7 +95,7 @@ void main() {
     expect(find.text('交流区'), findsNothing);
   });
 
-  testWidgets('消息页由数据源驱动，可全部已读', (tester) async {
+  testWidgets('消息页分点赞与回复两个分支，可全部已读', (tester) async {
     final repository = InMemoryForumRepository();
 
     await tester.pumpWidget(
@@ -105,8 +107,27 @@ void main() {
       ),
     );
 
-    expect(find.text('v2.9.6 版本已发布'), findsOneWidget);
+    expect(find.text('点赞'), findsOneWidget);
+    expect(find.text('回复'), findsOneWidget);
+    expect(find.text('收藏'), findsOneWidget);
+
+    // 默认展示点赞消息
+    expect(find.text('农友 种田的老张 赞了你的帖子'), findsOneWidget);
+    expect(find.text('意见反馈已回复'), findsNothing);
     expect(repository.hasUnreadMessages, isTrue);
+
+    await tester.tap(find.text('回复'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('意见反馈已回复'), findsOneWidget);
+    expect(find.text('举报处理结果通知'), findsOneWidget);
+    expect(find.text('农友 种田的老张 赞了你的帖子'), findsNothing);
+
+    await tester.tap(find.text('收藏'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('农友 农机手阿伟 收藏了你的帖子'), findsOneWidget);
+    expect(find.text('意见反馈已回复'), findsNothing);
 
     await tester.tap(find.text('全部已读'));
     await tester.pumpAndSettle();
@@ -164,5 +185,75 @@ void main() {
     await repository.refresh();
 
     expect(notified, 1);
+  });
+
+  testWidgets('帖子详情展示评论并可发表评论', (tester) async {
+    final repository = InMemoryForumRepository();
+    final post = repository.postsOf('农友留言区').first;
+    final before = repository.commentsOf(post.id).length;
+
+    await tester.pumpWidget(
+      wrap(
+        ForumPostDetailPage(post: post, repository: repository),
+      ),
+    );
+
+    expect(find.text(post.title), findsOneWidget);
+    expect(find.text('全部评论 $before'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), '参数没问题，注意风向');
+    await tester.pump();
+    await tester.tap(find.byTooltip('发送评论'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('参数没问题，注意风向'), findsOneWidget);
+    expect(repository.commentsOf(post.id).length, before + 1);
+    expect(find.text('全部评论 ${before + 1}'), findsOneWidget);
+  });
+
+  testWidgets('详情页收藏按钮切换状态并给出提示', (tester) async {
+    final repository = InMemoryForumRepository();
+    final post = repository.postsOf('农友留言区').first;
+
+    await tester.pumpWidget(
+      wrap(ForumPostDetailPage(post: post, repository: repository)),
+    );
+
+    expect(repository.isFavorite(post), isFalse);
+    expect(find.text('收藏'), findsOneWidget);
+
+    await tester.tap(find.text('收藏'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(repository.isFavorite(post), isTrue);
+    expect(find.text('已收藏'), findsOneWidget);
+    expect(find.text('已收藏，可在「我的 - 我的收藏」查看'), findsOneWidget);
+
+    await tester.tap(find.text('已收藏'));
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(repository.isFavorite(post), isFalse);
+    expect(find.text('已取消收藏'), findsOneWidget);
+
+    // 等提示自动消失，避免遗留定时器
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('收藏帖子后出现在我的收藏', (tester) async {
+    final repository = InMemoryForumRepository();
+    final post = repository.postsOf('农友留言区').first;
+
+    await tester.pumpWidget(
+      wrap(ForumFavoritesPage(repository: repository)),
+    );
+
+    expect(find.text('还没有收藏的帖子'), findsOneWidget);
+
+    repository.toggleFavorite(post);
+    await tester.pumpAndSettle();
+
+    expect(repository.isFavorite(post), isTrue);
+    expect(find.text(post.title), findsOneWidget);
+    expect(find.text('还没有收藏的帖子'), findsNothing);
   });
 }

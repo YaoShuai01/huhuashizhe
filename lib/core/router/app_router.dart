@@ -23,11 +23,14 @@ import '../../features/schedule/pages/schedule_gate_page.dart';
 import '../../features/schedule/pages/schedule_page.dart';
 import '../../features/schedule/pages/schedule_edit_page.dart';
 import '../../features/schedule/pages/schedule_messages_page.dart';
+import '../../features/forum/data/forum_models.dart';
 import '../../features/forum/pages/forum_page.dart';
 import '../../features/forum/pages/forum_section_page.dart';
 import '../../features/forum/pages/forum_compose_page.dart';
 import '../../features/forum/pages/forum_my_posts_page.dart';
 import '../../features/forum/pages/forum_messages_page.dart';
+import '../../features/forum/pages/forum_favorites_page.dart';
+import '../../features/forum/pages/forum_post_detail_page.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -166,6 +169,17 @@ final appRouter = GoRouter(
       path: '/forum/messages',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const ForumMessagesPage(),
+    ),
+    GoRoute(
+      path: '/forum/post',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) =>
+          ForumPostDetailPage(post: state.extra as ForumPost),
+    ),
+    GoRoute(
+      path: '/forum/favorites',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const ForumFavoritesPage(),
     ),
     GoRoute(
       path: '/mine/account',
