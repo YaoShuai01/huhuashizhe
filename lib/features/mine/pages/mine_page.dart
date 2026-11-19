@@ -77,12 +77,6 @@ class MinePage extends StatelessWidget {
               onTap: () => context.push('/forum/favorites'),
             ),
             _buildMenuItem(
-              icon: Icons.notifications_none,
-              title: '消息提醒',
-              subtitle: '版本公告、帖子回复与版务通知',
-              onTap: () => context.push('/forum/messages'),
-            ),
-            _buildMenuItem(
               icon: Icons.description_outlined,
               title: '法律文书及用户条款',
               subtitle: '隐私政策、用户协议',

@@ -8,6 +8,7 @@ import 'package:huhuashizhe/features/forum/pages/forum_messages_page.dart';
 import 'package:huhuashizhe/features/forum/pages/forum_page.dart';
 import 'package:huhuashizhe/features/forum/pages/forum_post_detail_page.dart';
 import 'package:huhuashizhe/features/forum/services/forum_voice_input.dart';
+import 'package:huhuashizhe/features/forum/widgets/forum_message_bell.dart';
 import 'package:huhuashizhe/features/forum/pages/forum_section_page.dart';
 
 void main() {
@@ -39,6 +40,27 @@ void main() {
     expect(find.text('原创区'), findsNothing);
     expect(find.text('纯爱区'), findsNothing);
     expect(find.text('添加关注'), findsNothing);
+  });
+
+  testWidgets('论坛右上角铃铛显示未读数并随已读状态更新', (tester) async {
+    final repository = InMemoryForumRepository();
+
+    await tester.pumpWidget(wrap(ForumPage(repository: repository)));
+
+    final unread = repository.messages.where((m) => m.unread).length;
+    expect(unread, greaterThan(0));
+    expect(
+      tester.widget<ForumMessageBell>(find.byType(ForumMessageBell)).unreadCount,
+      unread,
+    );
+
+    repository.markAllMessagesRead();
+    await tester.pump();
+
+    expect(
+      tester.widget<ForumMessageBell>(find.byType(ForumMessageBell)).unreadCount,
+      0,
+    );
   });
 
   testWidgets('切换问答区后展示问答区版块', (tester) async {
