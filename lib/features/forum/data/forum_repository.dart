@@ -163,7 +163,7 @@ class InMemoryForumRepository extends ForumRepository {
     return [
       ForumPost(
         id: 'seed_1',
-        section: '网友留言区',
+        section: '农友留言区',
         title: '第一次用护花使者，求作业参数参考',
         content: '水稻田，3 米高度、4 米每秒、行距 5 米，这样设置合理吗？有没有老哥指点一下。',
         author: '种田的老张',
@@ -190,7 +190,7 @@ class InMemoryForumRepository extends ForumRepository {
       ),
       ForumPost(
         id: 'seed_4',
-        section: '网友留言区',
+        section: '农友留言区',
         title: '作业记录导出能不能加个 Excel？',
         content: '现在只能看列表，想导出来做台账，希望后面版本考虑一下。',
         author: '农机手阿伟',
