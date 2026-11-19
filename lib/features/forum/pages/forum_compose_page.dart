@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/forum_repository.dart';
 import '../forum_scope.dart';
+import '../widgets/forum_back_button.dart';
 import '../widgets/forum_responsive_body.dart';
 import '../widgets/forum_section_picker.dart';
 
@@ -94,6 +95,7 @@ class _ForumComposePageState extends State<ForumComposePage> {
 
     return Scaffold(
       appBar: AppBar(
+        leading: const ForumBackButton(),
         title: const Text('发布帖子'),
         actions: [
           TextButton(

@@ -37,6 +37,11 @@ abstract class ForumRepository extends ChangeNotifier {
   void markAllMessagesRead();
 
   void markMessageRead(ForumMessage message);
+
+  /// 下拉手动刷新时调用，外部数据源可在此拉取最新数据后通知界面
+  Future<void> refresh() async {
+    notifyListeners();
+  }
 }
 
 /// 默认的内存实现（App 重启后恢复示例数据）。

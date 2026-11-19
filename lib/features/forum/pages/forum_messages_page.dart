@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/forum_repository.dart';
 import '../forum_scope.dart';
+import '../widgets/forum_back_button.dart';
 import '../widgets/forum_empty_state.dart';
 import '../widgets/forum_message_tile.dart';
 import '../widgets/forum_responsive_body.dart';
@@ -20,6 +21,7 @@ class ForumMessagesPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
+        leading: const ForumBackButton(),
         title: const Text('消息提醒'),
         actions: [
           AnimatedBuilder(
@@ -54,15 +56,19 @@ class ForumMessagesPage extends StatelessWidget {
           }
           return ForumResponsiveBody(
             padding: const EdgeInsets.symmetric(vertical: 8),
-            child: ListView.builder(
-              itemCount: messages.length,
-              itemBuilder: (context, index) {
-                final message = messages[index];
-                return ForumMessageTile(
-                  message: message,
-                  onTap: () => repo.markMessageRead(message),
-                );
-              },
+            child: RefreshIndicator(
+              onRefresh: repo.refresh,
+              child: ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
+                itemCount: messages.length,
+                itemBuilder: (context, index) {
+                  final message = messages[index];
+                  return ForumMessageTile(
+                    message: message,
+                    onTap: () => repo.markMessageRead(message),
+                  );
+                },
+              ),
             ),
           );
         },

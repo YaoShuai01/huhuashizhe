@@ -5,6 +5,7 @@ import 'package:huhuashizhe/features/forum/data/forum_repository.dart';
 import 'package:huhuashizhe/features/forum/forum_scope.dart';
 import 'package:huhuashizhe/features/forum/pages/forum_messages_page.dart';
 import 'package:huhuashizhe/features/forum/pages/forum_page.dart';
+import 'package:huhuashizhe/features/forum/pages/forum_section_page.dart';
 
 void main() {
   Widget wrap(Widget child) => MaterialApp(home: child);
@@ -126,5 +127,42 @@ void main() {
     expect(repository.countOf('新手提问区'), before + 1);
     expect(repository.postsOf('新手提问区').first.id, post.id);
     expect(repository.myPosts.any((p) => p.id == post.id), isTrue);
+  });
+
+  testWidgets('版块页带有返回按钮且支持下拉刷新', (tester) async {
+    final repository = InMemoryForumRepository();
+    var refreshed = 0;
+    repository.addListener(() => refreshed++);
+
+    await tester.pumpWidget(
+      wrap(
+        ForumSectionPage(
+          section: '农友留言区',
+          repository: repository,
+        ),
+      ),
+    );
+
+    expect(find.byTooltip('返回'), findsOneWidget);
+    expect(find.byType(RefreshIndicator), findsOneWidget);
+
+    await tester.fling(
+      find.byType(ListView),
+      const Offset(0, 300),
+      1000,
+    );
+    await tester.pumpAndSettle();
+
+    expect(refreshed, greaterThan(0));
+  });
+
+  test('refresh 会通知数据源监听者', () async {
+    final repository = InMemoryForumRepository();
+    var notified = 0;
+    repository.addListener(() => notified++);
+
+    await repository.refresh();
+
+    expect(notified, 1);
   });
 }
