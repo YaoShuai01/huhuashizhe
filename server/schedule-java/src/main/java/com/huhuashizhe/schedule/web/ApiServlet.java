@@ -32,7 +32,13 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.sql.Driver;
 import java.sql.DriverManager;
@@ -48,6 +54,8 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * 轮协 API：
@@ -57,11 +65,15 @@ import java.util.logging.Logger;
  * POST /verify       member Bearer token {memberId} -> 记录成员已验证
  * POST /presence     member Bearer token {memberId} -> 刷新在线心跳
  * GET  /health       健康检查
+ * GET  /version      -> 最新 App 版本信息（服务器本地发布）
+ * POST /admin/publish?version=x.y.z&versionCode=n&notes=...  admin Bearer token，请求体为 APK 原始字节
  */
 @WebServlet(name = "scheduleApiServlet", urlPatterns = {"/*"}, loadOnStartup = 1)
 public class ApiServlet extends HttpServlet {
     private static final Logger LOG = Logger.getLogger(ApiServlet.class.getName());
     private static final long MAX_BODY_BYTES = 1_000_000L;
+    /** 允许上传的 APK 上限（字节） */
+    private static final long MAX_APK_BYTES = 300L * 1024 * 1024;
     /** 最近 5 分钟内上报过心跳视为在线 */
     private static final long ONLINE_WINDOW_SECONDS = 300L;
 
@@ -151,6 +163,15 @@ public class ApiServlet extends HttpServlet {
                 presence(request, response);
                 return;
             }
+            if ("/version".equals(path) && "GET".equalsIgnoreCase(request.getMethod())) {
+                appVersion(response);
+                return;
+            }
+            if ("/admin/publish".equals(path) && "POST".equalsIgnoreCase(request.getMethod())) {
+                requireAdmin(request);
+                publishApp(request, response);
+                return;
+            }
             if ("/schedule".equals(path)) {
                 TokenPayload token = requireAuth(request);
                 if ("GET".equalsIgnoreCase(request.getMethod())) {
@@ -227,6 +248,154 @@ public class ApiServlet extends HttpServlet {
         body.put("schemaVersion", 1);
         body.put("time", Instant.now().toString());
         write(response, 200, body);
+    }
+
+    /** 读取服务器本地发布的最新版本信息。 */
+    private void appVersion(HttpServletResponse response) throws IOException {
+        Path file = appDir().resolve("version.json");
+        if (!Files.isRegularFile(file)) {
+            throw new ApiException(404, "no_release", "服务器尚未发布版本");
+        }
+        byte[] bytes = Files.readAllBytes(file);
+        response.setStatus(200);
+        response.setContentType("application/json;charset=UTF-8");
+        response.setCharacterEncoding("UTF-8");
+        response.setHeader("Cache-Control", "no-store");
+        response.getOutputStream().write(bytes);
+    }
+
+    /**
+     * 管理员上传新的 APK：请求体直接是安装包字节，避免 multipart 解析。
+     * 文件落到 Tomcat ROOT webapp 的 /app 目录，由默认静态资源 Servlet 提供下载（支持 Range 续传）。
+     */
+    private void publishApp(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        String version = trim(request.getParameter("version"));
+        if (!version.matches("\\d+\\.\\d+\\.\\d+")) {
+            throw new ApiException(400, "bad_request", "版本号格式应为 x.y.z");
+        }
+        String notes = request.getParameter("notes");
+        if (notes == null) {
+            notes = "";
+        }
+        long contentLength = request.getContentLengthLong();
+        if (contentLength == 0) {
+            throw new ApiException(400, "bad_request", "缺少安装包内容");
+        }
+        if (contentLength > MAX_APK_BYTES) {
+            throw new ApiException(413, "payload_too_large", "安装包超过 300MB");
+        }
+
+        Path dir = appDir();
+        Files.createDirectories(dir);
+        String fileName = "huhuashizhe_v" + version + ".apk";
+        Path temp = dir.resolve(fileName + ".uploading");
+        long total = 0;
+        try (InputStream in = request.getInputStream();
+                OutputStream out = Files.newOutputStream(temp)) {
+            byte[] buffer = new byte[64 * 1024];
+            int read;
+            while ((read = in.read(buffer)) > 0) {
+                total += read;
+                if (total > MAX_APK_BYTES) {
+                    throw new ApiException(413, "payload_too_large", "安装包超过 300MB");
+                }
+                out.write(buffer, 0, read);
+            }
+        } catch (ApiException e) {
+            Files.deleteIfExists(temp);
+            throw e;
+        } catch (Exception e) {
+            Files.deleteIfExists(temp);
+            LOG.log(Level.SEVERE, "保存安装包失败: " + version, e);
+            throw new ApiException(500, "write_failed", "安装包保存失败");
+        }
+        if (total < 1024 * 1024) {
+            Files.deleteIfExists(temp);
+            throw new ApiException(400, "bad_request", "安装包内容不完整（" + total + " 字节）");
+        }
+        Path target = dir.resolve(fileName);
+        Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
+
+        int versionCode = parseVersionCode(request.getParameter("versionCode"), version);
+        String baseUrl = request.getScheme() + "://" + request.getServerName()
+                + ":" + request.getServerPort();
+        String downloadUrl = baseUrl + "/app/" + fileName;
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("schemaVersion", 1);
+        body.put("versionName", version);
+        body.put("versionCode", versionCode);
+        body.put("releaseNotes", notes);
+        body.put("downloadUrl", downloadUrl);
+        body.put("publishedAt", Instant.now().toString());
+        Files.write(dir.resolve("version.json"),
+                mapper.writerWithDefaultPrettyPrinter().writeValueAsBytes(body),
+                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+
+        cleanupOldApks(dir, fileName);
+        LOG.info("App 新版本已发布: v" + version + "（" + total + " 字节）");
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("ok", true);
+        result.put("versionName", version);
+        result.put("versionCode", versionCode);
+        result.put("downloadUrl", downloadUrl);
+        result.put("size", total);
+        write(response, 200, result);
+    }
+
+    /** APK 与 version.json 的存放目录：Tomcat ROOT webapp 下的 app 目录。 */
+    private Path appDir() {
+        String base = System.getProperty("catalina.base");
+        if (base == null || base.trim().isEmpty()) {
+            base = System.getProperty("java.io.tmpdir");
+        }
+        return Paths.get(base, "webapps", "ROOT", "app").toAbsolutePath().normalize();
+    }
+
+    private static int parseVersionCode(String value, String version) {
+        try {
+            String trimmed = trim(value);
+            if (!trimmed.isEmpty()) {
+                return Integer.parseInt(trimmed);
+            }
+        } catch (NumberFormatException ignored) {
+            // 回退到由版本号推导
+        }
+        String[] parts = version.split("\\.");
+        return Integer.parseInt(parts[0]) * 10000
+                + Integer.parseInt(parts[1]) * 100
+                + Integer.parseInt(parts[2]);
+    }
+
+    /** 只保留最新 3 个 APK，避免免费服务器磁盘被历史安装包占满。 */
+    private void cleanupOldApks(Path dir, String keepName) {
+        try (Stream<Path> stream = Files.list(dir)) {
+            List<Path> apks = stream
+                    .filter(p -> p.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".apk"))
+                    .sorted((a, b) -> {
+                        try {
+                            return Files.getLastModifiedTime(b).compareTo(Files.getLastModifiedTime(a));
+                        } catch (IOException e) {
+                            return 0;
+                        }
+                    })
+                    .collect(Collectors.toList());
+            int kept = 0;
+            for (Path apk : apks) {
+                if (apk.getFileName().toString().equals(keepName) || kept < 2) {
+                    kept++;
+                    continue;
+                }
+                try {
+                    Files.deleteIfExists(apk);
+                } catch (IOException e) {
+                    LOG.log(Level.WARNING, "清理旧安装包失败: " + apk, e);
+                }
+            }
+        } catch (IOException e) {
+            LOG.log(Level.WARNING, "清理旧安装包目录失败", e);
+        }
     }
 
     /** 打包在 war 里的轮协网页版，地址 /web */
@@ -431,6 +600,14 @@ public class ApiServlet extends HttpServlet {
         TokenPayload payload = tokenService.verify(header.substring(7).trim());
         if (payload == null) {
             throw new ApiException(401, "unauthorized", "登录已失效，请重新输入轮协密钥");
+        }
+        return payload;
+    }
+
+    private TokenPayload requireAdmin(HttpServletRequest request) {
+        TokenPayload payload = requireAuth(request);
+        if (!"admin".equals(payload.role)) {
+            throw new ApiException(403, "forbidden", "只有管理员可以发布新版本");
         }
         return payload;
     }

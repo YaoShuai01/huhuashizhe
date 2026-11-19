@@ -3,12 +3,14 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 
 import '../../data/local_database.dart';
+import 'server_config.dart';
 
-/// 轮协 Worker 地址配置。
+/// 轮协服务地址配置。
 ///
 /// 地址不写死在源码里：优先用编译参数 `--dart-define=SCHEDULE_API_URL=...`，
-/// 否则从公开仓库的 config/schedule.json 读取并缓存 24 小时。
-/// 这样 Worker 换域名/换后端时，不需要重新发版。
+/// 否则从阿里云服务器的 config/schedule.json 读取并缓存 24 小时；
+/// 服务器不可达时回退到旧 GitHub 通道（过渡期保留，不再维护）。
+/// 这样服务器换地址时，不需要重新发版。
 class ScheduleConfig {
   ScheduleConfig._();
 
@@ -16,8 +18,9 @@ class ScheduleConfig {
   static const String _branch = 'main';
   static const String _configPath = 'config/schedule.json';
 
-  static const String _cacheKey = 'schedule_api_base_url';
-  static const String _cacheAtKey = 'schedule_api_base_url_at';
+  /// 缓存键带版本号，升级后立即忽略旧地址，不用等 24 小时缓存过期
+  static const String _cacheKey = 'schedule_api_base_url_v2';
+  static const String _cacheAtKey = 'schedule_api_base_url_at_v2';
   static const Duration _cacheTtl = Duration(hours: 24);
 
   /// 编译期覆盖，测试或临时部署时使用
@@ -25,10 +28,11 @@ class ScheduleConfig {
     'SCHEDULE_API_URL',
   );
 
-  /// 兜底地址：GitHub 配置拉取失败时使用，保证新设备首次进入可用
-  static const String _fallbackBaseUrl = 'https://437iy0be1396.vicp.fun';
+  /// 兜底地址：配置拉取失败时使用，保证新设备首次进入可用
+  static const String _fallbackBaseUrl = scheduleApiBaseUrl;
 
   static List<String> get _configUrls => [
+    '$serverBaseUrl/config/schedule.json',
     'https://raw.githubusercontent.com/$_repo/$_branch/$_configPath',
     for (final prefix in const [
       'https://ghfast.top/',
