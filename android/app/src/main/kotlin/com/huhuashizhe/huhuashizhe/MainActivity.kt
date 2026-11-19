@@ -34,6 +34,9 @@ import android.os.Handler
 import android.os.Looper
 import android.os.ParcelUuid
 import android.provider.Settings
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.view.Surface
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -54,6 +57,9 @@ class MainActivity : FlutterActivity() {
     private val WIFI_EVENT_CHANNEL = "com.huhuashizhe/wifi_events"
     private val GNSS_EVENT_CHANNEL = "com.huhuashizhe/gnss_events"
     private val COMPASS_EVENT_CHANNEL = "com.huhuashizhe/compass_events"
+    private val VOICE_CHANNEL = "com.huhuashizhe/voice_input"
+    private var voiceChannel: MethodChannel? = null
+    private var speechRecognizer: SpeechRecognizer? = null
     private var locationResult: MethodChannel.Result? = null
     private var locationManager: LocationManager? = null
     private var locationListener: LocationListener? = null
@@ -213,6 +219,21 @@ class MainActivity : FlutterActivity() {
                 }
             }
         )
+
+        // 语音输入通道（论坛发帖/评论）
+        val voice = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, VOICE_CHANNEL)
+        voiceChannel = voice
+        voice.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "start" -> startVoiceRecognition(result)
+                "stop" -> {
+                    stopVoiceRecognition()
+                    result.success(true)
+                }
+                "isAvailable" -> result.success(SpeechRecognizer.isRecognitionAvailable(this))
+                else -> result.notImplemented()
+            }
+        }
     }
 
     private fun getDownloadDir(result: MethodChannel.Result) {
@@ -1069,12 +1090,105 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    // ==================== 语音输入 ====================
+
+    private fun startVoiceRecognition(result: MethodChannel.Result) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            result.error("NO_PERMISSION", "缺少麦克风权限", null)
+            return
+        }
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            result.error("UNAVAILABLE", "设备不支持语音识别，请先安装语音服务", null)
+            return
+        }
+        if (speechRecognizer == null) {
+            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).also {
+                it.setRecognitionListener(voiceListener)
+            }
+        }
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "zh-CN")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "zh-CN")
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        }
+        try {
+            speechRecognizer?.startListening(intent)
+            result.success(true)
+        } catch (e: Exception) {
+            result.error("START_FAILED", "语音识别启动失败: ${e.message}", null)
+        }
+    }
+
+    private fun stopVoiceRecognition() {
+        try {
+            speechRecognizer?.stopListening()
+        } catch (e: Exception) {
+        }
+        try {
+            speechRecognizer?.cancel()
+            speechRecognizer?.destroy()
+        } catch (e: Exception) {
+        }
+        speechRecognizer = null
+    }
+
+    private fun emitVoice(state: String, text: String? = null) {
+        val payload = mutableMapOf<String, Any>("state" to state)
+        if (text != null) payload["text"] = text
+        runOnUiThread { voiceChannel?.invokeMethod("onVoiceEvent", payload) }
+    }
+
+    private val voiceListener = object : RecognitionListener {
+        override fun onReadyForSpeech(params: Bundle?) = emitVoice("listening")
+        override fun onBeginningOfSpeech() {}
+        override fun onRmsChanged(rmsdB: Float) {}
+        override fun onBufferReceived(buffer: ByteArray?) {}
+        override fun onEndOfSpeech() = emitVoice("processing")
+        override fun onEvent(eventType: Int, params: Bundle?) {}
+
+        override fun onError(error: Int) {
+            emitVoice("error", voiceErrorMessage(error))
+        }
+
+        override fun onResults(results: Bundle?) {
+            val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+            if (text.isNullOrBlank()) {
+                emitVoice("error", "未识别到语音内容")
+            } else {
+                emitVoice("result", text)
+            }
+        }
+
+        override fun onPartialResults(partialResults: Bundle?) {
+            val text = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+            if (!text.isNullOrBlank()) emitVoice("partial", text)
+        }
+    }
+
+    private fun voiceErrorMessage(error: Int): String = when (error) {
+        SpeechRecognizer.ERROR_AUDIO -> "录音出错，请重试"
+        SpeechRecognizer.ERROR_CLIENT -> "语音识别已取消"
+        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "缺少麦克风权限"
+        SpeechRecognizer.ERROR_NETWORK -> "网络异常，请检查连接后重试"
+        SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "网络超时，请重试"
+        SpeechRecognizer.ERROR_NO_MATCH -> "未识别到语音内容"
+        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "识别服务忙，请稍后重试"
+        SpeechRecognizer.ERROR_SERVER -> "语音识别服务异常"
+        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "没有检测到说话，请重试"
+        else -> "语音识别失败，请重试"
+    }
+
     override fun onDestroy() {
         stopBluetoothScan(null)
         stopWifiScan(null)
         stopGnssKeepAlive()
         stopGnssMonitoring()
         stopCompass()
+        stopVoiceRecognition()
         super.onDestroy()
     }
 }

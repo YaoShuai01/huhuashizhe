@@ -7,6 +7,7 @@ import 'package:huhuashizhe/features/forum/pages/forum_favorites_page.dart';
 import 'package:huhuashizhe/features/forum/pages/forum_messages_page.dart';
 import 'package:huhuashizhe/features/forum/pages/forum_page.dart';
 import 'package:huhuashizhe/features/forum/pages/forum_post_detail_page.dart';
+import 'package:huhuashizhe/features/forum/services/forum_voice_input.dart';
 import 'package:huhuashizhe/features/forum/pages/forum_section_page.dart';
 
 void main() {
@@ -256,4 +257,63 @@ void main() {
     expect(find.text(post.title), findsOneWidget);
     expect(find.text('还没有收藏的帖子'), findsNothing);
   });
+
+  testWidgets('语音输入把识别结果写入评论框', (tester) async {
+    final repository = InMemoryForumRepository();
+    final post = repository.postsOf('农友留言区').first;
+    final voice = _FakeVoiceRecognizer();
+
+    await tester.pumpWidget(
+      wrap(
+        ForumPostDetailPage(
+          post: post,
+          repository: repository,
+          voiceRecognizer: voice,
+        ),
+      ),
+    );
+
+    await tester.tap(find.byIcon(Icons.mic_none));
+    await tester.pump();
+
+    expect(voice.started, isTrue);
+    expect(find.byIcon(Icons.mic), findsOneWidget);
+
+    voice.emit('这片地需要补喷一次');
+    await tester.pump();
+
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.controller!.text, '这片地需要补喷一次');
+
+    await tester.tap(find.byIcon(Icons.mic));
+    await tester.pump();
+
+    expect(find.byIcon(Icons.mic_none), findsOneWidget);
+  });
+}
+
+class _FakeVoiceRecognizer implements ForumVoiceRecognizer {
+  bool started = false;
+  ValueChanged<String>? _onText;
+  ForumVoiceStatusHandler? _onStatus;
+
+  @override
+  Future<bool> start({
+    required ValueChanged<String> onText,
+    required ForumVoiceStatusHandler onStatus,
+  }) async {
+    started = true;
+    _onText = onText;
+    _onStatus = onStatus;
+    onStatus(ForumVoiceStatus.listening, null);
+    return true;
+  }
+
+  @override
+  Future<void> stop() async {
+    _onStatus?.call(ForumVoiceStatus.idle, null);
+    _onText = null;
+  }
+
+  void emit(String text) => _onText?.call(text);
 }

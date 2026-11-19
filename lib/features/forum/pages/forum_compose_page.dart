@@ -4,9 +4,11 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/forum_repository.dart';
 import '../forum_scope.dart';
+import '../services/forum_voice_input.dart';
 import '../widgets/forum_back_button.dart';
 import '../widgets/forum_responsive_body.dart';
 import '../widgets/forum_section_picker.dart';
+import '../widgets/forum_voice_button.dart';
 
 /// 发帖页
 class ForumComposePage extends StatefulWidget {
@@ -14,12 +16,16 @@ class ForumComposePage extends StatefulWidget {
     super.key,
     this.initialSection,
     this.repository,
+    this.voiceRecognizer,
   });
 
   final String? initialSection;
 
   /// 外部注入的数据源，为空时取 ForumScope 或默认实现
   final ForumRepository? repository;
+
+  /// 外部注入的语音识别实现，为空时使用系统语音识别
+  final ForumVoiceRecognizer? voiceRecognizer;
 
   @override
   State<ForumComposePage> createState() => _ForumComposePageState();
@@ -134,9 +140,16 @@ class _ForumComposePageState extends State<ForumComposePage> {
               controller: _contentCtrl,
               maxLines: 9,
               maxLength: _contentMaxLength,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: '正文：描述你的问题、经验或作业情况…',
                 alignLabelWithHint: true,
+                suffixIcon: Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: ForumVoiceButton(
+                    controller: _contentCtrl,
+                    recognizer: widget.voiceRecognizer,
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 8),
