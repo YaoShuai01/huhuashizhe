@@ -64,7 +64,7 @@ class FeatureIntroPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _featureCard('飞行任务', Icons.flight_takeoff, '创建植保作业任务，在地图上圈选作业区域，自动规划飞行路线，支持航点编辑和微调。'),
-            _featureCard('AI助手', Icons.auto_awesome, '基于小米MiMo大模型的智能植保助手，提供病虫害诊断、用药推荐、飞行参数优化等专业建议。'),
+            _featureCard('AI助手', Icons.auto_awesome, '基于千问AI大模型的智能植保助手，提供病虫害诊断、用药推荐、飞行参数优化等专业建议。'),
             _featureCard('预设管理', Icons.bookmark, '保存常用作业参数为预设，一键调用。支持飞行高度、速度、喷洒量等参数的自定义配置。'),
             _featureCard('天气信息', Icons.cloud, '实时显示当前位置天气（数据来源：中国气象局），包括温度、风向、风速、湿度，支持风力预警。'),
             _featureCard('设备连接', Icons.wifi, '扫描周边 WiFi 并连接无人机热点，实时查看连接状态与信号强度。'),
@@ -131,7 +131,7 @@ class OpenSourceLicensePage extends StatelessWidget {
           _licenseItem('path_provider', 'BSD 3-Clause', 'Flutter'),
           _licenseItem('proj4dart', 'MIT', 'maRci002'),
           _licenseItem('intl', 'BSD 3-Clause', 'Dart'),
-          _licenseItem('小米MiMo大模型', '商用许可', '小米集团'),
+          _licenseItem('千问AI大模型', '商用许可', '千问AI平台'),
           _licenseItem('中国天气网', '公共服务', '中国气象局'),
         ],
       ),
@@ -782,6 +782,15 @@ class VersionInfoPage extends ConsumerWidget {
 
   List<Widget> _buildUpdateHistory() {
     final histories = [
+      {
+        'version': 'v3.1.1',
+        'date': '2026-11-19',
+        'content': [
+          'AI 助手服务由小米 MiMo 切换为千问AI平台，修复余额不足导致 AI 无法回复的问题',
+          '默认模型调整为 qwen3.8-flash 并关闭思考模式，回复更快、调用成本更低',
+          '关于页 AI 助手说明与第三方许可信息同步更新',
+        ],
+      },
       {
         'version': 'v3.1.0',
         'date': '2026-11-19',
