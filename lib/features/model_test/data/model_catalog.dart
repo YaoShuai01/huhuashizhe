@@ -52,6 +52,14 @@ const List<AppModelEntry> kAppModels = [
     inputSize: 320,
     recordModuleKey: 'pest',
   ),
+  AppModelEntry(
+    id: 'cabbage_4',
+    name: '白菜病虫害识别（4类）',
+    assetPath: 'assets/models/cabbage_4_448.tflite',
+    labels: kCabbageLabels,
+    inputSize: 448,
+    recordModuleKey: 'pest',
+  ),
   // 后续内置模型在此追加；热更新模型无需改代码，由 manifest 静默下发
 ];
 
