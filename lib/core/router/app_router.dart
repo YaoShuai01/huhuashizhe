@@ -23,14 +23,16 @@ import '../../features/schedule/pages/schedule_gate_page.dart';
 import '../../features/schedule/pages/schedule_page.dart';
 import '../../features/schedule/pages/schedule_edit_page.dart';
 import '../../features/schedule/pages/schedule_messages_page.dart';
+import '../../features/forum/data/forum_models.dart';
 import '../../features/forum/pages/forum_page.dart';
 import '../../features/forum/pages/forum_section_page.dart';
 import '../../features/forum/pages/forum_compose_page.dart';
 import '../../features/forum/pages/forum_my_posts_page.dart';
 import '../../features/forum/pages/forum_messages_page.dart';
+import '../../features/forum/pages/forum_favorites_page.dart';
+import '../../features/forum/pages/forum_post_detail_page.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
-final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
 /// 获取根导航器key（供更新弹窗等全局弹窗使用）
 GlobalKey<NavigatorState> get rootNavigatorKey => _rootNavigatorKey;
@@ -39,41 +41,60 @@ final appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/home',
   routes: [
-    ShellRoute(
-      navigatorKey: _shellNavigatorKey,
-      builder: (context, state, child) {
-        return AppShell(child: child);
+    StatefulShellRoute.indexedStack(
+      builder: (context, state, navigationShell) {
+        return AppShell(navigationShell: navigationShell);
       },
-      routes: [
-        GoRoute(
-          path: '/home',
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: HomePage(),
-          ),
+      branches: [
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/home',
+              pageBuilder: (context, state) => const NoTransitionPage(
+                child: HomePage(),
+              ),
+            ),
+          ],
         ),
-        GoRoute(
-          path: '/data-center',
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: DataCenterPage(),
-          ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/data-center',
+              pageBuilder: (context, state) => const NoTransitionPage(
+                child: DataCenterPage(),
+              ),
+            ),
+          ],
         ),
-        GoRoute(
-          path: '/forum',
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: ForumPage(),
-          ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/forum',
+              pageBuilder: (context, state) => const NoTransitionPage(
+                child: ForumPage(),
+              ),
+            ),
+          ],
         ),
-        GoRoute(
-          path: '/classroom',
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: ClassroomPage(),
-          ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/classroom',
+              pageBuilder: (context, state) => const NoTransitionPage(
+                child: ClassroomPage(),
+              ),
+            ),
+          ],
         ),
-        GoRoute(
-          path: '/mine',
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: MinePage(),
-          ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/mine',
+              pageBuilder: (context, state) => const NoTransitionPage(
+                child: MinePage(),
+              ),
+            ),
+          ],
         ),
       ],
     ),
@@ -148,6 +169,17 @@ final appRouter = GoRouter(
       path: '/forum/messages',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const ForumMessagesPage(),
+    ),
+    GoRoute(
+      path: '/forum/post',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) =>
+          ForumPostDetailPage(post: state.extra as ForumPost),
+    ),
+    GoRoute(
+      path: '/forum/favorites',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const ForumFavoritesPage(),
     ),
     GoRoute(
       path: '/mine/account',
@@ -274,47 +306,20 @@ final appRouter = GoRouter(
 );
 
 class AppShell extends StatelessWidget {
-  final Widget child;
+  final StatefulNavigationShell navigationShell;
 
-  const AppShell({super.key, required this.child});
-
-  int _currentIndex(BuildContext context) {
-    final location = GoRouterState.of(context).uri.toString();
-    if (location.startsWith('/data-center')) return 1;
-    if (location.startsWith('/forum')) return 2;
-    if (location.startsWith('/classroom')) return 3;
-    if (location.startsWith('/mine')) return 4;
-    return 0;
-  }
-
-  void _onTap(BuildContext context, int index) {
-    switch (index) {
-      case 0:
-        context.go('/home');
-        break;
-      case 1:
-        context.go('/data-center');
-        break;
-      case 2:
-        context.go('/forum');
-        break;
-      case 3:
-        context.go('/classroom');
-        break;
-      case 4:
-        context.go('/mine');
-        break;
-    }
-  }
+  const AppShell({super.key, required this.navigationShell});
 
   @override
   Widget build(BuildContext context) {
-    final index = _currentIndex(context);
     return Scaffold(
-      body: child,
+      body: navigationShell,
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: index,
-        onTap: (i) => _onTap(context, i),
+        currentIndex: navigationShell.currentIndex,
+        onTap: (index) => navigationShell.goBranch(
+          index,
+          initialLocation: index == navigationShell.currentIndex,
+        ),
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),

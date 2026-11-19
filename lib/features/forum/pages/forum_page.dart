@@ -46,32 +46,38 @@ class _ForumPageState extends State<ForumPage> {
 
           return ForumResponsiveBody(
             padding: const EdgeInsets.only(top: 10, bottom: 88),
-            child: ListView(
-              children: [
-                ForumCategoryCard(
-                  categories: categories,
-                  selected: selected ?? '',
-                  onSelected: (name) =>
-                      setState(() => _selectedCategory = name),
-                ),
-                const SizedBox(height: 4),
-                if (sections.isEmpty)
-                  const SizedBox(
-                    height: 280,
-                    child: ForumEmptyState(
-                      icon: Icons.forum_outlined,
-                      text: '该分区暂无版块',
-                    ),
-                  )
-                else
-                  for (final section in sections)
-                    ForumSectionTile(
-                      section: section,
-                      postCount: repository.countOf(section.title),
-                      onTap: () =>
-                          context.push('/forum/section', extra: section.title),
-                    ),
-              ],
+            child: RefreshIndicator(
+              onRefresh: repository.refresh,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  ForumCategoryCard(
+                    categories: categories,
+                    selected: selected ?? '',
+                    onSelected: (name) =>
+                        setState(() => _selectedCategory = name),
+                  ),
+                  const SizedBox(height: 4),
+                  if (sections.isEmpty)
+                    const SizedBox(
+                      height: 280,
+                      child: ForumEmptyState(
+                        icon: Icons.forum_outlined,
+                        text: '该分区暂无版块',
+                      ),
+                    )
+                  else
+                    for (final section in sections)
+                      ForumSectionTile(
+                        section: section,
+                        postCount: repository.countOf(section.title),
+                        onTap: () => context.push(
+                          '/forum/section',
+                          extra: section.title,
+                        ),
+                      ),
+                ],
+              ),
             ),
           );
         },

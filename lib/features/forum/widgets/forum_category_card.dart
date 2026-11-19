@@ -48,16 +48,17 @@ class ForumCategoryCard extends StatelessWidget {
                 ),
               )
             else
-              Wrap(
-                alignment: WrapAlignment.spaceEvenly,
-                spacing: 4,
-                runSpacing: 8,
+              Row(
                 children: [
                   for (final category in categories)
-                    ForumCategoryChip(
-                      category: category,
-                      selected: category.name == selected,
-                      onTap: () => onSelected(category.name),
+                    Expanded(
+                      child: Center(
+                        child: ForumCategoryChip(
+                          category: category,
+                          selected: category.name == selected,
+                          onTap: () => onSelected(category.name),
+                        ),
+                      ),
                     ),
                 ],
               ),
