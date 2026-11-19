@@ -19,7 +19,7 @@ void main() {
     expect(find.text('管理区'), findsOneWidget);
 
     // 默认展示交流区版块
-    expect(find.text('网友留言区'), findsOneWidget);
+    expect(find.text('农友留言区'), findsOneWidget);
     expect(find.text('飞防作业交流'), findsOneWidget);
     expect(find.text('新手提问区'), findsNothing);
     await tester.scrollUntilVisible(
@@ -46,7 +46,7 @@ void main() {
     expect(find.text('病虫害问答'), findsOneWidget);
     expect(find.text('新手提问区'), findsOneWidget);
     expect(find.text('药效点评'), findsOneWidget);
-    expect(find.text('网友留言区'), findsNothing);
+    expect(find.text('农友留言区'), findsNothing);
   });
 
   testWidgets('切换管理区后展示管理区版块', (tester) async {
@@ -58,7 +58,7 @@ void main() {
     expect(find.text('公告与通知'), findsOneWidget);
     expect(find.text('意见反馈'), findsOneWidget);
     expect(find.text('举报与版规'), findsOneWidget);
-    expect(find.text('网友留言区'), findsNothing);
+    expect(find.text('农友留言区'), findsNothing);
   });
 
   testWidgets('支持通过 ForumScope 注入外部数据源', (tester) async {

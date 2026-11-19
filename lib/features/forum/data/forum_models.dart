@@ -81,7 +81,7 @@ const List<ForumCategory> forumCategories = [
 /// 默认版块目录（可被外部数据源覆盖）
 const List<ForumSection> forumSections = [
   ForumSection(
-    title: '网友留言区',
+    title: '农友留言区',
     desc: '不限植保领域，想说、疑问、吐槽、讨论，都可以在这里发',
     category: '交流区',
     hot: true,
