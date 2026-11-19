@@ -783,6 +783,14 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.1.0',
+        'date': '2026-11-19',
+        'content': [
+          '新增白菜病虫害四分类识别模型：菜青虫、霜霉病、白菜螟、健康',
+          '模型支持 448×448 输入并内置在 App 中，断网也能在模型测试页选择使用',
+        ],
+      },
+      {
         'version': 'v3.0.0',
         'date': '2026-11-18',
         'content': [
