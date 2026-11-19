@@ -275,6 +275,12 @@ void Controller::resetIterm()
   if (!_model.isModeActive(MODE_ARMED) // when not armed
       || (!_model.isAirModeActive() && _model.config.iterm.lowThrottleZeroIterm &&
           _model.isThrottleLow()) // on low throttle (not in air mode)
+#ifdef ESPFC_HHS_PRESET
+      // Before takeoff (throttle below 50%), keep the I-term at zero. Otherwise
+      // a small attitude offset integrates while the quad is still on the
+      // ground and can drive one side's motors to minimum, causing a tip-over.
+      || (_model.isModeActive(MODE_ARMED) && _model.state.input.ch[AXIS_THRUST] < 0.0f)
+#endif
   )
   {
     for (size_t i = 0; i < AXIS_COUNT_RPY; i++)

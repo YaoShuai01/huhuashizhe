@@ -239,8 +239,10 @@ bool FAST_CODE_ATTR Input::failsafe(InputStatus status)
     return true;
   }
 
-  // stage 1 timeout (100ms)
-  if (_model.state.input.lossTime >= 2 * TENTH_TO_US)
+  // stage 1 timeout (500ms). The phone app sends a heartbeat every 200ms when
+  // the sticks are idle; the old 200ms threshold caused periodic failsafe
+  // throttle cuts (visible as motor stutter).
+  if (_model.state.input.lossTime >= 5 * TENTH_TO_US)
   {
     failsafeStage1();
     return true;
