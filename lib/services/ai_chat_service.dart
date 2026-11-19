@@ -27,10 +27,10 @@ class AiChatMessage {
       );
 }
 
-/// 小米MiMo大模型AI对话服务（OpenAI兼容格式）
+/// 千问AI平台大模型AI对话服务（OpenAI兼容格式）
 class AiChatService {
-  static const _baseUrl = 'https://api.xiaomimimo.com/v1';
-  static const _model = 'mimo-v2.6-flash'; // v2.5已下线（平台2026-11升级到v2.6系列）
+  static const _baseUrl = 'https://maas.qianwenaiapi.com/compatible-mode/v1';
+  static const _model = 'qwen3.8-flash'; // 快速且高性价比
   static const _apiKey = '';
 
   /// 护花使者智能体系统提示词
@@ -76,7 +76,7 @@ class AiChatService {
     connectTimeout: const Duration(seconds: 15),
     receiveTimeout: const Duration(seconds: 30),
     headers: {
-      'api-key': _apiKey,
+      'Authorization': 'Bearer $_apiKey',
       'Content-Type': 'application/json',
     },
   ));
@@ -102,9 +102,10 @@ class AiChatService {
         data: {
           'model': _model,
           'messages': messages,
-          'max_tokens': 1024, // v2.6为推理模型，需预留reasoning_content的token
+          'max_tokens': 1024,
           'temperature': 0.7,
           'top_p': 0.95,
+          'enable_thinking': false, // 关闭思考模式，降低延迟与费用
           'stream': true,
         },
         options: Options(
@@ -204,6 +205,7 @@ class AiChatService {
           'max_tokens': 1024,
           'temperature': 0.7,
           'top_p': 0.95,
+          'enable_thinking': false, // 关闭思考模式，降低延迟与费用
           'stream': false,
         },
       );
@@ -242,6 +244,7 @@ class AiChatService {
           'max_tokens': 1024,
           'temperature': 0.7,
           'top_p': 0.95,
+          'enable_thinking': false, // 关闭思考模式，降低延迟与费用
           'stream': false,
         },
       );
