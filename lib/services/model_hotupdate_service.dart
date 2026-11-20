@@ -5,20 +5,21 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../core/constants/server_config.dart';
 import '../features/model_test/data/model_catalog.dart';
 import '../features/model_test/data/model_labels.dart';
 
 /// 模型热更新服务
 ///
-/// 模型清单托管在仓库 models/manifest.json（raw.githubusercontent.com），
-/// 模型二进制托管在 GitHub Release（tag=models，标记为 prerelease 不影响应用更新检测）。
+/// 模型清单与二进制都托管在自有阿里云服务器（Tomcat 静态目录 /app/models/），
+/// GitHub 仅作兜底通道。
 /// App 启动/进入模型测试页时静默检查：对比清单与本地已下载模型，
 /// 有新模型就在后台下载，完成后模型下拉列表自动多出对应条目，无需发版更新App。
 ///
-/// 发布新模型的流程（由助手执行）：
-/// 1. 导出的 .tflite 上传：gh release upload models xxx.tflite --clobber
-/// 2. 编辑 models/manifest.json 增加条目（labels 从 *_labels.txt 转出并补中文）
-/// 3. 提交推送，App 联网后自动下载生效
+/// 发布新模型的流程：
+/// 1. 把 .tflite 和 manifest.json 放到服务器 C:\huhuashizhe\tomcat\webapps\app\models\
+/// 2. 打开 http://<服务器IP>:8080/app/models/manifest.json 确认可访问
+/// 3. App 联网后自动下载生效
 class ModelHotupdateService {
   ModelHotupdateService._();
   static final ModelHotupdateService instance = ModelHotupdateService._();
@@ -26,13 +27,17 @@ class ModelHotupdateService {
   static const _repo = 'YaoShuai01/huhuashizhe';
   static const _branch = 'main';
 
-  /// 清单地址：国内网络优先走 ghproxy.net，最后才直连 raw。
-  /// 加时间戳参数绕过 raw/镜像缓存，避免刚发布的清单几分钟内看不到。
+  /// 自有服务器上的模型目录（Tomcat webapps/app/models 静态目录）
+  static const _serverModelsBase = '$serverBaseUrl/app/models';
+
+  /// 清单地址：优先自有服务器，GitHub 镜像兜底。
+  /// 加时间戳参数绕过缓存，避免刚发布的清单几分钟内看不到。
   static List<String> get _manifestUrls {
     final ts = DateTime.now().millisecondsSinceEpoch;
     const raw =
         'https://raw.githubusercontent.com/$_repo/$_branch/models/manifest.json';
     return [
+      '$_serverModelsBase/manifest.json?t=$ts',
       'https://ghproxy.net/$raw?t=$ts',
       'https://gh-proxy.com/$raw?t=$ts',
       'https://ghfast.top/$raw?t=$ts',
@@ -40,11 +45,12 @@ class ModelHotupdateService {
     ];
   }
 
-  /// 模型二进制下载地址（Release 资产），镜像优先，直连兜底。
+  /// 模型二进制下载地址：自有服务器优先，GitHub 镜像兜底。
   static List<String> _fileUrls(String file) {
     final base =
         'https://github.com/$_repo/releases/download/models/$file';
     return [
+      '$_serverModelsBase/$file',
       'https://ghproxy.net/$base',
       'https://gh-proxy.com/$base',
       'https://ghfast.top/$base',
@@ -67,7 +73,7 @@ class ModelHotupdateService {
 
   Directory? _dirCache;
 
-  /// 本地模型目录（<id>.tflite + <id>.json）
+  /// 本地模型目录（id.tflite + id.json）
   Future<Directory> modelsDir() async {
     if (_dirCache != null) return _dirCache!;
     final base = await getApplicationSupportDirectory();

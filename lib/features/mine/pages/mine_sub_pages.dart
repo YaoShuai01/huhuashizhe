@@ -783,6 +783,17 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.4.2',
+        'date': '2026-11-20',
+        'content': [
+          '遥控器新增「微调」面板：支持前后、左右微调，微调数据永久保存在无人机',
+          '遥控器新增陀螺仪校准按钮，静止时一键归零陀螺零偏',
+          '设置页新增「清除无人机微调数据」，一键恢复出厂微调',
+          '模型热更新改由自有阿里云服务器分发，下载更快更稳定',
+          '修复飞控定时器驱动冲突导致的启动异常',
+        ],
+      },
+      {
         'version': 'v3.3.1',
         'date': '2026-11-19',
         'content': [
