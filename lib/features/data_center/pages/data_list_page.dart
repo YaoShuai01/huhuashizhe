@@ -118,17 +118,17 @@ class _DataListPageState extends State<DataListPage> {
         children: [
           // 搜索栏
           Container(
-            color: AppColors.surface,
+            color: context.palette.surface,
             padding: const EdgeInsets.all(12),
             child: TextField(
               controller: _searchController,
               onChanged: _search,
               decoration: InputDecoration(
                 hintText: '搜索${_config.moduleName}...',
-                prefixIcon: const Icon(Icons.search, color: AppColors.textHint),
+                prefixIcon:  Icon(Icons.search, color: context.palette.textHint),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
-                        icon: const Icon(Icons.clear, color: AppColors.textHint),
+                        icon:  Icon(Icons.clear, color: context.palette.textHint),
                         onPressed: () {
                           _searchController.clear();
                           _search('');
@@ -149,15 +149,15 @@ class _DataListPageState extends State<DataListPage> {
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(_config.icon, size: 64, color: AppColors.textDisabled),
+                            Icon(_config.icon, size: 64, color: context.palette.textDisabled),
                             const SizedBox(height: 12),
                             Text(
                               _searchController.text.isNotEmpty ? '未找到匹配数据' : '暂无数据',
-                              style: const TextStyle(color: AppColors.textHint, fontSize: 15),
+                              style:  TextStyle(color: context.palette.textHint, fontSize: 15),
                             ),
                             if (_searchController.text.isEmpty) ...[
                               const SizedBox(height: 4),
-                              const Text('点击右上角 + 添加数据', style: TextStyle(color: AppColors.textHint, fontSize: 13)),
+                               Text('点击右上角 + 添加数据', style: TextStyle(color: context.palette.textHint, fontSize: 13)),
                             ],
                           ],
                         ),
@@ -217,20 +217,20 @@ class _DataListPageState extends State<DataListPage> {
                       children: [
                         Text(
                           _displayValue(item, _config.fields[0]),
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                          style:  TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: context.palette.textPrimary),
                           overflow: TextOverflow.ellipsis,
                         ),
                         if (_config.fields.length > 1)
                           Text(
                             _displayValue(item, _config.fields[1]),
-                            style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                            style:  TextStyle(fontSize: 13, color: context.palette.textSecondary),
                             overflow: TextOverflow.ellipsis,
                           ),
                       ],
                     ),
                   ),
                   PopupMenuButton<String>(
-                    icon: const Icon(Icons.more_vert, color: AppColors.textHint, size: 20),
+                    icon:  Icon(Icons.more_vert, color: context.palette.textHint, size: 20),
                     onSelected: (value) {
                       if (value == 'edit') {
                         Navigator.push(
@@ -260,10 +260,10 @@ class _DataListPageState extends State<DataListPage> {
                     return Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Text('${field.label}: ', style: const TextStyle(fontSize: 12, color: AppColors.textHint)),
+                        Text('${field.label}: ', style:  TextStyle(fontSize: 12, color: context.palette.textHint)),
                         Text(
                           _displayValue(item, field),
-                          style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                          style:  TextStyle(fontSize: 12, color: context.palette.textSecondary),
                         ),
                       ],
                     );
@@ -416,7 +416,7 @@ class _DataFormPageState extends State<DataFormPage> {
         children: [
           Text(
             '${field.label}${field.required ? ' *' : ''}',
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.textPrimary),
+            style:  TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: context.palette.textPrimary),
           ),
           const SizedBox(height: 6),
           _buildFieldInput(field),
@@ -428,7 +428,7 @@ class _DataFormPageState extends State<DataFormPage> {
   Widget _buildFieldInput(FieldConfig field) {
     switch (field.type) {
       case FieldType.select:
-        return DropdownButtonFormField<String>(
+ return DropdownButtonFormField<String>(
           value: _selectValues[field.key],
           decoration: _inputDecoration(field.hint ?? '请选择${field.label}'),
           items: field.options!.map((opt) => DropdownMenuItem(value: opt, child: Text(opt))).toList(),
@@ -437,7 +437,7 @@ class _DataFormPageState extends State<DataFormPage> {
         );
 
       case FieldType.number:
-        return TextFormField(
+ return TextFormField(
           controller: _controllers[field.key],
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d.]'))],
@@ -446,18 +446,18 @@ class _DataFormPageState extends State<DataFormPage> {
         );
 
       case FieldType.date:
-        return TextFormField(
+ return TextFormField(
           controller: _controllers[field.key],
           readOnly: true,
           onTap: () => _pickDate(field),
           decoration: _inputDecoration(field.hint ?? '点击选择日期').copyWith(
-            suffixIcon: const Icon(Icons.calendar_today, color: AppColors.textHint, size: 20),
+            suffixIcon:  Icon(Icons.calendar_today, color: context.palette.textHint, size: 20),
           ),
           validator: field.required ? (val) => (val == null || val.trim().isEmpty) ? '请选择${field.label}' : null : null,
         );
 
       case FieldType.multiline:
-        return TextFormField(
+ return TextFormField(
           controller: _controllers[field.key],
           maxLines: 3,
           decoration: _inputDecoration(field.hint ?? '请输入${field.label}'),
@@ -465,7 +465,7 @@ class _DataFormPageState extends State<DataFormPage> {
         );
 
       case FieldType.text:
-        return TextFormField(
+ return TextFormField(
           controller: _controllers[field.key],
           decoration: _inputDecoration(field.hint ?? '请输入${field.label}'),
           validator: field.required ? (val) => (val == null || val.trim().isEmpty) ? '请输入${field.label}' : null : null,

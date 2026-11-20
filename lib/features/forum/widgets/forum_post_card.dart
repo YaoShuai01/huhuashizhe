@@ -76,9 +76,9 @@ class ForumPostCard extends StatelessWidget {
                       post.author,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style:  TextStyle(
                         fontSize: 12,
-                        color: AppColors.textSecondary,
+                        color: context.palette.textSecondary,
                       ),
                     ),
                   ),
@@ -88,9 +88,9 @@ class ForumPostCard extends StatelessWidget {
                       forumTimeText(post.createdAt),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style:  TextStyle(
                         fontSize: 11,
-                        color: AppColors.textHint,
+                        color: context.palette.textHint,
                       ),
                     ),
                   ),
@@ -101,10 +101,10 @@ class ForumPostCard extends StatelessWidget {
                 post.title,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style:  TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                  color: context.palette.textPrimary,
                 ),
               ),
               const SizedBox(height: 5),
@@ -112,10 +112,10 @@ class ForumPostCard extends StatelessWidget {
                 post.content,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style:  TextStyle(
                   fontSize: 13,
                   height: 1.45,
-                  color: AppColors.textSecondary,
+                  color: context.palette.textSecondary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -130,7 +130,7 @@ class ForumPostCard extends StatelessWidget {
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             if (post.pendingReview) _pendingTag(),
-                            _tag(post.section),
+                            _tag(context, post.section),
                           ],
                         ),
                       ),
@@ -155,7 +155,7 @@ class ForumPostCard extends StatelessWidget {
                             size: 16,
                             color: favorited
                                 ? AppColors.primary
-                                : AppColors.textHint,
+                                : context.palette.textHint,
                           ),
                         ),
                       ),
@@ -178,14 +178,14 @@ class ForumPostCard extends StatelessWidget {
                             size: 15,
                             color: post.likes > 0
                                 ? AppColors.accent
-                                : AppColors.textHint,
+                                : context.palette.textHint,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             '${post.likes}',
-                            style: const TextStyle(
+                            style:  TextStyle(
                               fontSize: 12,
-                              color: AppColors.textHint,
+                              color: context.palette.textHint,
                             ),
                           ),
                         ],
@@ -220,18 +220,18 @@ class ForumPostCard extends StatelessWidget {
     );
   }
 
-  Widget _tag(String text) {
+  Widget _tag(BuildContext context, String text) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
+        color: context.palette.surfaceVariant,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
         text,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 11, color: AppColors.textHint),
+        style:  TextStyle(fontSize: 11, color: context.palette.textHint),
       ),
     );
   }

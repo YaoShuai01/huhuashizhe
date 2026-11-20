@@ -59,10 +59,10 @@ class _WarningDetailCardState extends State<WarningDetailCard> {
                         Expanded(
                           child: Text(
                             problem.zhName,
-                            style: const TextStyle(
+                            style:  TextStyle(
                               fontSize: 17,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
+                              color: context.palette.textPrimary,
                             ),
                           ),
                         ),
@@ -71,15 +71,15 @@ class _WarningDetailCardState extends State<WarningDetailCard> {
                     const SizedBox(height: 8),
                     Text(
                       problem.desc,
-                      style: const TextStyle(
-                          fontSize: 13, color: AppColors.textSecondary, height: 1.4),
+                      style:  TextStyle(
+                          fontSize: 13, color: context.palette.textSecondary, height: 1.4),
                     ),
                     const SizedBox(height: 6),
                     Text(
                       '共采集 ${problem.imagePaths.length} 张 · 最高置信度 '
                       '${(problem.maxConfidence * 100).toStringAsFixed(0)}%',
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.textHint),
+                      style:  TextStyle(
+                          fontSize: 12, color: context.palette.textHint),
                     ),
                   ],
                 ),
@@ -116,7 +116,7 @@ class _WarningDetailCardState extends State<WarningDetailCard> {
                         child: bytes != null
                             ? Image.memory(bytes, fit: BoxFit.cover)
                             : Container(
-                                color: AppColors.surfaceVariant,
+                                color: context.palette.surfaceVariant,
                                 child: const Center(
                                   child: SizedBox(
                                     width: 18,

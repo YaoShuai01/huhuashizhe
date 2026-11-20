@@ -117,7 +117,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
           if (state.isLoading &&
               (state.messages.isEmpty ||
                   state.messages.last.content.isEmpty))
-            const Padding(
+             Padding(
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Row(
                 children: [
@@ -126,7 +126,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
                   SizedBox(width: 8),
-                  Text('AI思考中...', style: TextStyle(color: AppColors.textHint, fontSize: 13)),
+                  Text('AI思考中...', style: TextStyle(color: context.palette.textHint, fontSize: 13)),
                 ],
               ),
             ),
@@ -153,15 +153,15 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
               child: const Icon(Icons.auto_awesome, size: 40, color: AppColors.primary),
             ),
             const SizedBox(height: 20),
-            const Text(
+             Text(
               'AI助手',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: context.palette.textPrimary),
             ),
             const SizedBox(height: 8),
-            const Text(
+             Text(
               '我是护花使者的智能助手，可以帮你：\n诊断病虫害、推荐农药方案、规划飞行参数',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: AppColors.textSecondary, height: 1.6),
+              style: TextStyle(fontSize: 14, color: context.palette.textSecondary, height: 1.6),
             ),
             const SizedBox(height: 24),
             Wrap(
@@ -183,7 +183,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
   Widget _buildQuickQuestion(String text) {
     return ActionChip(
       label: Text(text, style: const TextStyle(fontSize: 13)),
-      backgroundColor: AppColors.surfaceVariant,
+      backgroundColor: context.palette.surfaceVariant,
       onPressed: () {
         _controller.text = text;
         _submit();
@@ -218,14 +218,14 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: isUser ? AppColors.primary : AppColors.surface,
+                  color: isUser ? AppColors.primary : context.palette.surface,
                   borderRadius: BorderRadius.only(
                     topLeft: const Radius.circular(16),
                     topRight: const Radius.circular(16),
                     bottomLeft: isUser ? const Radius.circular(16) : const Radius.circular(4),
                     bottomRight: isUser ? const Radius.circular(4) : const Radius.circular(16),
                   ),
-                  border: isUser ? null : Border.all(color: AppColors.surfaceVariant),
+                  border: isUser ? null : Border.all(color: context.palette.surfaceVariant),
                 ),
                 child: Column(
                   crossAxisAlignment: isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
@@ -246,7 +246,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
                       msg.content,
                       style: TextStyle(
                         fontSize: 15,
-                        color: isUser ? Colors.white : AppColors.textPrimary,
+                        color: isUser ? Colors.white : context.palette.textPrimary,
                         height: 1.5,
                       ),
                     ),
@@ -303,7 +303,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
       borderRadius: BorderRadius.circular(4),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        child: Icon(icon, size: 14, color: AppColors.textHint),
+        child: Icon(icon, size: 14, color: context.palette.textHint),
       ),
     );
   }
@@ -312,7 +312,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.palette.surface,
         boxShadow: [
           BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, -2)),
         ],
@@ -336,7 +336,7 @@ class _AiChatPageState extends ConsumerState<AiChatPage> {
                     borderSide: BorderSide.none,
                   ),
                   filled: true,
-                  fillColor: AppColors.surfaceVariant,
+                  fillColor: context.palette.surfaceVariant,
                 ),
               ),
             ),

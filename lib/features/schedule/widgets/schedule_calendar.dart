@@ -132,15 +132,17 @@ class ScheduleCalendar extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                _legend(scheme.primary, '我的协管'),
+                _legend(context, scheme.primary, '我的协管'),
                 const SizedBox(width: 12),
                 _legend(
+                  context,
                   scheme.primary.withValues(alpha: 0.12),
                   '其他成员',
                   borderColor: scheme.primary.withValues(alpha: 0.25),
                 ),
                 const SizedBox(width: 12),
                 _legend(
+                  context,
                   scheme.surfaceContainerHighest,
                   '未轮协',
                   borderColor: scheme.outlineVariant.withValues(alpha: 0.5),
@@ -273,7 +275,7 @@ class ScheduleCalendar extends StatelessWidget {
     );
   }
 
-  Widget _legend(Color color, String label, {Color? borderColor}) {
+  Widget _legend(BuildContext context, Color color, String label, {Color? borderColor}) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -289,7 +291,7 @@ class ScheduleCalendar extends StatelessWidget {
         const SizedBox(width: 4),
         Text(
           label,
-          style: const TextStyle(fontSize: 10, color: AppColors.textHint),
+          style:  TextStyle(fontSize: 10, color: context.palette.textHint),
         ),
       ],
     );

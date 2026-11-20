@@ -224,9 +224,9 @@ class _ForumComposePageState extends State<ForumComposePage> {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+             Text(
               '发布后所有用户可见，请遵守社区版规，勿发布广告与违规内容。',
-              style: TextStyle(fontSize: 12, color: AppColors.textHint),
+              style: TextStyle(fontSize: 12, color: context.palette.textHint),
             ),
             if (_submitting) ...[
               const SizedBox(height: 12),

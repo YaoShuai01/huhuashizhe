@@ -51,21 +51,21 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
           Expanded(
             flex: 3,
             child: Container(
-              color: AppColors.background,
+              color: context.palette.background,
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.videocam_outlined, size: 64, color: AppColors.textDisabled.withValues(alpha: 0.3)),
+                    Icon(Icons.videocam_outlined, size: 64, color: context.palette.textDisabled.withValues(alpha: 0.3)),
                     const SizedBox(height: 16),
                     Text(
                       '实时监控画面',
-                      style: TextStyle(fontSize: 18, color: AppColors.textHint, fontWeight: FontWeight.w500),
+                      style: TextStyle(fontSize: 18, color: context.palette.textHint, fontWeight: FontWeight.w500),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       '航点数量: ${widget.waypoints.length}',
-                      style: TextStyle(fontSize: 13, color: AppColors.textDisabled),
+                      style: TextStyle(fontSize: 13, color: context.palette.textDisabled),
                     ),
                   ],
                 ),
@@ -77,7 +77,7 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
           Expanded(
             flex: 2,
             child: Container(
-              color: AppColors.surface,
+              color: context.palette.surface,
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -183,7 +183,7 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: AppColors.background,
+        color: context.palette.background,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
@@ -192,7 +192,7 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
           Icon(icon, size: 18, color: AppColors.primary),
           const SizedBox(height: 4),
           Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-          Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textHint)),
+          Text(label, style:  TextStyle(fontSize: 10, color: context.palette.textHint)),
         ],
       ),
     );

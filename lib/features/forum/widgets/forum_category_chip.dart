@@ -55,7 +55,7 @@ class ForumCategoryChip extends StatelessWidget {
                   category.icon,
                   size: size * 0.46,
                   color:
-                      selected ? AppColors.textOnPrimary : AppColors.primary,
+ selected ? AppColors.textOnPrimary : AppColors.primary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -69,9 +69,9 @@ class ForumCategoryChip extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight:
-                        selected ? FontWeight.w600 : FontWeight.w400,
+ selected ? FontWeight.w600 : FontWeight.w400,
                     color:
-                        selected ? AppColors.primary : AppColors.textSecondary,
+ selected ? AppColors.primary : context.palette.textSecondary,
                   ),
                 ),
               ),

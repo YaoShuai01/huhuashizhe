@@ -46,9 +46,9 @@ class HomePage extends ConsumerWidget {
               const SizedBox(height: 16),
               _buildQuickActions(context),
               const SizedBox(height: 16),
-              _buildRecentMissions(),
+              _buildRecentMissions(context),
               const SizedBox(height: 16),
-              _buildStatsOverview(),
+              _buildStatsOverview(context),
             ],
           ),
         ),
@@ -182,7 +182,7 @@ class HomePage extends ConsumerWidget {
                 ),
                 child: Icon(
                   isConnected ? Icons.wifi : Icons.wifi_off,
-                  color: isConnected ? AppColors.primary : AppColors.textHint,
+                  color: isConnected ? AppColors.primary : context.palette.textHint,
                   size: 22,
                 ),
               ),
@@ -196,7 +196,7 @@ class HomePage extends ConsumerWidget {
                         Text(
                           isConnected ? '已连接: ${status!.displayName}' : '未连接设备',
                           style: TextStyle(
-                            color: isConnected ? AppColors.primary : AppColors.textHint,
+                            color: isConnected ? AppColors.primary : context.palette.textHint,
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
                           ),
@@ -218,7 +218,7 @@ class HomePage extends ConsumerWidget {
                     Text(
                       isConnected ? 'WiFi 热点 · 信号 ${status!.signalDisplay}' : '请点击连接无人机 WiFi',
                       style: TextStyle(
-                        color: isConnected ? AppColors.textSecondary : AppColors.textDisabled,
+                        color: isConnected ? context.palette.textSecondary : context.palette.textDisabled,
                         fontSize: 12,
                       ),
                     ),
@@ -252,6 +252,7 @@ class HomePage extends ConsumerWidget {
       childAspectRatio: 1.8,
       children: [
         _buildActionCard(
+          context,
           icon: Icons.flight_takeoff,
           title: '创建飞行任务',
           subtitle: '油菜植保作业规划',
@@ -261,6 +262,7 @@ class HomePage extends ConsumerWidget {
           },
         ),
         _buildActionCard(
+          context,
           icon: Icons.auto_awesome,
           title: 'AI助手',
           subtitle: '油菜病虫害智能诊断',
@@ -268,6 +270,7 @@ class HomePage extends ConsumerWidget {
           onTap: () => context.push('/ai-chat'),
         ),
         _buildActionCard(
+          context,
           icon: Icons.speed,
           title: '快速预设',
           subtitle: '油菜一键适配参数',
@@ -275,6 +278,7 @@ class HomePage extends ConsumerWidget {
           onTap: () => context.push('/presets'),
         ),
         _buildActionCard(
+          context,
           icon: Icons.history,
           title: '作业记录',
           subtitle: '油菜植保历史作业',
@@ -282,6 +286,7 @@ class HomePage extends ConsumerWidget {
           onTap: () => context.push('/mission/history'),
         ),
         _buildActionCard(
+          context,
           icon: Icons.gamepad,
           title: '快速遥控',
           subtitle: 'WiFi虚拟遥控器操控',
@@ -289,6 +294,7 @@ class HomePage extends ConsumerWidget {
           onTap: () => context.push('/remote-control'),
         ),
         _buildActionCard(
+          context,
           icon: Icons.center_focus_strong,
           title: '模型测试',
           subtitle: '摄像头实时作物问题识别',
@@ -299,7 +305,8 @@ class HomePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildActionCard({
+  Widget _buildActionCard(
+    BuildContext context, {
     required IconData icon,
     required String title,
     required String subtitle,
@@ -307,7 +314,7 @@ class HomePage extends ConsumerWidget {
     required VoidCallback onTap,
   }) {
     return Material(
-      color: AppColors.surface,
+      color: context.palette.surface,
       borderRadius: BorderRadius.circular(12),
       elevation: 1,
       child: InkWell(
@@ -334,12 +341,12 @@ class HomePage extends ConsumerWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                      style:  TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: context.palette.textPrimary),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: const TextStyle(fontSize: 11, color: AppColors.textHint),
+                      style:  TextStyle(fontSize: 11, color: context.palette.textHint),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -353,13 +360,13 @@ class HomePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildRecentMissions() {
+  Widget _buildRecentMissions(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
+         Padding(
           padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-          child: Text('最近作业', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+          child: Text('最近作业', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: context.palette.textPrimary)),
         ),
         const SizedBox(height: 8),
         SizedBox(
@@ -372,16 +379,16 @@ class HomePage extends ConsumerWidget {
                 width: 160,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.surface,
+                  color: context.palette.surface,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.surfaceVariant),
+                  border: Border.all(color: context.palette.surfaceVariant),
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.inbox_outlined, size: 40, color: AppColors.textDisabled),
+                  children:  [
+                    Icon(Icons.inbox_outlined, size: 40, color: context.palette.textDisabled),
                     SizedBox(height: 8),
-                    Text('暂无作业记录', style: TextStyle(fontSize: 13, color: AppColors.textHint)),
+                    Text('暂无作业记录', style: TextStyle(fontSize: 13, color: context.palette.textHint)),
                   ],
                 ),
               ),
@@ -392,11 +399,11 @@ class HomePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatsOverview() {
+  Widget _buildStatsOverview(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.palette.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
@@ -407,19 +414,19 @@ class HomePage extends ConsumerWidget {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Text('作业统计', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-              Icon(Icons.chevron_right, color: AppColors.textHint),
+            children:  [
+              Text('作业统计', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: context.palette.textPrimary)),
+              Icon(Icons.chevron_right, color: context.palette.textHint),
             ],
           ),
           const SizedBox(height: 16),
           Row(
             children: [
-              _buildStatItem(icon: Icons.map_outlined, label: '总作业面积', value: '0 亩'),
-              _buildDivider(),
-              _buildStatItem(icon: Icons.timer_outlined, label: '总飞行时长', value: '0 小时'),
-              _buildDivider(),
-              _buildStatItem(icon: Icons.task_alt_outlined, label: '任务次数', value: '0 次'),
+              _buildStatItem(context, icon: Icons.map_outlined, label: '总作业面积', value: '0 亩'),
+              _buildDivider(context),
+              _buildStatItem(context, icon: Icons.timer_outlined, label: '总飞行时长', value: '0 小时'),
+              _buildDivider(context),
+              _buildStatItem(context, icon: Icons.task_alt_outlined, label: '任务次数', value: '0 次'),
             ],
           ),
         ],
@@ -427,21 +434,21 @@ class HomePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatItem({required IconData icon, required String label, required String value}) {
+  Widget _buildStatItem(BuildContext context, {required IconData icon, required String label, required String value}) {
     return Expanded(
       child: Column(
         children: [
           Icon(icon, color: AppColors.primary, size: 24),
           const SizedBox(height: 8),
-          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+          Text(value, style:  TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: context.palette.textPrimary)),
           const SizedBox(height: 4),
-          Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textHint)),
+          Text(label, style:  TextStyle(fontSize: 12, color: context.palette.textHint)),
         ],
       ),
     );
   }
 
-  Widget _buildDivider() {
-    return Container(height: 40, width: 1, color: AppColors.surfaceVariant);
+  Widget _buildDivider(BuildContext context) {
+    return Container(height: 40, width: 1, color: context.palette.surfaceVariant);
   }
 }

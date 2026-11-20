@@ -38,7 +38,7 @@ class ManualPage extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                   child: Text(m['content'] as String,
-                    style: const TextStyle(fontSize: 14, height: 1.7, color: AppColors.textSecondary),
+                    style:  TextStyle(fontSize: 14, height: 1.7, color: context.palette.textSecondary),
                   ),
                 ),
               ],
@@ -63,21 +63,21 @@ class FeatureIntroPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _featureCard('飞行任务', Icons.flight_takeoff, '创建植保作业任务，在地图上圈选作业区域，自动规划飞行路线，支持航点编辑和微调。'),
-            _featureCard('AI助手', Icons.auto_awesome, '基于千问AI大模型的智能植保助手，提供病虫害诊断、用药推荐、飞行参数优化等专业建议。'),
-            _featureCard('预设管理', Icons.bookmark, '保存常用作业参数为预设，一键调用。支持飞行高度、速度、喷洒量等参数的自定义配置。'),
-            _featureCard('天气信息', Icons.cloud, '实时显示当前位置天气（数据来源：中国气象局），包括温度、风向、风速、湿度，支持风力预警。'),
-            _featureCard('设备连接', Icons.wifi, '扫描周边 WiFi 并连接无人机热点，实时查看连接状态与信号强度。'),
-            _featureCard('小课堂', Icons.school, '内置植保知识库，涵盖水稻、小麦、玉米等多种作物的病虫害防治技术，持续更新中。'),
-            _featureCard('作业记录', Icons.history, '查看历史作业详情，包括作业面积、飞行时长、用药量等统计信息。'),
-            _featureCard('在线更新', Icons.system_update, '自动检测自有服务器最新版本，支持在线下载和安装更新。'),
+            _featureCard(context, '飞行任务', Icons.flight_takeoff, '创建植保作业任务，在地图上圈选作业区域，自动规划飞行路线，支持航点编辑和微调。'),
+            _featureCard(context, 'AI助手', Icons.auto_awesome, '基于千问AI大模型的智能植保助手，提供病虫害诊断、用药推荐、飞行参数优化等专业建议。'),
+            _featureCard(context, '预设管理', Icons.bookmark, '保存常用作业参数为预设，一键调用。支持飞行高度、速度、喷洒量等参数的自定义配置。'),
+            _featureCard(context, '天气信息', Icons.cloud, '实时显示当前位置天气（数据来源：中国气象局），包括温度、风向、风速、湿度，支持风力预警。'),
+            _featureCard(context, '设备连接', Icons.wifi, '扫描周边 WiFi 并连接无人机热点，实时查看连接状态与信号强度。'),
+            _featureCard(context, '小课堂', Icons.school, '内置植保知识库，涵盖水稻、小麦、玉米等多种作物的病虫害防治技术，持续更新中。'),
+            _featureCard(context, '作业记录', Icons.history, '查看历史作业详情，包括作业面积、飞行时长、用药量等统计信息。'),
+            _featureCard(context, '在线更新', Icons.system_update, '自动检测自有服务器最新版本，支持在线下载和安装更新。'),
           ],
         ),
       ),
     );
   }
 
-  Widget _featureCard(String title, IconData icon, String desc) {
+  Widget _featureCard(BuildContext context, String title, IconData icon, String desc) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -100,7 +100,7 @@ class FeatureIntroPage extends StatelessWidget {
                 children: [
                   Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
                   const SizedBox(height: 4),
-                  Text(desc, style: const TextStyle(color: AppColors.textSecondary, fontSize: 14, height: 1.5)),
+                  Text(desc, style:  TextStyle(color: context.palette.textSecondary, fontSize: 14, height: 1.5)),
                 ],
               ),
             ),
@@ -122,28 +122,28 @@ class OpenSourceLicensePage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _licenseItem('Flutter', 'BSD 3-Clause', 'Google'),
-          _licenseItem('flutter_map', 'BSD 3-Clause', 'fleaflet'),
-          _licenseItem('latlong2', 'MIT', 'johnpryan'),
-          _licenseItem('go_router', 'BSD 3-Clause', 'Flutter'),
-          _licenseItem('flutter_riverpod', 'MIT', 'Remi Rousselet'),
-          _licenseItem('dio', 'MIT', 'cfug'),
-          _licenseItem('path_provider', 'BSD 3-Clause', 'Flutter'),
-          _licenseItem('proj4dart', 'MIT', 'maRci002'),
-          _licenseItem('intl', 'BSD 3-Clause', 'Dart'),
-          _licenseItem('千问AI大模型', '商用许可', '千问AI平台'),
-          _licenseItem('中国天气网', '公共服务', '中国气象局'),
+          _licenseItem(context, 'Flutter', 'BSD 3-Clause', 'Google'),
+          _licenseItem(context, 'flutter_map', 'BSD 3-Clause', 'fleaflet'),
+          _licenseItem(context, 'latlong2', 'MIT', 'johnpryan'),
+          _licenseItem(context, 'go_router', 'BSD 3-Clause', 'Flutter'),
+          _licenseItem(context, 'flutter_riverpod', 'MIT', 'Remi Rousselet'),
+          _licenseItem(context, 'dio', 'MIT', 'cfug'),
+          _licenseItem(context, 'path_provider', 'BSD 3-Clause', 'Flutter'),
+          _licenseItem(context, 'proj4dart', 'MIT', 'maRci002'),
+          _licenseItem(context, 'intl', 'BSD 3-Clause', 'Dart'),
+          _licenseItem(context, '千问AI大模型', '商用许可', '千问AI平台'),
+          _licenseItem(context, '中国天气网', '公共服务', '中国气象局'),
         ],
       ),
     );
   }
 
-  Widget _licenseItem(String name, String license, String author) {
+  Widget _licenseItem(BuildContext context, String name, String license, String author) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         title: Text(name, style: const TextStyle(fontWeight: FontWeight.w500)),
-        subtitle: Text(author, style: const TextStyle(fontSize: 13, color: AppColors.textHint)),
+        subtitle: Text(author, style:  TextStyle(fontSize: 13, color: context.palette.textHint)),
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
@@ -172,7 +172,7 @@ class LegalDetailPage extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Text(
           content,
-          style: const TextStyle(fontSize: 15, height: 1.8, color: AppColors.textSecondary),
+          style:  TextStyle(fontSize: 15, height: 1.8, color: context.palette.textSecondary),
         ),
       ),
     );
@@ -191,11 +191,11 @@ class NotificationPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.notifications_none, size: 80, color: AppColors.textDisabled.withValues(alpha: 0.5)),
+            Icon(Icons.notifications_none, size: 80, color: context.palette.textDisabled.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
-            const Text('暂无通知', style: TextStyle(fontSize: 18, color: AppColors.textHint)),
+             Text('暂无通知', style: TextStyle(fontSize: 18, color: context.palette.textHint)),
             const SizedBox(height: 8),
-            const Text('作业完成、天气预警等通知将显示在这里', style: TextStyle(fontSize: 14, color: AppColors.textDisabled)),
+             Text('作业完成、天气预警等通知将显示在这里', style: TextStyle(fontSize: 14, color: context.palette.textDisabled)),
           ],
         ),
       ),
@@ -215,11 +215,11 @@ class MissionHistoryPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.history, size: 80, color: AppColors.textDisabled.withValues(alpha: 0.5)),
+            Icon(Icons.history, size: 80, color: context.palette.textDisabled.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
-            const Text('暂无作业记录', style: TextStyle(fontSize: 18, color: AppColors.textHint)),
+             Text('暂无作业记录', style: TextStyle(fontSize: 18, color: context.palette.textHint)),
             const SizedBox(height: 8),
-            const Text('完成飞行任务后，作业记录将显示在这里', style: TextStyle(fontSize: 14, color: AppColors.textDisabled)),
+             Text('完成飞行任务后，作业记录将显示在这里', style: TextStyle(fontSize: 14, color: context.palette.textDisabled)),
           ],
         ),
       ),
@@ -277,7 +277,7 @@ class _AccountPageState extends State<AccountPage> {
               ),
             ),
             const SizedBox(height: 24),
-            const Card(
+             Card(
               child: Padding(
                 padding: EdgeInsets.all(16),
                 child: Column(
@@ -287,7 +287,7 @@ class _AccountPageState extends State<AccountPage> {
                     SizedBox(height: 8),
                     Text(
                       '当前版本所有数据存储在本地设备中。卸载APP将导致所有数据丢失，包括预设、作业记录、设备配对信息等。后续版本将支持云端备份功能。',
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 14, height: 1.6),
+                      style: TextStyle(color: context.palette.textSecondary, fontSize: 14, height: 1.6),
                     ),
                   ],
                 ),
@@ -394,10 +394,10 @@ class AboutPage extends ConsumerWidget {
                   const SizedBox(height: 16),
                   const Text('护花使者', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
-                  const Text('v$appVersion', style: TextStyle(color: AppColors.textHint, fontSize: 14)),
+                   Text('v$appVersion', style: TextStyle(color: context.palette.textHint, fontSize: 14)),
                   const SizedBox(height: 4),
-                  const Text('智能植保无人机操控平台',
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+                   Text('智能植保无人机操控平台',
+                      style: TextStyle(color: context.palette.textSecondary, fontSize: 14)),
                 ],
               ),
             ),
@@ -420,17 +420,17 @@ class AboutPage extends ConsumerWidget {
             ),
             const Divider(),
             const SizedBox(height: 16),
-            const Padding(
+             Padding(
               padding: EdgeInsets.symmetric(horizontal: 24),
               child: Text(
                 '本应用地图数据来源于国内互联网地图服务，版权归相应服务提供方所有，仅用于非商业教学演示用途。',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textHint, fontSize: 12, height: 1.5),
+                style: TextStyle(color: context.palette.textHint, fontSize: 12, height: 1.5),
               ),
             ),
             const SizedBox(height: 8),
-            const Text('Copyright 2025 护花使者团队',
-                style: TextStyle(color: AppColors.textHint, fontSize: 12)),
+             Text('Copyright 2025 护花使者团队',
+                style: TextStyle(color: context.palette.textHint, fontSize: 12)),
             const SizedBox(height: 40),
           ],
         ),
@@ -465,7 +465,7 @@ class HelpPage extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                       child: Text(faq['a']!,
-                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 14, height: 1.6)),
+                          style:  TextStyle(color: context.palette.textSecondary, fontSize: 14, height: 1.6)),
                     ),
                   ],
                 ),
@@ -606,7 +606,7 @@ void _showStatusDialog(BuildContext context, IconData icon, String title, String
               const SizedBox(height: 6),
               Text(message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                style:  TextStyle(fontSize: 13, color: context.palette.textSecondary),
               ),
             ],
           ),
@@ -634,12 +634,12 @@ class VersionInfoPage extends ConsumerWidget {
             _buildCheckUpdateButton(context, ref),
             // 后台下载进度条（选择"后台更新"后显示在这里）
             if (updateState.status == UpdateStatus.downloading)
-              _buildBackgroundDownloadCard(updateState),
+              _buildBackgroundDownloadCard(context, updateState),
             if (updateState.status == UpdateStatus.downloaded)
-              _buildBackgroundDownloadCard(updateState),
+              _buildBackgroundDownloadCard(context, updateState),
             if (updateState.status == UpdateStatus.error &&
                 updateState.background)
-              _buildBackgroundDownloadCard(updateState),
+              _buildBackgroundDownloadCard(context, updateState),
             const SizedBox(height: 24),
             const Text('更新日志', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
@@ -652,7 +652,7 @@ class VersionInfoPage extends ConsumerWidget {
   }
 
   /// 后台更新下载状态卡片（进度 / 完成 / 失败）
-  Widget _buildBackgroundDownloadCard(UpdateState state) {
+  Widget _buildBackgroundDownloadCard(BuildContext context, UpdateState state) {
     final info = state.updateInfo;
     final downloading = state.status == UpdateStatus.downloading;
     final failed = state.status == UpdateStatus.error;
@@ -661,7 +661,7 @@ class VersionInfoPage extends ConsumerWidget {
       margin: const EdgeInsets.only(top: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.palette.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: failed
@@ -712,7 +712,7 @@ class VersionInfoPage extends ConsumerWidget {
               child: LinearProgressIndicator(
                 value: state.progress,
                 minHeight: 6,
-                backgroundColor: AppColors.surfaceVariant,
+                backgroundColor: context.palette.surfaceVariant,
                 valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
               ),
             ),
@@ -721,7 +721,7 @@ class VersionInfoPage extends ConsumerWidget {
             const SizedBox(height: 8),
             Text(
               state.errorMessage,
-              style: const TextStyle(fontSize: 12, color: AppColors.textHint),
+              style:  TextStyle(fontSize: 12, color: context.palette.textHint),
             ),
           ],
         ],
@@ -1622,9 +1622,9 @@ class VersionInfoPage extends ConsumerWidget {
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: context.palette.surface,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.surfaceVariant),
+            border: Border.all(color: context.palette.surfaceVariant),
           ),
           child: Column(
             children: [
@@ -1644,8 +1644,8 @@ class VersionInfoPage extends ConsumerWidget {
                         child: Text(item['version'], style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13)),
                       ),
                       const SizedBox(width: 12),
-                      Expanded(child: Text(item['date'], style: const TextStyle(color: AppColors.textHint, fontSize: 13))),
-                      Icon(expanded ? Icons.expand_less : Icons.expand_more, color: AppColors.textHint, size: 20),
+                      Expanded(child: Text(item['date'], style:  TextStyle(color: context.palette.textHint, fontSize: 13))),
+                      Icon(expanded ? Icons.expand_less : Icons.expand_more, color: context.palette.textHint, size: 20),
                     ],
                   ),
                 ),

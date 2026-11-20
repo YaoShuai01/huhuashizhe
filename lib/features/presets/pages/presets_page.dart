@@ -18,14 +18,14 @@ class PresetsPage extends ConsumerWidget {
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            color: AppColors.surface,
+            color: context.palette.surface,
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
                     decoration: InputDecoration(
                       hintText: '搜索预设名称...',
-                      prefixIcon: const Icon(Icons.search, color: AppColors.textHint),
+                      prefixIcon:  Icon(Icons.search, color: context.palette.textHint),
                       contentPadding: const EdgeInsets.symmetric(vertical: 0),
                     ),
                   ),
@@ -49,7 +49,7 @@ class PresetsPage extends ConsumerWidget {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            color: AppColors.surface,
+            color: context.palette.surface,
             child: ElevatedButton.icon(
               onPressed: () async {
                 final result = await context.push<bool>('/presets/form');
@@ -64,11 +64,11 @@ class PresetsPage extends ConsumerWidget {
                 ? Center(child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.bookmark_outline, size: 80, color: AppColors.textDisabled.withValues(alpha: 0.5)),
+                      Icon(Icons.bookmark_outline, size: 80, color: context.palette.textDisabled.withValues(alpha: 0.5)),
                       const SizedBox(height: 16),
-                      const Text('暂无预设', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: AppColors.textHint)),
+                       Text('暂无预设', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500, color: context.palette.textHint)),
                       const SizedBox(height: 8),
-                      const Text('点击上方按钮创建你的第一个预设', style: TextStyle(fontSize: 14, color: AppColors.textDisabled)),
+                       Text('点击上方按钮创建你的第一个预设', style: TextStyle(fontSize: 14, color: context.palette.textDisabled)),
                     ],
                   ))
                 : ListView.builder(
@@ -91,7 +91,7 @@ class PresetsPage extends ConsumerWidget {
                               const SizedBox(height: 8),
                               Row(children: [_infoChip(p['cropType'] ?? ''), const SizedBox(width: 8), _infoChip(p['operationType'] ?? '')]),
                               const SizedBox(height: 8),
-                              Text('喷洒量 ${(p['sprayVolume'] ?? 0).toStringAsFixed(1)} L/亩 · 高度 ${(p['flightHeight'] ?? 0).toStringAsFixed(1)} m', style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                              Text('喷洒量 ${(p['sprayVolume'] ?? 0).toStringAsFixed(1)} L/亩 · 高度 ${(p['flightHeight'] ?? 0).toStringAsFixed(1)} m', style:  TextStyle(color: context.palette.textSecondary, fontSize: 13)),
                               const SizedBox(height: 8),
                               Row(mainAxisAlignment: MainAxisAlignment.end, children: [
                                 TextButton.icon(onPressed: () async { await context.push('/presets/tuning', extra: p); ref.invalidate(presetsProvider); }, icon: const Icon(Icons.tune, size: 16), label: const Text('微调')),

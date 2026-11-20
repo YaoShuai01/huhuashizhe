@@ -153,7 +153,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
       selectedId: _assignments[key],
       allowSwap: true,
       dateLabel:
-          '${ScheduleDate.fullLabel(date)} ${ScheduleDate.weekday(date)}',
+ '${ScheduleDate.fullLabel(date)} ${ScheduleDate.weekday(date)}',
     );
     if (result == null) return;
     if (result.swap) {
@@ -207,7 +207,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
     final ok = await showDialog<bool>(
       context: context,
       builder:
-          (ctx) => AlertDialog(
+ (ctx) => AlertDialog(
             title: const Text('对调轮协'),
             content: Text(
               '${ScheduleDate.fullLabel(source)}：${_memberName(sourceMember)}\n'
@@ -293,7 +293,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
     final ok = await showDialog<bool>(
       context: context,
       builder:
-          (ctx) => AlertDialog(
+ (ctx) => AlertDialog(
             title: const Text('删除成员'),
             content: Text(
               futureCount > 0
@@ -333,7 +333,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
     final result = await showDialog<String>(
       context: context,
       builder:
-          (ctx) => StatefulBuilder(
+ (ctx) => StatefulBuilder(
             builder: (ctx, setDialogState) {
               void submit() {
                 final name = controller.text.trim();
@@ -446,7 +446,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
     final ok = await showDialog<bool>(
       context: context,
       builder:
-          (ctx) => AlertDialog(
+ (ctx) => AlertDialog(
             title: const Text('提交轮协表'),
             content: Text(
               '本次修改：轮协 $changedDates 天'
@@ -475,7 +475,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
       members: List<ScheduleMember>.unmodifiable(_members),
       assignments: Map<String, String>.unmodifiable(_assignments),
       rotation:
-          _rotation.where((id) => _members.any((m) => m.id == id)).toList(),
+ _rotation.where((id) => _members.any((m) => m.id == id)).toList(),
     );
     await _doSubmit(edited);
   }
@@ -503,7 +503,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
       final action = await showDialog<String>(
         context: context,
         builder:
-            (ctx) => AlertDialog(
+ (ctx) => AlertDialog(
               title: const Text('轮协已被更新'),
               content: Text(
                 '其他设备已经提交了新的轮协版本（当前版本 ${conflict.currentRevision}）。\n\n'
@@ -543,7 +543,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
       final go = await showDialog<bool>(
         context: context,
         builder:
-            (ctx) => AlertDialog(
+ (ctx) => AlertDialog(
               title: const Text('管理员登录已失效'),
               content: const Text('请重新输入管理密钥后再编辑轮协。'),
               actions: [
@@ -573,7 +573,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
     await showDialog<void>(
       context: context,
       builder:
-          (ctx) => AlertDialog(
+ (ctx) => AlertDialog(
             title: const Row(
               children: [
                 Icon(Icons.check_circle, color: AppColors.success),
@@ -600,7 +600,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
     final result = await showDialog<bool>(
       context: context,
       builder:
-          (ctx) => AlertDialog(
+ (ctx) => AlertDialog(
             title: const Text('放弃修改？'),
             content: const Text('当前有未提交的轮协修改，离开后这些修改会丢失。'),
             actions: [
@@ -689,17 +689,17 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
+               Icon(
                 Icons.error_outline,
                 size: 56,
-                color: AppColors.textDisabled,
+                color: context.palette.textDisabled,
               ),
               const SizedBox(height: 12),
               Text(
                 _error!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
+                style:  TextStyle(
+                  color: context.palette.textSecondary,
                   height: 1.6,
                 ),
               ),
@@ -731,7 +731,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
             color: AppColors.info.withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(12),
           ),
-          child: const Row(
+          child:  Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(Icons.touch_app_outlined, size: 18, color: AppColors.info),
@@ -741,7 +741,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
                   '点击日期选择当天负责人。一天只能安排一人，未选择的日期显示为未轮协。',
                   style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.textSecondary,
+                    color: context.palette.textSecondary,
                     height: 1.5,
                   ),
                 ),
@@ -770,12 +770,12 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
         const SizedBox(height: 16),
         Row(
           children: [
-            const Icon(Icons.info_outline, size: 15, color: AppColors.textHint),
+             Icon(Icons.info_outline, size: 15, color: context.palette.textHint),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
                 '当前共 ${_members.length} 名成员，已安排 ${_assignments.length} 天',
-                style: const TextStyle(fontSize: 12, color: AppColors.textHint),
+                style:  TextStyle(fontSize: 12, color: context.palette.textHint),
               ),
             ),
           ],
@@ -799,7 +799,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
             if (count > 0)
               Text(
                 '当前序列 $count 个班次',
-                style: const TextStyle(fontSize: 11, color: AppColors.textHint),
+                style:  TextStyle(fontSize: 11, color: context.palette.textHint),
               ),
           ],
         ),
@@ -856,18 +856,18 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
                 const SizedBox(height: 1),
                 Text(
                   subtitle,
-                  style: const TextStyle(
+                  style:  TextStyle(
                     fontSize: 11,
-                    color: AppColors.textHint,
+                    color: context.palette.textHint,
                   ),
                 ),
               ],
             ),
           ),
-          const Icon(
+           Icon(
             Icons.chevron_right,
             size: 18,
-            color: AppColors.textDisabled,
+            color: context.palette.textDisabled,
           ),
         ],
       ),
@@ -893,7 +893,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
       final result = await Navigator.of(context).push<List<String>>(
         MaterialPageRoute(
           builder:
-              (_) => ScheduleRotationOrderPage(
+ (_) => ScheduleRotationOrderPage(
                 members: _members,
                 initial: _rotation,
               ),
@@ -930,7 +930,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
     final ok = await showDialog<bool>(
       context: context,
       builder:
-          (ctx) => StatefulBuilder(
+ (ctx) => StatefulBuilder(
             builder: (ctx, setDialogState) {
               Future<void> pickDate({required bool isStart}) async {
                 final picked = await showDatePicker(
@@ -976,14 +976,14 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
                         ),
                         value: overwrite,
                         onChanged:
-                            (value) => setDialogState(() => overwrite = value),
+ (value) => setDialogState(() => overwrite = value),
                       ),
-                      const Text(
+                       Text(
                         '顺延会按区间内每一天推进；不覆盖时只填空缺日期，但顺序仍会前进。',
                         style: TextStyle(
                           fontSize: 11,
                           height: 1.5,
-                          color: AppColors.textHint,
+                          color: context.palette.textHint,
                         ),
                       ),
                       if (rangeError != null) ...[
@@ -1097,11 +1097,11 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
           ],
         ),
         const SizedBox(height: 6),
-        const Padding(
+         Padding(
           padding: EdgeInsets.only(left: 2),
           child: Text(
             '姓名会显示在轮协表上；重名请加区分，例如“张三 A”。',
-            style: TextStyle(fontSize: 11, color: AppColors.textHint),
+            style: TextStyle(fontSize: 11, color: context.palette.textHint),
           ),
         ),
         const SizedBox(height: 12),
@@ -1114,10 +1114,10 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
             ),
             child: Column(
               children: [
-                const Icon(
+                 Icon(
                   Icons.group_add_outlined,
                   size: 48,
-                  color: AppColors.textDisabled,
+                  color: context.palette.textDisabled,
                 ),
                 const SizedBox(height: 10),
                 const Text(
@@ -1125,9 +1125,9 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 4),
-                const Text(
+                 Text(
                   '先添加成员，再到“轮协”页安排日期',
-                  style: TextStyle(fontSize: 12, color: AppColors.textHint),
+                  style: TextStyle(fontSize: 12, color: context.palette.textHint),
                 ),
                 const SizedBox(height: 14),
                 OutlinedButton.icon(
@@ -1206,15 +1206,15 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.textHint.withValues(alpha: 0.12),
+                          color: context.palette.textHint.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Text(
+                        child:  Text(
                           '未验证',
                           style: TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.textHint,
+                            color: context.palette.textHint,
                           ),
                         ),
                       ),
@@ -1228,7 +1228,7 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
                         decoration: BoxDecoration(
                           color: (member.online
                                   ? AppColors.success
-                                  : AppColors.textHint)
+                                  : context.palette.textHint)
                               .withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
@@ -1240,9 +1240,9 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
                               height: 6,
                               decoration: BoxDecoration(
                                 color:
-                                    member.online
+ member.online
                                         ? AppColors.success
-                                        : AppColors.textHint,
+                                        : context.palette.textHint,
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -1253,9 +1253,9 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
                                 fontSize: 10,
                                 fontWeight: FontWeight.w600,
                                 color:
-                                    member.online
+ member.online
                                         ? AppColors.success
-                                        : AppColors.textHint,
+                                        : context.palette.textHint,
                               ),
                             ),
                           ],
@@ -1266,9 +1266,9 @@ class _ScheduleEditPageState extends State<ScheduleEditPage>
                 ),
                 subtitle: Text(
                   '${member.seq ?? '-'}号 · 未来 $future 天 · 累计 $total 天',
-                  style: const TextStyle(
+                  style:  TextStyle(
                     fontSize: 11,
-                    color: AppColors.textHint,
+                    color: context.palette.textHint,
                   ),
                 ),
                 trailing: Row(

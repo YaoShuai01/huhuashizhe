@@ -156,7 +156,7 @@ class _SchedulePageState extends State<SchedulePage>
       context: context,
       barrierDismissible: false,
       builder:
-          (ctx) => AlertDialog(
+ (ctx) => AlertDialog(
             title: const Text('登录已失效'),
             content: const Text('轮协登录状态已失效，请重新输入轮协密钥。'),
             actions: [
@@ -175,7 +175,7 @@ class _SchedulePageState extends State<SchedulePage>
     final ok = await showDialog<bool>(
       context: context,
       builder:
-          (ctx) => AlertDialog(
+ (ctx) => AlertDialog(
             title: const Text('退出轮协'),
             content: const Text('将清除本机的轮协登录状态和姓名绑定，下次需要重新输入轮协密钥。'),
             actions: [
@@ -206,7 +206,7 @@ class _SchedulePageState extends State<SchedulePage>
       final go = await showDialog<bool>(
         context: context,
         builder:
-            (ctx) => AlertDialog(
+ (ctx) => AlertDialog(
               title: const Text('通知权限未开启'),
               content: const Text(
                 '请在系统设置中允许“护花使者”发送通知，并关闭省电限制，否则协管前一天 17:00 可能收不到提醒。',
@@ -255,7 +255,7 @@ class _SchedulePageState extends State<SchedulePage>
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder:
-          (ctx) => SafeArea(
+ (ctx) => SafeArea(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
               child: Column(
@@ -272,9 +272,9 @@ class _SchedulePageState extends State<SchedulePage>
                   const SizedBox(height: 2),
                   Text(
                     ScheduleDate.weekday(date),
-                    style: const TextStyle(
+                    style:  TextStyle(
                       fontSize: 13,
-                      color: AppColors.textHint,
+                      color: context.palette.textHint,
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -283,7 +283,7 @@ class _SchedulePageState extends State<SchedulePage>
                       CircleAvatar(
                         radius: 24,
                         backgroundColor:
-                            isMine
+ isMine
                                 ? scheme.primary
                                 : scheme.primary.withValues(alpha: 0.1),
                         child: Text(
@@ -316,9 +316,9 @@ class _SchedulePageState extends State<SchedulePage>
                               isMine
                                   ? '这是你的协管日'
                                   : (member == null ? '这一天还没有安排负责人' : '协管负责人'),
-                              style: const TextStyle(
+                              style:  TextStyle(
                                 fontSize: 12,
-                                color: AppColors.textHint,
+                                color: context.palette.textHint,
                               ),
                             ),
                           ],
@@ -370,7 +370,7 @@ class _SchedulePageState extends State<SchedulePage>
       appBar: AppBar(
         title: const Text('轮协管理'),
         bottom:
-            _loading
+ _loading
                 ? const PreferredSize(
                   preferredSize: Size.fromHeight(2),
                   child: LinearProgressIndicator(minHeight: 2),
@@ -386,18 +386,18 @@ class _SchedulePageState extends State<SchedulePage>
             onSelected: (value) {
               switch (value) {
                 case 'edit':
-                  _openEdit();
+ _openEdit();
                   break;
                 case 'notifications':
-                  _showNotificationHelp();
+ _showNotificationHelp();
                   break;
                 case 'logout':
-                  _logout();
+ _logout();
                   break;
               }
             },
             itemBuilder:
-                (context) => [
+ (context) => [
                   if (_service.isAdmin)
                     const PopupMenuItem(
                       value: 'edit',
@@ -441,10 +441,10 @@ class _SchedulePageState extends State<SchedulePage>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+             Icon(
               Icons.calendar_today_outlined,
               size: 64,
-              color: AppColors.textDisabled,
+              color: context.palette.textDisabled,
             ),
             const SizedBox(height: 16),
             const Text(
@@ -452,12 +452,12 @@ class _SchedulePageState extends State<SchedulePage>
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
-            const Text(
+             Text(
               '点击刷新重试；如果轮协表还是空的，请管理员先添加成员和日期。',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
-                color: AppColors.textHint,
+                color: context.palette.textHint,
                 height: 1.6,
               ),
             ),
@@ -534,7 +534,7 @@ class _SchedulePageState extends State<SchedulePage>
       banners.add(
         _banner(
           icon: Icons.wifi_off_rounded,
-          color: AppColors.textSecondary,
+          color: context.palette.textSecondary,
           text: '离线：当前显示上次同步的数据',
           actionLabel: '重试',
           onAction: () => _refresh(force: true),
@@ -585,10 +585,10 @@ class _SchedulePageState extends State<SchedulePage>
           Expanded(
             child: Text(
               text,
-              style: const TextStyle(
+              style:  TextStyle(
                 fontSize: 12,
                 height: 1.45,
-                color: AppColors.textSecondary,
+                color: context.palette.textSecondary,
               ),
             ),
           ),
@@ -634,9 +634,9 @@ class _SchedulePageState extends State<SchedulePage>
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 2),
-                    const Text(
+                     Text(
                       '请联系管理员更新轮协表',
-                      style: TextStyle(fontSize: 12, color: AppColors.textHint),
+                      style: TextStyle(fontSize: 12, color: context.palette.textHint),
                     ),
                   ],
                 ),
@@ -780,7 +780,7 @@ class _SchedulePageState extends State<SchedulePage>
               spacing: 6,
               runSpacing: 6,
               children:
-                  upcoming.take(2).map((date) {
+ upcoming.take(2).map((date) {
                     return Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -876,17 +876,17 @@ class _SchedulePageState extends State<SchedulePage>
             const Spacer(),
             Text(
               '共 ${upcoming.length} 天',
-              style: const TextStyle(fontSize: 12, color: AppColors.textHint),
+              style:  TextStyle(fontSize: 12, color: context.palette.textHint),
             ),
           ],
         ),
         const SizedBox(height: 8),
         if (upcoming.isEmpty)
-          const Padding(
+           Padding(
             padding: EdgeInsets.only(left: 4),
             child: Text(
               '暂无未来协管安排',
-              style: TextStyle(fontSize: 13, color: AppColors.textHint),
+              style: TextStyle(fontSize: 13, color: context.palette.textHint),
             ),
           )
         else
@@ -894,7 +894,7 @@ class _SchedulePageState extends State<SchedulePage>
             spacing: 8,
             runSpacing: 8,
             children:
-                upcoming.take(12).map((date) {
+ upcoming.take(12).map((date) {
                   return Chip(
                     avatar: const Icon(Icons.event, size: 15),
                     label: Text(
@@ -915,7 +915,7 @@ class _SchedulePageState extends State<SchedulePage>
             padding: const EdgeInsets.only(top: 6, left: 4),
             child: Text(
               '还有 ${upcoming.length - 12} 天，请在月历中查看',
-              style: const TextStyle(fontSize: 11, color: AppColors.textHint),
+              style:  TextStyle(fontSize: 11, color: context.palette.textHint),
             ),
           ),
       ],

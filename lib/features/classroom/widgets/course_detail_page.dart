@@ -44,7 +44,7 @@ class CourseDetailPage extends StatelessWidget {
                 const SizedBox(width: 8),
                 Chip(
                   label: Text(category, style: const TextStyle(fontSize: 12)),
-                  backgroundColor: AppColors.surfaceVariant,
+                  backgroundColor: context.palette.surfaceVariant,
                   padding: EdgeInsets.zero,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
@@ -60,7 +60,7 @@ class CourseDetailPage extends StatelessWidget {
             const SizedBox(height: 16),
             Text(
               content,
-              style: const TextStyle(fontSize: 16, height: 1.8, color: AppColors.textSecondary),
+              style:  TextStyle(fontSize: 16, height: 1.8, color: context.palette.textSecondary),
             ),
           ],
         ),

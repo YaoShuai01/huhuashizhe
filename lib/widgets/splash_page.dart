@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/app_theme.dart';
+
 /// 闪屏页：Logo居中 + 护花使者团队
+///
+/// 背景与文字用主题语义色，深色模式下不再闪白底。
 class SplashPage extends StatelessWidget {
   const SplashPage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.palette;
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: palette.surface,
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -19,11 +24,11 @@ class SplashPage extends StatelessWidget {
               fit: BoxFit.contain,
             ),
             const SizedBox(height: 24),
-            const Text(
+            Text(
               '护花使者团队',
               style: TextStyle(
                 fontSize: 16,
-                color: Color(0xFF333333),
+                color: palette.textSecondary,
                 fontWeight: FontWeight.w500,
               ),
             ),

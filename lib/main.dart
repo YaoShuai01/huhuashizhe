@@ -8,6 +8,7 @@ import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'data/local_database.dart';
 import 'providers/device_provider.dart';
+import 'providers/theme_provider.dart';
 import 'providers/update_provider.dart';
 import 'services/ai_suggestion_worker.dart';
 import 'services/model_hotupdate_service.dart';
@@ -33,14 +34,14 @@ void main() async {
   );
 }
 
-class HuHuaShiZheApp extends StatefulWidget {
+class HuHuaShiZheApp extends ConsumerStatefulWidget {
   const HuHuaShiZheApp({super.key});
 
   @override
-  State<HuHuaShiZheApp> createState() => _HuHuaShiZheAppState();
+  ConsumerState<HuHuaShiZheApp> createState() => _HuHuaShiZheAppState();
 }
 
-class _HuHuaShiZheAppState extends State<HuHuaShiZheApp> {
+class _HuHuaShiZheAppState extends ConsumerState<HuHuaShiZheApp> {
   bool _showSplash = true;
 
   @override
@@ -56,10 +57,17 @@ class _HuHuaShiZheAppState extends State<HuHuaShiZheApp> {
 
   @override
   Widget build(BuildContext context) {
+    // 主题模式来自设置页开关；跟随系统时由 platformBrightness 决定明暗。
+    final themeMode = ref.watch(themeModeProvider);
+
+    // 闪屏和主界面共用同一个 MaterialApp，避免夜间启动时白底闪一下。
     if (_showSplash) {
-      return const MaterialApp(
+      return MaterialApp(
         debugShowCheckedModeBanner: false,
-        home: SplashPage(),
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
+        themeMode: themeMode,
+        home: const SplashPage(),
       );
     }
     return ElderCareScope(
@@ -70,7 +78,7 @@ class _HuHuaShiZheAppState extends State<HuHuaShiZheApp> {
           debugShowCheckedModeBanner: false,
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
-          themeMode: ThemeMode.system,
+          themeMode: themeMode,
           routerConfig: appRouter,
           builder: (context, child) {
             // 老年关怀模式：全局放大小字号，并开启长按板块朗读

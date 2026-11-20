@@ -114,14 +114,14 @@ class _WifiScanPageState extends State<WifiScanPage> with WidgetsBindingObserver
       setState(() => _isScanning = false);
       switch (e.code) {
         case 'WIFI_DISABLED':
-          setState(() => _wifiEnabled = false);
+ setState(() => _wifiEnabled = false);
           _showError('WiFi 未开启，请先打开 WiFi');
           break;
         case 'NO_PERMISSION':
-          _showError('缺少 WiFi 扫描权限，请在系统设置中授权');
+ _showError('缺少 WiFi 扫描权限，请在系统设置中授权');
           break;
         default:
-          _showError('扫描失败: ${e.message ?? e.code}');
+ _showError('扫描失败: ${e.message ?? e.code}');
       }
     } catch (e) {
       if (mounted) {
@@ -190,7 +190,7 @@ class _WifiScanPageState extends State<WifiScanPage> with WidgetsBindingObserver
           _buildConnectionCard(),
           Container(
             padding: const EdgeInsets.all(16),
-            color: AppColors.surface,
+            color: context.palette.surface,
             child: Row(
               children: [
                 Expanded(
@@ -266,7 +266,7 @@ class _WifiScanPageState extends State<WifiScanPage> with WidgetsBindingObserver
                   connected
                       ? '信号 ${_status.signalDisplay} · 可返回首页开始作业'
                       : '请连接 ${WifiService.droneSsid}（默认密码见机身标签）',
-                  style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
+                  style:  TextStyle(fontSize: 12, color: context.palette.textSecondary),
                 ),
               ],
             ),
@@ -330,14 +330,14 @@ class _WifiScanPageState extends State<WifiScanPage> with WidgetsBindingObserver
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.wifi_off, size: 64, color: AppColors.textDisabled.withValues(alpha: 0.5)),
+          Icon(Icons.wifi_off, size: 64, color: context.palette.textDisabled.withValues(alpha: 0.5)),
           const SizedBox(height: 16),
-          const Text('未发现 WiFi 网络', style: TextStyle(fontSize: 16, color: AppColors.textHint)),
+           Text('未发现 WiFi 网络', style: TextStyle(fontSize: 16, color: context.palette.textHint)),
           const SizedBox(height: 8),
-          const Text(
+           Text(
             '请确认无人机已上电，并已开启手机定位服务\n（Android 扫描 WiFi 需要定位服务）',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 13, color: AppColors.textDisabled),
+            style: TextStyle(fontSize: 13, color: context.palette.textDisabled),
           ),
           const SizedBox(height: 16),
           OutlinedButton.icon(
@@ -370,7 +370,7 @@ class _WifiScanPageState extends State<WifiScanPage> with WidgetsBindingObserver
           ),
           child: Icon(
             _signalIcon(network.rssi),
-            color: isDrone ? AppColors.primary : AppColors.textSecondary,
+            color: isDrone ? AppColors.primary : context.palette.textSecondary,
           ),
         ),
         title: Row(
@@ -397,7 +397,7 @@ class _WifiScanPageState extends State<WifiScanPage> with WidgetsBindingObserver
             Flexible(
               child: Text(
                 '${network.securityDisplay} · 信号 ${network.signalDisplay}',
-                style: const TextStyle(fontSize: 12, color: AppColors.textHint),
+                style:  TextStyle(fontSize: 12, color: context.palette.textHint),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -430,10 +430,10 @@ class _WifiScanPageState extends State<WifiScanPage> with WidgetsBindingObserver
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 16),
-      color: AppColors.background,
-      child: const Text(
+      color: context.palette.background,
+      child:  Text(
         'Android 10 及以上系统不允许 APP 直接连接 WiFi：点击网络后请在系统面板中完成连接，返回本页会自动检测。',
-        style: TextStyle(fontSize: 11, color: AppColors.textDisabled),
+        style: TextStyle(fontSize: 11, color: context.palette.textDisabled),
       ),
     );
   }

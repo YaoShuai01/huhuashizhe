@@ -202,12 +202,12 @@ class _ScheduleGatePageState extends State<ScheduleGatePage> {
       PageRouteBuilder(
         opaque: true,
         pageBuilder:
-            (_, __, ___) => ScheduleCeremonyPage(
+ (_, __, ___) => ScheduleCeremonyPage(
               memberNumber: number,
               memberName: member.name,
             ),
         transitionsBuilder:
-            (_, animation, __, child) =>
+ (_, animation, __, child) =>
                 FadeTransition(opacity: animation, child: child),
       ),
     );
@@ -260,27 +260,27 @@ class _ScheduleGatePageState extends State<ScheduleGatePage> {
   Widget _buildBody(BuildContext context) {
     switch (_phase) {
       case _GatePhase.loading:
-        return _buildLoading();
+ return _buildLoading();
       case _GatePhase.key:
-        return _buildKeyEntry();
+ return _buildKeyEntry();
       case _GatePhase.name:
-        return _buildNameSelection();
+ return _buildNameSelection();
       case _GatePhase.config:
-        return _buildConfigError();
+ return _buildConfigError();
       case _GatePhase.offline:
-        return _buildOffline();
+ return _buildOffline();
     }
   }
 
   Widget _buildLoading() {
-    return const Center(
+    return  Center(
       key: ValueKey('loading'),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           CircularProgressIndicator(),
           SizedBox(height: 16),
-          Text('正在验证轮协身份...', style: TextStyle(color: AppColors.textHint)),
+          Text('正在验证轮协身份...', style: TextStyle(color: context.palette.textHint)),
         ],
       ),
     );
@@ -311,9 +311,9 @@ class _ScheduleGatePageState extends State<ScheduleGatePage> {
             style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 8),
-          const Text(
+           Text(
             '请输入轮协密钥',
-            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+            style: TextStyle(fontSize: 14, color: context.palette.textSecondary),
           ),
           const SizedBox(height: 28),
           TextField(
@@ -347,7 +347,7 @@ class _ScheduleGatePageState extends State<ScheduleGatePage> {
           ElevatedButton(
             onPressed: _authLoading ? null : _submitKey,
             child:
-                _authLoading
+ _authLoading
                     ? const SizedBox(
                       width: 22,
                       height: 22,
@@ -359,12 +359,12 @@ class _ScheduleGatePageState extends State<ScheduleGatePage> {
                     : const Text('进入轮协管理'),
           ),
           const SizedBox(height: 18),
-          const Text(
+           Text(
             '输入密钥并验证姓名后进入；有编辑权限的密钥会多一个编辑入口。\n密钥仅用于团队内部轮协，请勿外传。',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 12,
-              color: AppColors.textHint,
+              color: context.palette.textHint,
               height: 1.6,
             ),
           ),
@@ -404,7 +404,7 @@ class _ScheduleGatePageState extends State<ScheduleGatePage> {
                 ),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -418,7 +418,7 @@ class _ScheduleGatePageState extends State<ScheduleGatePage> {
                     SizedBox(height: 2),
                     Text(
                       '密钥已验证，输入本人姓名即可进入；下次无需重新输入密钥',
-                      style: TextStyle(fontSize: 12, color: AppColors.textHint),
+                      style: TextStyle(fontSize: 12, color: context.palette.textHint),
                     ),
                   ],
                 ),
@@ -427,10 +427,10 @@ class _ScheduleGatePageState extends State<ScheduleGatePage> {
           ),
           const SizedBox(height: 24),
           if (isEmpty) ...[
-            const Icon(
+             Icon(
               Icons.group_off_outlined,
               size: 56,
-              color: AppColors.textDisabled,
+              color: context.palette.textDisabled,
             ),
             const SizedBox(height: 12),
             Text(
@@ -438,7 +438,7 @@ class _ScheduleGatePageState extends State<ScheduleGatePage> {
                   ? '轮协表还没有成员\n先添加成员和你自己的姓名，再回来验证；第一个添加的成员为1号'
                   : '管理员还没有录入成员\n请联系管理员添加后再进入',
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textHint, height: 1.6),
+              style:  TextStyle(color: context.palette.textHint, height: 1.6),
             ),
             if (_service.isAdmin) ...[
               const SizedBox(height: 18),
@@ -468,7 +468,7 @@ class _ScheduleGatePageState extends State<ScheduleGatePage> {
             ElevatedButton(
               onPressed: _verifying ? null : _verifyName,
               child:
-                  _verifying
+ _verifying
                       ? const SizedBox(
                         width: 22,
                         height: 22,
@@ -500,10 +500,10 @@ class _ScheduleGatePageState extends State<ScheduleGatePage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+             Icon(
               Icons.cloud_off_outlined,
               size: 64,
-              color: AppColors.textDisabled,
+              color: context.palette.textDisabled,
             ),
             const SizedBox(height: 16),
             const Text(
@@ -511,12 +511,12 @@ class _ScheduleGatePageState extends State<ScheduleGatePage> {
               style: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
-            const Text(
+             Text(
               '管理员需要先部署轮协 Worker，并在 config/schedule.json 中填写服务地址。',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
-                color: AppColors.textHint,
+                color: context.palette.textHint,
                 height: 1.6,
               ),
             ),
@@ -540,10 +540,10 @@ class _ScheduleGatePageState extends State<ScheduleGatePage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(
+             Icon(
               Icons.wifi_off_rounded,
               size: 64,
-              color: AppColors.textDisabled,
+              color: context.palette.textDisabled,
             ),
             const SizedBox(height: 16),
             const Text(
@@ -554,16 +554,16 @@ class _ScheduleGatePageState extends State<ScheduleGatePage> {
             Text(
               _error ?? '请检查网络后重试',
               textAlign: TextAlign.center,
-              style: const TextStyle(
+              style:  TextStyle(
                 fontSize: 13,
-                color: AppColors.textHint,
+                color: context.palette.textHint,
                 height: 1.6,
               ),
             ),
             const SizedBox(height: 6),
-            const Text(
+             Text(
               '密钥已验证，无需重新输入',
-              style: TextStyle(fontSize: 12, color: AppColors.textHint),
+              style: TextStyle(fontSize: 12, color: context.palette.textHint),
             ),
             const SizedBox(height: 20),
             ElevatedButton.icon(
@@ -574,7 +574,7 @@ class _ScheduleGatePageState extends State<ScheduleGatePage> {
             const SizedBox(height: 8),
             TextButton(
               onPressed:
-                  () => setState(() {
+ () => setState(() {
                     _phase = _GatePhase.key;
                     _keyError = null;
                   }),

@@ -234,7 +234,7 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
           Container(width: 1, height: 24, color: Colors.grey.withValues(alpha: 0.2)),
           const SizedBox(width: 12),
           // 步长标签
-          const Text('步长', style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+           Text('步长', style: TextStyle(fontSize: 12, color: context.palette.textSecondary)),
           const SizedBox(width: 6),
           // 步长调节
           _buildStepControl(),
@@ -467,7 +467,7 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
                     children: [
                       const CircularProgressIndicator(color: AppColors.primary),
                       const SizedBox(height: 16),
-                      const Text('正在获取位置...', style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+                       Text('正在获取位置...', style: TextStyle(color: context.palette.textSecondary, fontSize: 14)),
                       const SizedBox(height: 24),
                       TextButton(
                         onPressed: () {
@@ -492,23 +492,23 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
           if (_waypoints.isNotEmpty)
             Container(margin: const EdgeInsets.only(top: 8), constraints: const BoxConstraints(maxHeight: 60), child: ListView.builder(scrollDirection: Axis.horizontal, itemCount: _waypoints.length.clamp(0, 5), itemBuilder: (_, i) {
               final p = _waypoints[i];
-              return Container(margin: const EdgeInsets.only(right: 8), padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(8), border: Border.all(color: i == 0 ? AppColors.primary : AppColors.textDisabled.withValues(alpha: 0.3))), child: Row(mainAxisSize: MainAxisSize.min, children: [
+              return Container(margin: const EdgeInsets.only(right: 8), padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), decoration: BoxDecoration(color: context.palette.surface, borderRadius: BorderRadius.circular(8), border: Border.all(color: i == 0 ? AppColors.primary : context.palette.textDisabled.withValues(alpha: 0.3))), child: Row(mainAxisSize: MainAxisSize.min, children: [
                 CircleAvatar(radius: 10, backgroundColor: i == 0 ? AppColors.primary : AppColors.error, child: Text('${i + 1}', style: const TextStyle(color: Colors.white, fontSize: 9))),
                 const SizedBox(width: 6),
                 Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
                   Text('航点${i + 1}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
-                  Text('${p.latitude.toStringAsFixed(4)}, ${p.longitude.toStringAsFixed(4)}', style: TextStyle(fontSize: 9, color: AppColors.textDisabled)),
+                  Text('${p.latitude.toStringAsFixed(4)}, ${p.longitude.toStringAsFixed(4)}', style: TextStyle(fontSize: 9, color: context.palette.textDisabled)),
                 ]),
               ]));
             })),
           Row(children: [
             if (_waypoints.isNotEmpty) ...[
-              Expanded(child: OutlinedButton.icon(onPressed: _undo, icon: const Icon(Icons.undo, size: 18), label: const Text('撤销'), style: OutlinedButton.styleFrom(foregroundColor: AppColors.textSecondary, padding: const EdgeInsets.symmetric(vertical: 14)))),
+              Expanded(child: OutlinedButton.icon(onPressed: _undo, icon: const Icon(Icons.undo, size: 18), label: const Text('撤销'), style: OutlinedButton.styleFrom(foregroundColor: context.palette.textSecondary, padding: const EdgeInsets.symmetric(vertical: 14)))),
               const SizedBox(width: 10),
             ],
-            Expanded(flex: 2, child: ElevatedButton.icon(onPressed: _isClosed ? null : _addWaypoint, icon: Icon(_getMainButtonIcon(), size: 20), label: Text(_getMainButtonText()), style: ElevatedButton.styleFrom(backgroundColor: _canClose ? AppColors.accent : AppColors.primary, foregroundColor: Colors.white, disabledBackgroundColor: AppColors.textDisabled.withValues(alpha: 0.3), padding: const EdgeInsets.symmetric(vertical: 14)))),
+            Expanded(flex: 2, child: ElevatedButton.icon(onPressed: _isClosed ? null : _addWaypoint, icon: Icon(_getMainButtonIcon(), size: 20), label: Text(_getMainButtonText()), style: ElevatedButton.styleFrom(backgroundColor: _canClose ? AppColors.accent : AppColors.primary, foregroundColor: Colors.white, disabledBackgroundColor: context.palette.textDisabled.withValues(alpha: 0.3), padding: const EdgeInsets.symmetric(vertical: 14)))),
             const SizedBox(width: 10),
-            Expanded(child: ElevatedButton.icon(onPressed: _waypoints.length >= 3 ? _finish : null, icon: const Icon(Icons.check, size: 18), label: const Text('完成'), style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryDark, foregroundColor: Colors.white, disabledBackgroundColor: AppColors.textDisabled.withValues(alpha: 0.15), padding: const EdgeInsets.symmetric(vertical: 14)))),
+            Expanded(child: ElevatedButton.icon(onPressed: _waypoints.length >= 3 ? _finish : null, icon: const Icon(Icons.check, size: 18), label: const Text('完成'), style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryDark, foregroundColor: Colors.white, disabledBackgroundColor: context.palette.textDisabled.withValues(alpha: 0.15), padding: const EdgeInsets.symmetric(vertical: 14)))),
           ]),
         ]),
       )),
@@ -713,11 +713,11 @@ class _AiTuningPageState extends ConsumerState<AiTuningPage> {
     const Text('作业信息', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)), const SizedBox(height: 12),
     _buildDropdownRow('作物类型', _cropType, _cropTypes, (v) { setState(() => _cropType = v!); _runAiTuning(); }), const SizedBox(height: 8),
     _buildDropdownRow('作业类型', _operationType, _operationTypes, (v) { setState(() => _operationType = v!); _runAiTuning(); }), const SizedBox(height: 8),
-    Row(children: [const Text('作业面积: ', style: TextStyle(color: AppColors.textSecondary)), Text('${widget.area.toStringAsFixed(1)} 亩', style: const TextStyle(fontWeight: FontWeight.w600)), const Spacer(), TextButton.icon(onPressed: _runAiTuning, icon: const Icon(Icons.auto_awesome, size: 16), label: const Text('重新分析'))]),
+    Row(children: [ Text('作业面积: ', style: TextStyle(color: context.palette.textSecondary)), Text('${widget.area.toStringAsFixed(1)} 亩', style: const TextStyle(fontWeight: FontWeight.w600)), const Spacer(), TextButton.icon(onPressed: _runAiTuning, icon: const Icon(Icons.auto_awesome, size: 16), label: const Text('重新分析'))]),
   ])));
 
   Widget _buildDropdownRow(String label, String value, List<String> items, ValueChanged<String?> onChanged) =>
-    Row(children: [SizedBox(width: 80, child: Text(label, style: const TextStyle(color: AppColors.textSecondary))), Expanded(child: DropdownButtonFormField<String>(value: value, isExpanded: true, decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8), isDense: true), items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(), onChanged: onChanged))]);
+    Row(children: [SizedBox(width: 80, child: Text(label, style:  TextStyle(color: context.palette.textSecondary))), Expanded(child: DropdownButtonFormField<String>(value: value, isExpanded: true, decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8), isDense: true), items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(), onChanged: onChanged))]);
 
   Widget _buildParamSelectors() => Card(child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
     const Text('飞行参数', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)), const SizedBox(height: 12),
@@ -730,7 +730,7 @@ class _AiTuningPageState extends ConsumerState<AiTuningPage> {
 
   Widget _buildSlider(String label, double value, double min, double max, String unit, ValueChanged<double> onChanged) =>
     Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)), Text('${value.toStringAsFixed(1)} $unit', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))]),
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(label, style:  TextStyle(color: context.palette.textSecondary, fontSize: 13)), Text('${value.toStringAsFixed(1)} $unit', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))]),
       Slider(value: value, min: min, max: max, divisions: ((max - min) * 10).toInt(), activeColor: AppColors.primary, onChanged: onChanged),
     ]);
 
@@ -743,7 +743,7 @@ class _AiTuningPageState extends ConsumerState<AiTuningPage> {
     ])));
   }
 
-  Widget _summaryRow(String label, String value) => Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(label, style: const TextStyle(color: AppColors.textSecondary)), Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15))]));
+  Widget _summaryRow(String label, String value) => Padding(padding: const EdgeInsets.symmetric(vertical: 4), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(label, style:  TextStyle(color: context.palette.textSecondary)), Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15))]));
 }
 
 // ==================== 任务确认页面 ====================
@@ -791,5 +791,5 @@ class _MissionConfirmPageState extends ConsumerState<MissionConfirmPage> {
       SizedBox(width: double.infinity, child: ElevatedButton(onPressed: _submit, style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)), child: const Text('提交任务', style: TextStyle(fontSize: 18)))),
     ])));
   }
-  Widget _paramRow(String label, String value) => Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(label, style: const TextStyle(color: AppColors.textSecondary)), Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15))]));
+  Widget _paramRow(String label, String value) => Padding(padding: const EdgeInsets.symmetric(vertical: 6), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text(label, style:  TextStyle(color: context.palette.textSecondary)), Text(value, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15))]));
 }

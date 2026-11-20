@@ -191,22 +191,22 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                         padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
                         child: Text(
                           '全部评论 ${comments.length}',
-                          style: const TextStyle(
+                          style:  TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
+                            color: context.palette.textPrimary,
                           ),
                         ),
                       ),
                       if (comments.isEmpty)
-                        const Padding(
+                         Padding(
                           padding: EdgeInsets.symmetric(vertical: 32),
                           child: Center(
                             child: Text(
                               '还没有评论，来说两句',
                               style: TextStyle(
                                 fontSize: 13,
-                                color: AppColors.textHint,
+                                color: context.palette.textHint,
                               ),
                             ),
                           ),
@@ -230,7 +230,7 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
     // 只朗读昵称与提问/回答内容，跳过时间、版块与底部操作区
     return ElderCareBlock(
       readText:
-          '${widget.post.author}。${widget.post.title}。${widget.post.content}',
+ '${widget.post.author}。${widget.post.title}。${widget.post.content}',
       child: _postHeaderCard(repository),
     );
   }
@@ -273,10 +273,10 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                     post.author,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style:  TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
+                      color: context.palette.textPrimary,
                     ),
                   ),
                 ),
@@ -286,9 +286,9 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                     forumTimeText(post.createdAt),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style:  TextStyle(
                       fontSize: 11,
-                      color: AppColors.textHint,
+                      color: context.palette.textHint,
                     ),
                   ),
                 ),
@@ -297,20 +297,20 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
             const SizedBox(height: 12),
             Text(
               post.title,
-              style: const TextStyle(
+              style:  TextStyle(
                 fontSize: 17,
                 height: 1.4,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
+                color: context.palette.textPrimary,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               post.content,
-              style: const TextStyle(
+              style:  TextStyle(
                 fontSize: 14,
                 height: 1.6,
-                color: AppColors.textSecondary,
+                color: context.palette.textSecondary,
               ),
             ),
             const SizedBox(height: 12),
@@ -325,16 +325,16 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceVariant,
+                        color: context.palette.surfaceVariant,
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(
                         post.section,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style:  TextStyle(
                           fontSize: 11,
-                          color: AppColors.textHint,
+                          color: context.palette.textHint,
                         ),
                       ),
                     ),
@@ -358,14 +358,14 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                           size: 16,
                           color: post.likes > 0
                               ? AppColors.accent
-                              : AppColors.textHint,
+                              : context.palette.textHint,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           '${post.likes}',
-                          style: const TextStyle(
+                          style:  TextStyle(
                             fontSize: 12,
-                            color: AppColors.textHint,
+                            color: context.palette.textHint,
                           ),
                         ),
                       ],
@@ -391,7 +391,7 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                           size: 16,
                           color: repository.isFavorite(post)
                               ? AppColors.accent
-                              : AppColors.textHint,
+                              : context.palette.textHint,
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -400,7 +400,7 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                             fontSize: 12,
                             color: repository.isFavorite(post)
                                 ? AppColors.accent
-                                : AppColors.textHint,
+                                : context.palette.textHint,
                           ),
                         ),
                       ],
@@ -419,10 +419,10 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
     return SafeArea(
       top: false,
       child: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
+        decoration:  BoxDecoration(
+          color: context.palette.surface,
           border: Border(
-            top: BorderSide(color: AppColors.surfaceVariant),
+            top: BorderSide(color: context.palette.surfaceVariant),
           ),
         ),
         child: Column(
@@ -454,13 +454,13 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                       style: const TextStyle(fontSize: 13),
                       decoration: InputDecoration(
                         hintText: '写下你的评论…',
-                        hintStyle: const TextStyle(
+                        hintStyle:  TextStyle(
                           fontSize: 13,
-                          color: AppColors.textHint,
+                          color: context.palette.textHint,
                         ),
                         isDense: true,
                         filled: true,
-                        fillColor: AppColors.surfaceVariant,
+                        fillColor: context.palette.surfaceVariant,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 14,
                           vertical: 10,
@@ -483,7 +483,7 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                       size: 26,
                       color: _showEmojiPanel
                           ? AppColors.primary
-                          : AppColors.textHint,
+                          : context.palette.textHint,
                     ),
                   ),
                   ForumVoiceButton(
@@ -512,9 +512,9 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
       height: 168,
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.surfaceVariant)),
+      decoration:  BoxDecoration(
+        color: context.palette.surface,
+        border: Border(top: BorderSide(color: context.palette.surfaceVariant)),
       ),
       child: GridView.count(
         crossAxisCount: 8,

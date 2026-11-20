@@ -95,7 +95,7 @@ class UpdateDialog extends ConsumerWidget {
           children: [
             const CircularProgressIndicator(color: AppColors.primary),
             const SizedBox(height: 16),
-            Text('正在检查更新...', style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+            Text('正在检查更新...', style: TextStyle(color: context.palette.textSecondary, fontSize: 14)),
           ],
         ),
       );
@@ -116,16 +116,16 @@ class UpdateDialog extends ConsumerWidget {
                   child: CircularProgressIndicator(
                     value: state.progress,
                     strokeWidth: 6,
-                    backgroundColor: AppColors.surfaceVariant,
+                    backgroundColor: context.palette.surfaceVariant,
                     valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
                   ),
                 ),
                 Text(
                   '${(state.progress * 100).toInt()}%',
-                  style: const TextStyle(
+                  style:  TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary,
+                    color: context.palette.textPrimary,
                   ),
                 ),
               ],
@@ -133,7 +133,7 @@ class UpdateDialog extends ConsumerWidget {
             const SizedBox(height: 12),
             Text(
               '正在下载更新... ${(state.progress * 100).toInt()}%',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+              style: TextStyle(color: context.palette.textSecondary, fontSize: 14),
             ),
             const SizedBox(height: 12),
             // 下载慢时可切后台：关闭弹窗，下载继续，进度显示在版本信息页
@@ -181,7 +181,7 @@ class UpdateDialog extends ConsumerWidget {
               const SizedBox(width: 10),
               Text(
                 '当前 v$appVersion',
-                style: TextStyle(color: AppColors.textHint, fontSize: 13),
+                style: TextStyle(color: context.palette.textHint, fontSize: 13),
               ),
             ],
           ),
@@ -196,13 +196,13 @@ class UpdateDialog extends ConsumerWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppColors.background,
+                color: context.palette.background,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
                 _formatReleaseNotes(info.releaseNotes),
-                style: const TextStyle(
-                  color: AppColors.textSecondary,
+                style:  TextStyle(
+                  color: context.palette.textSecondary,
                   fontSize: 13,
                   height: 1.7,
                 ),
@@ -224,9 +224,9 @@ class UpdateDialog extends ConsumerWidget {
               onPressed: () {
                 Navigator.of(context).pop();
               },
-              child: const Text(
+              child:  Text(
                 '下次再说',
-                style: TextStyle(color: AppColors.textHint),
+                style: TextStyle(color: context.palette.textHint),
               ),
             ),
           ),
