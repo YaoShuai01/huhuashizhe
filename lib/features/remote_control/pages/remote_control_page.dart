@@ -234,87 +234,135 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
 
     await showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.grey[900],
+      backgroundColor: Colors.transparent,
+      // 横屏下默认弹窗最高只有屏幕的 9/16，微调面板会被裁掉；
+      // 这里允许占满高度并支持滚动，小屏/横屏都能完整显示。
+      isScrollControlled: true,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx2, setSheet) {
-          Widget row(String label, int value, VoidCallback minus, VoidCallback plus) {
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 6),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 64,
-                    child: Text(label,
-                        style: const TextStyle(color: Colors.white, fontSize: 13)),
-                  ),
-                  IconButton(
-                    onPressed: minus,
-                    icon: const Icon(Icons.remove_circle_outline, color: Colors.white70),
-                  ),
-                  SizedBox(
-                    width: 72,
-                    child: Text(
-                      '${(value * 0.1).toStringAsFixed(1)}°',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                          color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+          final media = MediaQuery.of(ctx2);
+
+          Widget trimCard({
+            required String title,
+            required String subtitle,
+            required int value,
+            required VoidCallback onMinus,
+            required VoidCallback onPlus,
+          }) {
+            return Expanded(
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2C2C2E),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(title,
+                            style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600)),
+                        const SizedBox(width: 4),
+                        Text(subtitle,
+                            style: const TextStyle(color: Colors.white38, fontSize: 9)),
+                      ],
                     ),
-                  ),
-                  IconButton(
-                    onPressed: plus,
-                    icon: const Icon(Icons.add_circle_outline, color: Colors.white70),
-                  ),
-                  const Expanded(child: SizedBox()),
-                ],
+                    const SizedBox(height: 2),
+                    Text(
+                      '${value > 0 ? '+' : ''}${(value * 0.1).toStringAsFixed(1)}°',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(child: _trimStepButton(Icons.remove, onMinus)),
+                        const SizedBox(width: 8),
+                        Expanded(child: _trimStepButton(Icons.add, onPlus)),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             );
           }
 
-          return SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          return Container(
+            constraints: BoxConstraints(maxHeight: media.size.height * 0.94),
+            decoration: const BoxDecoration(
+              color: Color(0xFF1C1C1E),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+            ),
+            child: SingleChildScrollView(
+              padding: EdgeInsets.fromLTRB(16, 10, 16, 12 + media.padding.bottom),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('飞行微调',
-                      style: TextStyle(
-                          color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 4),
-                  const Text('微调会永久保存到飞控，重启后仍生效',
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text('飞行微调',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold)),
+                      ),
+                      Text('永久保存到飞控',
+                          style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.35),
+                              fontSize: 10)),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  const Text('机头偏向哪边，就往反方向微调',
                       style: TextStyle(color: Colors.white54, fontSize: 11)),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      trimCard(
+                        title: '前后',
+                        subtitle: '俯仰',
+                        value: _trimPitch,
+                        onMinus: () async {
+                          await _applyTrim(dp: -5);
+                          setSheet(() {});
+                        },
+                        onPlus: () async {
+                          await _applyTrim(dp: 5);
+                          setSheet(() {});
+                        },
+                      ),
+                      const SizedBox(width: 12),
+                      trimCard(
+                        title: '左右',
+                        subtitle: '横滚',
+                        value: _trimRoll,
+                        onMinus: () async {
+                          await _applyTrim(dr: -5);
+                          setSheet(() {});
+                        },
+                        onPlus: () async {
+                          await _applyTrim(dr: 5);
+                          setSheet(() {});
+                        },
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 8),
-                  row(
-                    '前后',
-                    _trimPitch,
-                    () async {
-                      await _applyTrim(dp: -5);
-                      setSheet(() {});
-                    },
-                    () async {
-                      await _applyTrim(dp: 5);
-                      setSheet(() {});
-                    },
-                  ),
-                  row(
-                    '左右',
-                    _trimRoll,
-                    () async {
-                      await _applyTrim(dr: -5);
-                      setSheet(() {});
-                    },
-                    () async {
-                      await _applyTrim(dr: 5);
-                      setSheet(() {});
-                    },
-                  ),
-                  const SizedBox(height: 4),
-                  const Text('每步 0.5°，范围 ±10°。机头偏向哪边就反方向加。',
+                  const Text('每步 0.5°，范围 ±10°',
                       style: TextStyle(color: Colors.white38, fontSize: 10)),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   SizedBox(
                     width: double.infinity,
-                    height: 42,
+                    height: 44,
                     child: ElevatedButton.icon(
                       onPressed: () async {
                         await _calibrateGyro();
@@ -325,6 +373,8 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                     ),
                   ),
@@ -333,6 +383,22 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  /// 微调面板的大号加减按钮（横屏下更好点按）
+  Widget _trimStepButton(IconData icon, VoidCallback onTap) {
+    return Material(
+      color: Colors.white.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: SizedBox(
+          height: 40,
+          child: Icon(icon, color: Colors.white, size: 24),
+        ),
       ),
     );
   }

@@ -70,7 +70,7 @@ class FeatureIntroPage extends StatelessWidget {
             _featureCard('设备连接', Icons.wifi, '扫描周边 WiFi 并连接无人机热点，实时查看连接状态与信号强度。'),
             _featureCard('小课堂', Icons.school, '内置植保知识库，涵盖水稻、小麦、玉米等多种作物的病虫害防治技术，持续更新中。'),
             _featureCard('作业记录', Icons.history, '查看历史作业详情，包括作业面积、飞行时长、用药量等统计信息。'),
-            _featureCard('在线更新', Icons.system_update, '自动检测GitHub最新版本，支持在线下载和安装更新。'),
+            _featureCard('在线更新', Icons.system_update, '自动检测自有服务器最新版本，支持在线下载和安装更新。'),
           ],
         ),
       ),
@@ -782,6 +782,17 @@ class VersionInfoPage extends ConsumerWidget {
 
   List<Widget> _buildUpdateHistory() {
     final histories = [
+      {
+        'version': 'v3.4.3',
+        'date': '2026-11-20',
+        'content': [
+          '修复遥控器「微调」面板在横屏/小屏下被裁切的问题，改为全高可滚动布局，加减按钮加大更好点按',
+          '恢复老年关怀模式：全局字号放大，长按板块即可朗读全软件文字',
+          '论坛新增 AI 内容初审（违规驳回/待人工复审）、评论表情包、消息铃铛未读角标',
+          '修复论坛点赞数越点越少的问题',
+          '应用更新只走自有服务器，不再检查或下载 GitHub Release',
+        ],
+      },
       {
         'version': 'v3.4.2',
         'date': '2026-11-20',
