@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/accessibility/elder_care_reader.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/forum_models.dart';
 
@@ -18,6 +19,13 @@ class ForumSectionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final desc = postCount > 0
+        ? '${section.title}。${section.desc}，共$postCount帖'
+        : '${section.title}。${section.desc}';
+    return ElderCareBlock(readText: desc, child: _buildTile(context));
+  }
+
+  Widget _buildTile(BuildContext context) {
     return Stack(
       children: [
         Container(

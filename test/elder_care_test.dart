@@ -40,6 +40,75 @@ void main() {
     expect(spoken, '农友留言区\n今天飞防作业分享');
   });
 
+  testWidgets('长按未标记板块时自动朗读所在板块', (tester) async {
+    String? spoken;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ElderCareReader(
+          onRead: (text) => spoken = text,
+          child: const Scaffold(
+            body: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('农友留言区'),
+                  Text('今天飞防作业分享'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('今天飞防作业分享')),
+    );
+    await tester.pump(const Duration(milliseconds: 600));
+    await gesture.up();
+    await tester.pump();
+
+    expect(spoken, '农友留言区\n今天飞防作业分享');
+  });
+
+  testWidgets('readText 指定朗读文本时忽略其他区域', (tester) async {
+    String? spoken;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: ElderCareReader(
+          onRead: (text) => spoken = text,
+          child: const Scaffold(
+            body: Center(
+              child: ElderCareBlock(
+                readText: '张大哥。如何防治稻飞虱。可以用吡蚜酮。',
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('张大哥'),
+                    Text('3 分钟前'),
+                    Text('如何防治稻飞虱'),
+                    Text('12 赞'),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.text('如何防治稻飞虱')),
+    );
+    await tester.pump(const Duration(milliseconds: 600));
+    await gesture.up();
+    await tester.pump();
+
+    expect(spoken, '张大哥。如何防治稻飞虱。可以用吡蚜酮。');
+  });
+
   testWidgets('长按未标记板块的文字只朗读该段', (tester) async {
     String? spoken;
 

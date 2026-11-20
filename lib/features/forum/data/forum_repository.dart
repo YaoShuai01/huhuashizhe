@@ -26,6 +26,7 @@ abstract class ForumRepository extends ChangeNotifier {
     required String section,
     required String title,
     required String content,
+    bool pendingReview = false,
   });
 
   void toggleLike(ForumPost post);
@@ -106,6 +107,8 @@ class InMemoryForumRepository extends ForumRepository {
   final List<ForumMessage> _messages = [];
   final Map<String, List<ForumComment>> _comments = {};
   final Set<String> _favoriteIds = {};
+  /// 当前用户点过赞的帖子 id，用于正确的点赞/取消点赞切换
+  final Set<String> _likedIds = {};
   int _idSeed = 0;
 
   @override
@@ -146,6 +149,7 @@ class InMemoryForumRepository extends ForumRepository {
     required String section,
     required String title,
     required String content,
+    bool pendingReview = false,
   }) {
     final post = ForumPost(
       id: 'local_${DateTime.now().microsecondsSinceEpoch}_${_idSeed++}',
@@ -154,6 +158,7 @@ class InMemoryForumRepository extends ForumRepository {
       content: content.trim(),
       author: currentUserName,
       createdAt: DateTime.now(),
+      pendingReview: pendingReview,
     );
     _posts.add(post);
     notifyListeners();
@@ -165,7 +170,14 @@ class InMemoryForumRepository extends ForumRepository {
     final target = _posts.firstWhere((p) => p.id == post.id, orElse: () => post);
     // 本地没有该帖（理论上不会出现）时直接忽略
     if (!_posts.contains(target)) return;
-    target.likes += target.likes > 0 && post.likes == target.likes ? -1 : 1;
+
+    if (_likedIds.remove(post.id)) {
+      // 取消点赞：不能把点赞数减成负数
+      target.likes = target.likes > 0 ? target.likes - 1 : 0;
+    } else {
+      _likedIds.add(post.id);
+      target.likes += 1;
+    }
     post.likes = target.likes;
     notifyListeners();
   }

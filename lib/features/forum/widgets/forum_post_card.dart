@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/accessibility/elder_care_reader.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/forum_models.dart';
 
@@ -34,7 +35,13 @@ class ForumPostCard extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ElderCareBlock(
+        // 只朗读昵称与提问/回答内容，跳过时间、版块与点赞
+        readText: '${post.author}。${post.title}。${post.content}',
+        child: _buildCard(context),
+      );
+
+  Widget _buildCard(BuildContext context) {
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -118,7 +125,14 @@ class ForumPostCard extends StatelessWidget {
                     Expanded(
                       child: Align(
                         alignment: Alignment.centerLeft,
-                        child: _tag(post.section),
+                        child: Wrap(
+                          spacing: 6,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            if (post.pendingReview) _pendingTag(),
+                            _tag(post.section),
+                          ],
+                        ),
                       ),
                     )
                   else
@@ -182,6 +196,25 @@ class ForumPostCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _pendingTag() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.accent.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: const Text(
+        '待复审',
+        maxLines: 1,
+        style: TextStyle(
+          fontSize: 11,
+          color: AppColors.accent,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );
