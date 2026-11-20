@@ -13,6 +13,9 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
+#include "Control/Controller.hpp"
+#include "Utils/Math.hpp"
+
 namespace Espfc::Device::Input {
 
 namespace {
@@ -26,6 +29,44 @@ constexpr gpio_num_t PIN_SPRAY = GPIO_NUM_18;
 constexpr ledc_timer_t SPRAY_TIMER = LEDC_TIMER_1;
 constexpr ledc_channel_t SPRAY_CHANNEL = LEDC_CHANNEL_4;
 const uint8_t SPRAY_DUTY[7] = {0, 115, 140, 166, 191, 224, 255};
+
+// 水平微调：单位 0.1 度，范围 ±100（即 ±10 度），存 NVS 永久保存
+constexpr int TRIM_LIMIT = 100;
+
+int currentTrim(int axis)
+{
+  return (int)lroundf(Utils::toDeg(Control::Controller::getTrim(axis)) * 10.0f);
+}
+
+void saveTrim(int rollTenths, int pitchTenths)
+{
+  rollTenths = std::clamp(rollTenths, -TRIM_LIMIT, TRIM_LIMIT);
+  pitchTenths = std::clamp(pitchTenths, -TRIM_LIMIT, TRIM_LIMIT);
+
+  Preferences prefs;
+  prefs.begin("hhs", false);
+  prefs.putInt("trim_r", rollTenths);
+  prefs.putInt("trim_p", pitchTenths);
+  prefs.end();
+
+  Control::Controller::setTrim(AXIS_ROLL, Utils::toRad(rollTenths * 0.1f));
+  Control::Controller::setTrim(AXIS_PITCH, Utils::toRad(pitchTenths * 0.1f));
+}
+
+int queryInt(const String& req, const char* key, int def)
+{
+  const String k = String("?") + key + "=";
+  const String k2 = String("&") + key + "=";
+  int idx = req.indexOf(k);
+  int skip = k.length();
+  if (idx < 0)
+  {
+    idx = req.indexOf(k2);
+    skip = k2.length();
+  }
+  if (idx < 0) return def;
+  return atoi(req.c_str() + idx + skip);
+}
 
 const char* PAGE_HEAD =
     "<!doctype html><html><head><meta charset='utf-8'>"
@@ -107,6 +148,17 @@ int InputUdp::begin(void)
   WiFi.setSleep(false);
   const bool ap = WiFi.softAP(AP_SSID, nullptr, AP_CHANNEL, false, AP_MAX_CONN);
 
+  // 从 NVS 恢复水平微调（单位 0.1 度，永久保存）
+  {
+    Preferences prefs;
+    prefs.begin("hhs", true);
+    const int32_t tr = prefs.getInt("trim_r", 0);
+    const int32_t tp = prefs.getInt("trim_p", 0);
+    prefs.end();
+    Control::Controller::setTrim(AXIS_ROLL, Utils::toRad(tr * 0.1f));
+    Control::Controller::setTrim(AXIS_PITCH, Utils::toRad(tp * 0.1f));
+  }
+
   BaseType_t ret = xTaskCreatePinnedToCore(taskEntry, "udp_rc", 8192, this, 1, nullptr, 0);
   return (ap && ret == pdPASS) ? 1 : 0;
 }
@@ -148,6 +200,63 @@ void InputUdp::taskLoop()
     if (client)
     {
       const String req = client.readStringUntil('\n');
+
+      // ---- JSON API（APP 使用）----
+      if (req.indexOf("/api/") >= 0)
+      {
+        String body;
+        int code = 200;
+
+        if (req.indexOf("/api/gyrocal") >= 0)
+        {
+          if (_model.isModeActive(MODE_ARMED))
+          {
+            code = 409;
+            body = "{\"ok\":0,\"err\":\"armed\"}";
+          }
+          else if (_model.calibrationActive())
+          {
+            code = 409;
+            body = "{\"ok\":0,\"err\":\"busy\"}";
+          }
+          else
+          {
+            _model.calibrateGyroBias();
+            body = "{\"ok\":1,\"ms\":2000}";
+          }
+        }
+        else if (req.indexOf("/api/trimget") >= 0)
+        {
+          body = "{\"ok\":1,\"r\":" + String(currentTrim(AXIS_ROLL)) +
+                 ",\"p\":" + String(currentTrim(AXIS_PITCH)) + "}";
+        }
+        else if (req.indexOf("/api/trimclear") >= 0)
+        {
+          saveTrim(0, 0);
+          body = "{\"ok\":1,\"r\":0,\"p\":0}";
+        }
+        else if (req.indexOf("/api/trim") >= 0)
+        {
+          const int r = std::clamp(queryInt(req, "r", currentTrim(AXIS_ROLL)), -TRIM_LIMIT, TRIM_LIMIT);
+          const int p = std::clamp(queryInt(req, "p", currentTrim(AXIS_PITCH)), -TRIM_LIMIT, TRIM_LIMIT);
+          saveTrim(r, p);
+          body = "{\"ok\":1,\"r\":" + String(r) + ",\"p\":" + String(p) + "}";
+        }
+        else
+        {
+          code = 404;
+          body = "{\"ok\":0,\"err\":\"notfound\"}";
+        }
+
+        client.print("HTTP/1.1 " + String(code) + " OK\r\nContent-Type: application/json\r\n"
+                     "Access-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n");
+        client.print(body);
+        client.stop();
+        tick(now);
+        vTaskDelay(pdMS_TO_TICKS(5));
+        continue;
+      }
+
       if (req.indexOf("/m1") >= 0) { _motorTest = 1; _motorTestUntil = now + 3000; _disarmLatch = true; }
       else if (req.indexOf("/m2") >= 0) { _motorTest = 2; _motorTestUntil = now + 3000; _disarmLatch = true; }
       else if (req.indexOf("/m3") >= 0) { _motorTest = 3; _motorTestUntil = now + 3000; _disarmLatch = true; }
@@ -190,6 +299,13 @@ void InputUdp::taskLoop()
         client.print("ms");
       }
       client.print("</p>");
+      client.print("<p>微调 横滚 ");
+      client.print(currentTrim(AXIS_ROLL) * 0.1f, 1);
+      client.print("° 俯仰 ");
+      client.print(currentTrim(AXIS_PITCH) * 0.1f, 1);
+      client.print("°</p>");
+      client.print("<a href='/api/gyrocal'>陀螺仪校准（静止时点）</a>");
+      client.print("<a class='stop' href='/api/trimclear'>清除微调</a>");
       client.print(PAGE_BUTTONS);
       client.stop();
     }

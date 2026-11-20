@@ -31,6 +31,9 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
   bool _flipH = false;   // 画面水平翻转
   bool _flipV = false;   // 画面垂直翻转
   int _throttleValue = 0; // 竖向油门 0~100%
+  int _trimRoll = 0; // 横滚微调，单位 0.1 度
+  int _trimPitch = 0; // 俯仰微调，单位 0.1 度
+  bool _trimBusy = false;
 
   // 北斗卫星实时状态（用于底部遥测与起飞播报）
   StreamSubscription<GnssSnapshot>? _gnssSub;
@@ -175,6 +178,163 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
         );
       }
     }
+  }
+
+  void _toast(String msg, {bool error = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: error ? AppColors.error : null,
+      ),
+    );
+  }
+
+  Future<void> _applyTrim({int dr = 0, int dp = 0}) async {
+    if (_trimBusy) return;
+    final r = (_trimRoll + dr).clamp(-100, 100);
+    final p = (_trimPitch + dp).clamp(-100, 100);
+    setState(() => _trimBusy = true);
+    final res = await _udp.setTrim(roll: r, pitch: p);
+    if (!mounted) return;
+    setState(() {
+      _trimBusy = false;
+      if (res != null) {
+        _trimRoll = res['roll'] ?? _trimRoll;
+        _trimPitch = res['pitch'] ?? _trimPitch;
+      }
+    });
+    if (res == null) {
+      _toast('微调设置失败，请确认手机已连接无人机 WiFi', error: true);
+    }
+  }
+
+  Future<void> _calibrateGyro() async {
+    if (_udp.armed) {
+      _toast('请先上锁再校准陀螺仪', error: true);
+      return;
+    }
+    final ok = await _udp.calibrateGyro();
+    _toast(ok ? '已开始校准，请保持飞机静止约 2 秒' : '校准被拒绝：请上锁并确认已连接',
+        error: !ok);
+  }
+
+  Future<void> _showTrimPanel() async {
+    // 打开前先同步飞控里保存的值
+    final t = await _udp.getTrim();
+    if (!mounted) return;
+    if (t != null) {
+      setState(() {
+        _trimRoll = t['roll'] ?? 0;
+        _trimPitch = t['pitch'] ?? 0;
+      });
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.grey[900],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx2, setSheet) {
+          Widget row(String label, int value, VoidCallback minus, VoidCallback plus) {
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 64,
+                    child: Text(label,
+                        style: const TextStyle(color: Colors.white, fontSize: 13)),
+                  ),
+                  IconButton(
+                    onPressed: minus,
+                    icon: const Icon(Icons.remove_circle_outline, color: Colors.white70),
+                  ),
+                  SizedBox(
+                    width: 72,
+                    child: Text(
+                      '${(value * 0.1).toStringAsFixed(1)}°',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                          color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: plus,
+                    icon: const Icon(Icons.add_circle_outline, color: Colors.white70),
+                  ),
+                  const Expanded(child: SizedBox()),
+                ],
+              ),
+            );
+          }
+
+          return SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('飞行微调',
+                      style: TextStyle(
+                          color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  const Text('微调会永久保存到飞控，重启后仍生效',
+                      style: TextStyle(color: Colors.white54, fontSize: 11)),
+                  const SizedBox(height: 8),
+                  row(
+                    '前后',
+                    _trimPitch,
+                    () async {
+                      await _applyTrim(dp: -5);
+                      setSheet(() {});
+                    },
+                    () async {
+                      await _applyTrim(dp: 5);
+                      setSheet(() {});
+                    },
+                  ),
+                  row(
+                    '左右',
+                    _trimRoll,
+                    () async {
+                      await _applyTrim(dr: -5);
+                      setSheet(() {});
+                    },
+                    () async {
+                      await _applyTrim(dr: 5);
+                      setSheet(() {});
+                    },
+                  ),
+                  const SizedBox(height: 4),
+                  const Text('每步 0.5°，范围 ±10°。机头偏向哪边就反方向加。',
+                      style: TextStyle(color: Colors.white38, fontSize: 10)),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 42,
+                    child: ElevatedButton.icon(
+                      onPressed: () async {
+                        await _calibrateGyro();
+                        setSheet(() {});
+                      },
+                      icon: const Icon(Icons.screen_rotation, size: 18),
+                      label: const Text('陀螺仪校准（静止时按）'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   void _showSettings() {
@@ -378,6 +538,8 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  _buildIconButton(Icons.tune, '微调', _showTrimPanel),
+                  const SizedBox(width: 4),
                   _buildIconButton(Icons.settings, '设置', _showSettings),
                   const SizedBox(width: 4),
                   _buildIconButton(Icons.exit_to_app, '退出', _showExitConfirm),

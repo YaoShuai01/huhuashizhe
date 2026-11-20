@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/local_database.dart';
+import '../../../services/drone_udp_service.dart';
 import '../../../services/voice_service.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -40,6 +41,19 @@ class _SettingsPageState extends State<SettingsPage> {
     });
   }
 
+  Future<void> _clearDroneTrim() async {
+    final svc = DroneUdpService();
+    final ok = await svc.clearTrim();
+    svc.dispose();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok ? '已清除无人机微调数据' : '清除失败：请先连接无人机 WiFi'),
+        backgroundColor: ok ? null : AppColors.error,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -47,6 +61,14 @@ class _SettingsPageState extends State<SettingsPage> {
       body: ListView(
         children: [
           const SizedBox(height: 8),
+          _sectionHeader('无人机'),
+          ListTile(
+            leading: const Icon(Icons.restart_alt),
+            title: const Text('清除无人机微调数据'),
+            subtitle: const Text('把飞控中保存的前后/左右微调归零（需连接无人机 WiFi）'),
+            onTap: _clearDroneTrim,
+          ),
+          const Divider(indent: 16, endIndent: 16),
           _sectionHeader('显示'),
           SwitchListTile(
             title: const Text('深色模式'),

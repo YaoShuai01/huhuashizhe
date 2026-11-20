@@ -13,7 +13,7 @@ public:
   using Callback = bool (*)(void* arg);
 
   // TODO: operator= which stops the timer
-  constexpr explicit HwTimer(uint8_t id = 0): _callback(nullptr), _arg(nullptr), _interval(0), _id(id), _running(false)
+  constexpr explicit HwTimer(uint8_t id = 0): _callback(nullptr), _arg(nullptr), _interval(0), _id(id), _running(false), _handle(nullptr)
   {
   }
 
@@ -31,6 +31,7 @@ private:
   uint32_t _interval;
   uint8_t _id;
   bool _running;
+  void* _handle;
 };
 
 } // namespace Hal

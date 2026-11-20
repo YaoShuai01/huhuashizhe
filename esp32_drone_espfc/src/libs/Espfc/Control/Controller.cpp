@@ -15,6 +15,22 @@ static constexpr float HHS_YAW_AUTHORITY = 0.5f;
 
 Controller::Controller(Model& model): _model(model), _rates{} {}
 
+namespace {
+float g_trim[AXIS_COUNT_RP] = {0.f, 0.f};
+}
+
+void Controller::setTrim(int axis, float radians)
+{
+  if (axis < 0 || axis >= AXIS_COUNT_RP) return;
+  g_trim[axis] = radians;
+}
+
+float Controller::getTrim(int axis)
+{
+  if (axis < 0 || axis >= AXIS_COUNT_RP) return 0.f;
+  return g_trim[axis];
+}
+
 int Controller::begin()
 {
   reload(MODEL_CHANGE_RATES);
@@ -156,7 +172,7 @@ void FAST_CODE_ATTR Controller::outerLoop()
   {
     for (size_t i = 0; i < AXIS_COUNT_RP; i++)
     {
-      const float angleSetpoint = Utils::toRad(_model.config.level.angleLimit) * _model.state.input.ch[i];
+      const float angleSetpoint = Utils::toRad(_model.config.level.angleLimit) * _model.state.input.ch[i] + getTrim(i);
       _model.state.setpoint.rate[i] = _model.state.outerPid[i].update(angleSetpoint, _model.state.attitude.euler[i]);
     }
   }

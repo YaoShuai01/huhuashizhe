@@ -190,6 +190,51 @@ class DroneUdpService {
     setArmed(!_armed);
   }
 
+  // ===== 飞控 HTTP API（手机需连接无人机 WiFi）=====
+
+  Future<Map<String, dynamic>?> _httpGet(String path) async {
+    final client = HttpClient()..connectionTimeout = const Duration(seconds: 3);
+    try {
+      final req = await client.getUrl(Uri.parse('http://$_droneIp$path'));
+      final res = await req.close().timeout(const Duration(seconds: 5));
+      final text = await res.transform(utf8.decoder).join();
+      if (res.statusCode != 200) return null;
+      final decoded = jsonDecode(text);
+      return decoded is Map<String, dynamic> ? decoded : null;
+    } catch (_) {
+      return null;
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  /// 陀螺仪零偏校准：必须处于上锁状态，且保持飞机静止约 2 秒
+  Future<bool> calibrateGyro() async {
+    final r = await _httpGet('/api/gyrocal');
+    return r != null && r['ok'] == 1;
+  }
+
+  /// 读取前后/左右微调（单位 0.1 度）
+  Future<Map<String, int>?> getTrim() async {
+    final r = await _httpGet('/api/trimget');
+    if (r == null || r['ok'] != 1) return null;
+    return {'roll': (r['r'] as num).toInt(), 'pitch': (r['p'] as num).toInt()};
+  }
+
+  /// 设置微调（单位 0.1 度，范围 ±100 = ±10 度），飞控立即写入 NVS
+  Future<Map<String, int>?> setTrim({int? roll, int? pitch}) async {
+    final cur = await getTrim() ?? {'roll': 0, 'pitch': 0};
+    final r = await _httpGet('/api/trim?r=${roll ?? cur['roll']}&p=${pitch ?? cur['pitch']}');
+    if (r == null || r['ok'] != 1) return null;
+    return {'roll': (r['r'] as num).toInt(), 'pitch': (r['p'] as num).toInt()};
+  }
+
+  /// 清除无人机微调数据（归零）
+  Future<bool> clearTrim() async {
+    final r = await _httpGet('/api/trimclear');
+    return r != null && r['ok'] == 1;
+  }
+
   /// 释放资源
   void dispose() {
     _sendTimer?.cancel();

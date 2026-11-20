@@ -35,6 +35,13 @@ public:
     return _model.state.gyro.hwTimer.begin(getGyroInterval(), callback);
   }
 
+  // 诊断用：传感器探测结果
+  bool isGyroReady() const { return _model.state.gyro.present; }
+  bool isAccelReady() const { return _model.state.accel.present; }
+  bool isMagReady() const { return _model.state.mag.present; }
+  bool isBaroReady() const { return _model.state.baro.present; }
+  int gyroRate() const { return _model.state.gyro.timer.rate; }
+
 private:
   Model _model;
   Hardware _hardware;

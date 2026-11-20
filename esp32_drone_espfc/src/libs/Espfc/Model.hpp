@@ -132,6 +132,12 @@ public:
     }
   }
 
+  // 只校准陀螺零偏，不动加速度计（不改变水平基准）
+  void calibrateGyroBias()
+  {
+    state.gyro.calibrationState = CALIBRATION_START;
+  }
+
   void calibrateMag()
   {
     state.mag.calibrationState = CALIBRATION_START;

@@ -41,7 +41,16 @@ void gyroTask(void* pvParameters)
 {
   gyroTaskHandle = Task::currentHandle();
   espfc.begin();
-  espfc.beginGyroTimer(gyroTimerIsr);
+  printf("[ESPFC] gyro=%d accel=%d mag=%d baro=%d rate=%dHz\n",
+         (int)espfc.isGyroReady(), (int)espfc.isAccelReady(),
+         (int)espfc.isMagReady(), (int)espfc.isBaroReady(), espfc.gyroRate());
+  fflush(stdout);
+  bool timerOk = espfc.beginGyroTimer(gyroTimerIsr);
+  if (!timerOk)
+  {
+    printf("[ESPFC] ERROR: gyro timer start failed\n");
+    fflush(stdout);
+  }
   while (true)
   {
     Task::waitNotify(); // wait for timer isr notification
