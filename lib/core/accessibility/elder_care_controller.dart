@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../data/local_database.dart';
 
-/// 老年关怀模式控制器：开启后全局放大字体，并支持轻触文字朗读
+/// 老年关怀模式控制器：开启后全局放大字体，并支持长按板块文字朗读
 class ElderCareController extends ChangeNotifier {
   ElderCareController({bool? enabled})
       : _enabled = enabled ?? LocalDatabase().getBool(settingKey);

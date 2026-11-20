@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/accessibility/elder_care_reader.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/forum_models.dart';
 
@@ -34,7 +35,10 @@ class ForumPostCard extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ElderCareBlock(child: _buildCard(context));
+
+  Widget _buildCard(BuildContext context) {
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(12),

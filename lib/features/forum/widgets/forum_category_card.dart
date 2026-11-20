@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/accessibility/elder_care_reader.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/forum_models.dart';
 import 'forum_category_chip.dart';
@@ -20,7 +21,10 @@ class ForumCategoryCard extends StatelessWidget {
   final String title;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ElderCareBlock(child: _buildCard(context));
+
+  Widget _buildCard(BuildContext context) {
     return Card(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
