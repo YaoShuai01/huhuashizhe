@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/accessibility/elder_care_reader.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/forum_models.dart';
 import '../data/forum_repository.dart';
@@ -226,6 +227,10 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
   }
 
   Widget _postHeader(ForumRepository repository) {
+    return ElderCareBlock(child: _postHeaderCard(repository));
+  }
+
+  Widget _postHeaderCard(ForumRepository repository) {
     final post = widget.post;
     final avatarText = post.author.isEmpty
         ? '?'

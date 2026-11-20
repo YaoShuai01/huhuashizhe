@@ -2,8 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/accessibility/elder_care_controller.dart';
+import 'core/accessibility/elder_care_reader.dart';
 import 'core/accessibility/elder_care_scope.dart';
-import 'core/accessibility/elder_care_tap_reader.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'data/local_database.dart';
@@ -73,7 +73,7 @@ class _HuHuaShiZheAppState extends State<HuHuaShiZheApp> {
           themeMode: ThemeMode.system,
           routerConfig: appRouter,
           builder: (context, child) {
-            // 老年关怀模式：全局放大小字号，并开启轻触文字朗读
+            // 老年关怀模式：全局放大小字号，并开启长按板块朗读
             final elderCare = ElderCareScope.of(context);
             final mediaQuery = MediaQuery.of(context);
             final systemFactor = mediaQuery.textScaler.scale(16) / 16;
@@ -87,7 +87,7 @@ class _HuHuaShiZheAppState extends State<HuHuaShiZheApp> {
               child: child!,
             );
             return elderCare.enabled
-                ? ElderCareTapReader(child: content)
+                ? ElderCareReader(child: content)
                 : content;
           },
         ),

@@ -145,7 +145,7 @@ class MinePage extends StatelessWidget {
     );
   }
 
-  /// 老年关怀模式开关：放大字体 + 轻触文字朗读
+  /// 老年关怀模式开关：放大字体 + 长按板块文字朗读
   Widget _buildElderCareSwitch(BuildContext context) {
     final controller = ElderCareScope.of(context);
     return Container(
@@ -165,7 +165,7 @@ class MinePage extends StatelessWidget {
           style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: AppColors.textPrimary),
         ),
         subtitle: const Text(
-          '放大字体，轻触屏幕上的文字即可朗读',
+          '放大字体，长按板块文字即可朗读整块内容',
           style: TextStyle(fontSize: 12, color: AppColors.textHint),
         ),
         value: controller.enabled,
@@ -178,7 +178,7 @@ class MinePage extends StatelessWidget {
               ..hideCurrentSnackBar()
               ..showSnackBar(
                 const SnackBar(
-                  content: Text('老年关怀模式已开启：轻触文字即可朗读'),
+                  content: Text('老年关怀模式已开启：长按板块文字即可朗读'),
                   duration: Duration(seconds: 2),
                 ),
               );
