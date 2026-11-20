@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import '../../features/home/pages/home_page.dart';
 import '../../features/presets/pages/presets_page.dart';
 import '../../features/classroom/pages/classroom_page.dart';
+import '../../features/services/pages/services_page.dart';
+import '../../features/services/pages/booking_page.dart';
+import '../../features/services/pages/booking_role_page.dart';
+import '../../features/services/pages/pilot_workbench_page.dart';
 import '../../features/mine/pages/mine_page.dart';
 import '../../features/presets/widgets/preset_form_page.dart';
 import '../../features/presets/widgets/preset_tuning_page.dart';
@@ -79,9 +83,9 @@ final appRouter = GoRouter(
         StatefulShellBranch(
           routes: [
             GoRoute(
-              path: '/classroom',
+              path: '/services',
               pageBuilder: (context, state) => const NoTransitionPage(
-                child: ClassroomPage(),
+                child: ServicesPage(),
               ),
             ),
           ],
@@ -121,6 +125,26 @@ final appRouter = GoRouter(
         final preset = state.extra as Map<String, dynamic>;
         return PresetTuningPage(preset: preset);
       },
+    ),
+    GoRoute(
+      path: '/services/classroom',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const ClassroomPage(),
+    ),
+    GoRoute(
+      path: '/services/booking',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const BookingRolePage(),
+    ),
+    GoRoute(
+      path: '/services/booking/farmer',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const BookingPage(),
+    ),
+    GoRoute(
+      path: '/services/booking/pilot',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const PilotWorkbenchPage(),
     ),
     GoRoute(
       path: '/classroom/course',
@@ -337,9 +361,9 @@ class AppShell extends StatelessWidget {
             label: '论坛',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.school_outlined),
-            activeIcon: Icon(Icons.school),
-            label: '小课堂',
+            icon: Icon(Icons.miscellaneous_services_outlined),
+            activeIcon: Icon(Icons.miscellaneous_services),
+            label: '服务',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),

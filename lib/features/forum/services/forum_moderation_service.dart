@@ -123,7 +123,7 @@ class AiForumModerationService implements ForumModerationService {
           connectTimeout: const Duration(seconds: 12),
           receiveTimeout: const Duration(seconds: 25),
           headers: const {
-            'api-key': '',
+            'api-key': 'sk-cmg9hlk0p32xk3zvwlx3q1ui4q4b5qql3qua554jfl5lshef',
             'Content-Type': 'application/json',
           },
         ),

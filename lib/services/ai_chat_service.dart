@@ -31,7 +31,7 @@ class AiChatMessage {
 class AiChatService {
   static const _baseUrl = 'https://api.xiaomimimo.com/v1';
   static const _model = 'mimo-v2.6-flash'; // v2.5已下线（平台2026-11升级到v2.6系列）
-  static const _apiKey = '';
+  static const _apiKey = 'sk-cmg9hlk0p32xk3zvwlx3q1ui4q4b5qql3qua554jfl5lshef';
 
   /// 护花使者智能体系统提示词
   static const _systemPrompt = '''
