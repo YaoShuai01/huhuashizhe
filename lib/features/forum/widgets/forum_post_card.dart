@@ -35,8 +35,11 @@ class ForumPostCard extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      ElderCareBlock(child: _buildCard(context));
+  Widget build(BuildContext context) => ElderCareBlock(
+        // 只朗读昵称与提问/回答内容，跳过时间、版块与点赞
+        readText: '${post.author}。${post.title}。${post.content}',
+        child: _buildCard(context),
+      );
 
   Widget _buildCard(BuildContext context) {
     return Card(

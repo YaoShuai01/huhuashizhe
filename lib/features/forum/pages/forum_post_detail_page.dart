@@ -227,7 +227,12 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
   }
 
   Widget _postHeader(ForumRepository repository) {
-    return ElderCareBlock(child: _postHeaderCard(repository));
+    // 只朗读昵称与提问/回答内容，跳过时间、版块与底部操作区
+    return ElderCareBlock(
+      readText:
+          '${widget.post.author}。${widget.post.title}。${widget.post.content}',
+      child: _postHeaderCard(repository),
+    );
   }
 
   Widget _postHeaderCard(ForumRepository repository) {

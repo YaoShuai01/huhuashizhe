@@ -16,8 +16,11 @@ class ForumCommentTile extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      ElderCareBlock(child: _buildTile(context));
+  Widget build(BuildContext context) => ElderCareBlock(
+        // 只朗读昵称与评论内容，跳过时间
+        readText: '${comment.author}。${comment.content}',
+        child: _buildTile(context),
+      );
 
   Widget _buildTile(BuildContext context) {
     return Padding(

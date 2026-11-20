@@ -9,17 +9,32 @@ import '../../services/voice_service.dart';
 ///
 /// 老年关怀模式下长按板块内任意文字，会朗读该板块的全部内容，
 /// 而不是只有手指下的一行字。
+///
+/// [readText] 可指定朗读文本，用于跳过时间、点赞等不需要朗读的区域。
 class ElderCareBlock extends SingleChildRenderObjectWidget {
   // SingleChildRenderObjectWidget 自带 child 字段，无法用 super 参数转发
   // ignore: use_super_parameters
-  const ElderCareBlock({super.key, Widget? child}) : super(child: child);
+  const ElderCareBlock({super.key, this.readText, Widget? child})
+      : super(child: child);
+
+  /// 自定义朗读文本，为空时朗读板块内全部文字
+  final String? readText;
 
   @override
   RenderObject createRenderObject(BuildContext context) =>
-      _RenderElderCareBlock();
+      _RenderElderCareBlock(readText: readText);
+
+  @override
+  void updateRenderObject(BuildContext context, RenderObject renderObject) {
+    (renderObject as _RenderElderCareBlock).readText = readText;
+  }
 }
 
-class _RenderElderCareBlock extends RenderProxyBox {}
+class _RenderElderCareBlock extends RenderProxyBox {
+  _RenderElderCareBlock({this.readText});
+
+  String? readText;
+}
 
 /// 长按板块文字朗读
 ///
@@ -46,10 +61,10 @@ class ElderCareReader extends StatefulWidget {
 
 class _ElderCareReaderState extends State<ElderCareReader> {
   /// 判定为长按的时间
-  static const Duration _holdDuration = Duration(milliseconds: 500);
+  static const Duration _holdDuration = Duration(milliseconds: 400);
 
   /// 手指移动超过该距离视为滑动，取消朗读
-  static const double _moveTolerance = 24;
+  static const double _moveTolerance = 32;
 
   Timer? _holdTimer;
   Offset? _downPosition;
@@ -102,25 +117,64 @@ class _ElderCareReaderState extends State<ElderCareReader> {
     WidgetsBinding.instance.hitTestInView(result, position, viewId);
 
     RenderObject? block;
-    String? paragraphText;
+    RenderParagraph? paragraph;
     for (final entry in result.path) {
       final target = entry.target;
       if (block == null && target is _RenderElderCareBlock) {
         block = target;
       }
-      if (paragraphText == null && target is RenderParagraph) {
-        final text = _paragraphText(target);
-        if (text.isNotEmpty) paragraphText = text;
+      if (paragraph == null &&
+          target is RenderParagraph &&
+          _paragraphText(target).isNotEmpty) {
+        paragraph = target;
       }
     }
 
-    final text = block == null ? paragraphText : _blockText(block);
+    // 优先朗读显式标记的板块；未标记时自动向上找最近的文字板块
+    final target = block ?? (paragraph == null ? null : _autoBlock(paragraph));
+    final text = target == null
+        ? (paragraph == null ? null : _paragraphText(paragraph))
+        : _blockText(target);
     if (text == null || text.isEmpty) return;
     _read(text);
   }
 
+  /// 未标记板块时，向上寻找最近的、包含多段文字的板块
+  RenderObject? _autoBlock(RenderParagraph paragraph) {
+    RenderObject node = paragraph;
+    for (var depth = 0; depth < 8; depth++) {
+      final parent = node.parent;
+      if (parent == null) return null;
+      node = parent;
+      if (_paragraphCount(node) >= 2) return node;
+    }
+    return null;
+  }
+
+  /// 统计板块内有效文字段落数，达到 2 段即停止
+  int _paragraphCount(RenderObject node) {
+    var count = 0;
+
+    void visit(RenderObject child) {
+      if (count >= 2) return;
+      if (child is RenderParagraph) {
+        if (_paragraphText(child).isNotEmpty) count++;
+        return;
+      }
+      child.visitChildren(visit);
+    }
+
+    visit(node);
+    return count;
+  }
+
   /// 板块内全部文字，按渲染顺序逐行拼接
   String _blockText(RenderObject block) {
+    if (block is _RenderElderCareBlock) {
+      final readText = block.readText?.trim();
+      if (readText != null && readText.isNotEmpty) return readText;
+    }
+
     final parts = <String>[];
 
     void collect(RenderObject node) {
