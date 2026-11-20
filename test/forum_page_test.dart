@@ -213,6 +213,31 @@ void main() {
     expect(notified, 1);
   });
 
+  test('点赞与取消点赞来回切换，点赞数不会越点越少', () {
+    final post = ForumPost(
+      id: 'like_test',
+      section: '农友留言区',
+      title: '点赞测试',
+      content: '点赞测试正文',
+      author: '测试用户',
+      createdAt: DateTime(2026, 1, 1),
+      likes: 5,
+    );
+    final repository = InMemoryForumRepository(seed: false, posts: [post]);
+
+    repository.toggleLike(post);
+    expect(post.likes, 6);
+
+    repository.toggleLike(post);
+    expect(post.likes, 5);
+
+    repository.toggleLike(post);
+    expect(post.likes, 6);
+
+    repository.toggleLike(post);
+    expect(post.likes, 5);
+  });
+
   testWidgets('帖子详情展示评论并可发表评论', (tester) async {
     final repository = InMemoryForumRepository();
     final post = repository.postsOf('农友留言区').first;
