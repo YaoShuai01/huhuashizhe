@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../../core/accessibility/elder_care_reader.dart';
 import '../../../core/theme/app_theme.dart';
@@ -343,29 +343,37 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                 InkWell(
                   borderRadius: BorderRadius.circular(12),
                   onTap: () => repository.toggleLike(post),
-                  child: Padding(
+                  child: Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: repository.isLiked(post)
+                          ? AppColors.accent.withValues(alpha: 0.12)
+                          : AppColors.textHint,
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          post.likes > 0
+                          repository.isLiked(post)
                               ? Icons.favorite
                               : Icons.favorite_border,
                           size: 16,
-                          color: post.likes > 0
+                          color: repository.isLiked(post)
                               ? AppColors.accent
-                              : AppColors.textHint,
+                              : AppColors.textOnPrimary,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           '${post.likes}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: AppColors.textHint,
+                            color: repository.isLiked(post)
+                                ? AppColors.accent
+                                : AppColors.textOnPrimary,
                           ),
                         ),
                       ],
