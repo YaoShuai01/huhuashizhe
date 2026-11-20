@@ -38,6 +38,35 @@ void main() {
     expect(find.byType(BackButton), findsOneWidget);
   });
 
+  testWidgets('服务页展示论坛板块并可进入论坛', (tester) async {
+    final router = GoRouter(
+      initialLocation: '/services',
+      routes: [
+        GoRoute(
+          path: '/services',
+          builder: (context, state) => const ServicesPage(),
+        ),
+        GoRoute(
+          path: '/forum',
+          builder: (context, state) =>
+              const Scaffold(body: Text('论坛主页')),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+
+    expect(find.text('论坛'), findsOneWidget);
+
+    await tester.ensureVisible(find.text('论坛'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('论坛'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('论坛主页'), findsOneWidget);
+  });
+
   testWidgets('服务页进入预约先选身份，农户端校验表单', (tester) async {
     final router = GoRouter(
       initialLocation: '/services',
