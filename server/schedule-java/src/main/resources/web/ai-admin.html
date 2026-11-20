@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>护花使者 · AI 密钥管理</title>
+<style>
+  :root {
+    --bg: #0f1f17;
+    --card: #16281e;
+    --card-2: #1d3327;
+    --line: #2b4a37;
+    --text: #e8f2ea;
+    --muted: #9db5a5;
+    --primary: #4caf7d;
+    --primary-2: #2f8f61;
+    --amber: #e6a23c;
+    --danger: #e06c6c;
+    --ok: #6bcf9a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--text);
+    background:
+      radial-gradient(900px 500px at 15% -10%, rgba(76,175,125,.22), transparent 60%),
+      radial-gradient(700px 420px at 110% 10%, rgba(230,162,60,.12), transparent 55%),
+      var(--bg);
+    padding: 24px 16px 48px;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+  .logo {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: linear-gradient(135deg, var(--primary), var(--primary-2));
+    display: grid; place-items: center; font-size: 22px;
+    box-shadow: 0 8px 24px rgba(76,175,125,.28);
+  }
+  h1 { font-size: 20px; margin: 0; letter-spacing: .5px; }
+  .sub { color: var(--muted); font-size: 13px; margin-top: 4px; }
+  .card {
+    background: linear-gradient(180deg, var(--card), var(--card-2));
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    padding: 20px;
+    margin-top: 18px;
+    box-shadow: 0 14px 40px rgba(0,0,0,.25);
+  }
+  .card h2 { font-size: 16px; margin: 0 0 14px; display: flex; align-items: center; gap: 8px; }
+  .badge {
+    font-size: 12px; padding: 3px 9px; border-radius: 999px;
+    border: 1px solid var(--line); color: var(--muted); font-weight: normal;
+  }
+  .badge.ok { color: var(--ok); border-color: rgba(107,207,154,.4); background: rgba(107,207,154,.08); }
+  .badge.warn { color: var(--amber); border-color: rgba(230,162,60,.4); background: rgba(230,162,60,.08); }
+  label { display: block; font-size: 13px; color: var(--muted); margin: 14px 0 6px; }
+  input {
+    width: 100%; padding: 12px 13px; border-radius: 10px;
+    border: 1px solid var(--line); background: #0e1c14; color: var(--text);
+    font-size: 14px; outline: none; transition: border-color .15s, box-shadow .15s;
+  }
+  input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(76,175,125,.14); }
+  input::placeholder { color: #6e8878; }
+  .hint { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.6; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+  button {
+    border: 0; border-radius: 10px; padding: 12px 18px; font-size: 14px;
+    cursor: pointer; font-weight: 600; transition: transform .1s, opacity .15s;
+  }
+  button:active { transform: translateY(1px); }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  .btn-primary { background: linear-gradient(135deg, var(--primary), var(--primary-2)); color: #062015; }
+  .btn-ghost { background: transparent; color: var(--text); border: 1px solid var(--line); }
+  .btn-amber { background: rgba(230,162,60,.14); color: var(--amber); border: 1px solid rgba(230,162,60,.4); }
+  .msg {
+    display: none; margin-top: 16px; padding: 11px 13px; border-radius: 10px;
+    font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-break: break-word;
+  }
+  .msg.show { display: block; }
+  .msg.ok { background: rgba(107,207,154,.1); border: 1px solid rgba(107,207,154,.35); color: var(--ok); }
+  .msg.err { background: rgba(224,108,108,.1); border: 1px solid rgba(224,108,108,.35); color: var(--danger); }
+  .msg.info { background: rgba(76,175,125,.08); border: 1px solid rgba(76,175,125,.3); color: var(--text); }
+  .kv { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-bottom: 1px dashed rgba(43,74,55,.7); font-size: 13px; }
+  .kv:last-child { border-bottom: 0; }
+  .kv span:first-child { color: var(--muted); }
+  .kv span:last-child { text-align: right; word-break: break-all; }
+  .hidden { display: none !important; }
+  .warn {
+    margin-top: 18px; font-size: 12px; color: var(--amber); line-height: 1.7;
+    background: rgba(230,162,60,.07); border: 1px solid rgba(230,162,60,.25);
+    border-radius: 10px; padding: 10px 12px;
+  }
+  footer { text-align: center; color: #63806f; font-size: 12px; margin-top: 28px; }
+  @media (max-width: 520px) {
+    .card { padding: 16px; }
+    .row button { flex: 1 1 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">🌱</div>
+    <div>
+      <h1>AI 密钥管理</h1>
+      <div class="sub">护花使者 · 服务器端 AI 代理配置</div>
+    </div>
+  </header>
+
+  <div class="card" id="loginCard">
+    <h2>管理员登录</h2>
+    <label for="adminKey">管理员密钥</label>
+    <input id="adminKey" type="password" autocomplete="current-password" placeholder="输入与轮协管理相同的管理员密钥">
+    <div class="hint">密钥只用于换取本次登录令牌，不会保存在服务器日志里。</div>
+    <div class="row">
+      <button class="btn-primary" id="loginBtn">登录</button>
+    </div>
+    <div class="msg" id="loginMsg"></div>
+  </div>
+
+  <div class="card hidden" id="panel">
+    <h2>当前配置 <span class="badge" id="stateBadge">读取中</span></h2>
+    <div class="kv"><span>API Key</span><span id="keyMasked">-</span></div>
+    <div class="kv"><span>服务地址</span><span id="currentBase">-</span></div>
+    <div class="kv"><span>模型</span><span id="currentModel">-</span></div>
+
+    <label for="apiKey">新的 API Key</label>
+    <input id="apiKey" type="password" autocomplete="new-password" placeholder="留空表示不修改当前 Key">
+    <div class="hint">只需粘贴 Key 本身；保存后立即生效，不会重启服务，也不会下发到 App。</div>
+
+    <label for="baseUrl">服务地址（Base URL）</label>
+    <input id="baseUrl" type="text" placeholder="https://api.xiaomimimo.com/v1">
+
+    <label for="model">模型名称</label>
+    <input id="model" type="text" placeholder="mimo-v2.6-flash">
+
+    <div class="row">
+      <button class="btn-primary" id="saveBtn">保存并生效</button>
+      <button class="btn-amber" id="testBtn">测试连接</button>
+      <button class="btn-ghost" id="logoutBtn">退出登录</button>
+    </div>
+    <div class="msg" id="msg"></div>
+
+    <div class="warn">
+      此页面可直接修改服务器上的 AI Key，请勿把链接发给他人；操作完成后建议退出登录。
+      修改只影响服务器，不会写入 App、公开仓库或更新包。
+    </div>
+  </div>
+
+  <footer>护花使者 · 仅管理员使用</footer>
+</div>
+
+<script>
+(function () {
+  const tokenKey = 'hhsz_ai_admin_token';
+  const base = location.pathname.replace(/\/ai-admin\/?$/, '');
+  const $ = (id) => document.getElementById(id);
+
+  let token = sessionStorage.getItem(tokenKey) || '';
+
+  function show(el, text, type) {
+    el.textContent = text;
+    el.className = 'msg show ' + (type || 'info');
+  }
+
+  function hide(el) {
+    el.className = 'msg';
+    el.textContent = '';
+  }
+
+  async function request(path, options) {
+    const opts = options || {};
+    const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    const resp = await fetch(base + path, Object.assign({}, opts, { headers }));
+    let data = null;
+    try { data = await resp.json(); } catch (e) { data = null; }
+    if (resp.status === 401) {
+      token = '';
+      sessionStorage.removeItem(tokenKey);
+      throw new Error('登录已失效，请重新登录');
+    }
+    if (!resp.ok) {
+      const message = data && (data.message || data.error) ? (data.message || data.error) : ('请求失败 HTTP ' + resp.status);
+      throw new Error(message);
+    }
+    return data;
+  }
+
+  function renderConfig(cfg) {
+    const configured = !!(cfg && cfg.configured);
+    const badge = $('stateBadge');
+    badge.textContent = configured ? '已配置' : '未配置';
+    badge.className = 'badge ' + (configured ? 'ok' : 'warn');
+    $('keyMasked').textContent = configured ? (cfg.keyMasked || '已配置') : '未配置';
+    $('currentBase').textContent = (cfg && cfg.baseUrl) || '-';
+    $('currentModel').textContent = (cfg && cfg.model) || '-';
+    $('baseUrl').value = (cfg && cfg.baseUrl) || '';
+    $('model').value = (cfg && cfg.model) || '';
+  }
+
+  async function loadConfig() {
+    const cfg = await request('/admin/ai/config', { method: 'GET' });
+    renderConfig(cfg);
+    $('loginCard').classList.add('hidden');
+    $('panel').classList.remove('hidden');
+  }
+
+  async function login() {
+    const key = $('adminKey').value.trim();
+    if (!key) { show($('loginMsg'), '请输入管理员密钥', 'err'); return; }
+    $('loginBtn').disabled = true;
+    hide($('loginMsg'));
+    try {
+      const data = await request('/auth', { method: 'POST', body: JSON.stringify({ key }) });
+      token = data.token;
+      sessionStorage.setItem(tokenKey, token);
+      $('adminKey').value = '';
+      await loadConfig();
+      show($('msg'), '登录成功，可以修改 AI 配置。', 'ok');
+    } catch (e) {
+      show($('loginMsg'), e.message || '登录失败', 'err');
+    } finally {
+      $('loginBtn').disabled = false;
+    }
+  }
+
+  async function save() {
+    $('saveBtn').disabled = true;
+    hide($('msg'));
+    try {
+      const apiKey = $('apiKey').value.trim();
+      const cfg = await request('/admin/ai/config', {
+        method: 'PUT',
+        body: JSON.stringify({
+          apiKey: apiKey,
+          baseUrl: $('baseUrl').value.trim(),
+          model: $('model').value.trim()
+        })
+      });
+      $('apiKey').value = '';
+      renderConfig(cfg);
+      show($('msg'), '保存成功，已立即生效（无需重启服务）。', 'ok');
+    } catch (e) {
+      show($('msg'), e.message || '保存失败', 'err');
+    } finally {
+      $('saveBtn').disabled = false;
+    }
+  }
+
+  async function test() {
+    $('testBtn').disabled = true;
+    hide($('msg'));
+    try {
+      const result = await request('/admin/ai/test', { method: 'POST', body: '{}' });
+      if (result && result.ok) {
+        show($('msg'), '连接正常。模型回复：' + (result.reply || '（空）'), 'ok');
+      } else {
+        show($('msg'), (result && result.message) || '连接失败', 'err');
+      }
+    } catch (e) {
+      show($('msg'), e.message || '测试失败', 'err');
+    } finally {
+      $('testBtn').disabled = false;
+    }
+  }
+
+  function logout() {
+    token = '';
+    sessionStorage.removeItem(tokenKey);
+    $('panel').classList.add('hidden');
+    $('loginCard').classList.remove('hidden');
+    hide($('msg'));
+    hide($('loginMsg'));
+  }
+
+  $('loginBtn').addEventListener('click', login);
+  $('adminKey').addEventListener('keydown', function (e) { if (e.key === 'Enter') login(); });
+  $('saveBtn').addEventListener('click', save);
+  $('testBtn').addEventListener('click', test);
+  $('logoutBtn').addEventListener('click', logout);
+
+  if (token) {
+    loadConfig().catch(function (e) {
+      token = '';
+      sessionStorage.removeItem(tokenKey);
+      show($('loginMsg'), e.message || '请重新登录', 'err');
+    });
+  }
+})();
+</script>
+</body>
+</html>
