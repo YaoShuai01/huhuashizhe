@@ -320,6 +320,41 @@ void main() {
     expect(find.byIcon(Icons.mic_none), findsOneWidget);
   });
 
+  testWidgets('评论支持表情面板插入表情', (tester) async {
+    final repository = InMemoryForumRepository();
+    final post = repository.postsOf('农友留言区').first;
+    final before = repository.commentsOf(post.id).length;
+
+    await tester.pumpWidget(
+      wrap(
+        ForumPostDetailPage(
+          post: post,
+          repository: repository,
+          moderationService: _FakeModerationService(_passResult),
+        ),
+      ),
+    );
+
+    // 打开表情面板并插入表情
+    await tester.tap(find.byTooltip('表情'));
+    await tester.pumpAndSettle();
+    expect(find.text('😀'), findsOneWidget);
+
+    await tester.tap(find.text('😀'));
+    await tester.pump();
+
+    final field = tester.widget<TextField>(find.byType(TextField));
+    expect(field.controller!.text, '😀');
+
+    // 表情可直接发送
+    await tester.tap(find.byTooltip('发送评论'));
+    await tester.pumpAndSettle();
+
+    final comments = repository.commentsOf(post.id);
+    expect(comments.length, before + 1);
+    expect(comments.last.content, '😀');
+  });
+
   test('解析 AI 审核返回的固定 JSON', () {
     final pass = parseModerationResponse(
       '{"audit_result":"通过","reason":"内容正常","violation_type":"无"}',
