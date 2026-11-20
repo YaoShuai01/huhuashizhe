@@ -65,7 +65,7 @@ class _SettingsPageState extends State<SettingsPage> {
           ListTile(
             leading: const Icon(Icons.restart_alt),
             title: const Text('清除无人机微调数据'),
-            subtitle: const Text('把飞控中保存的前后/左右微调归零（需连接无人机 WiFi）'),
+            subtitle: const Text('把飞控中保存的前后/左右/旋转微调归零（需连接无人机 WiFi）'),
             onTap: _clearDroneTrim,
           ),
           const Divider(indent: 16, endIndent: 16),

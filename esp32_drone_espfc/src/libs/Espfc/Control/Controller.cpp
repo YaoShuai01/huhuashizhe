@@ -16,18 +16,19 @@ static constexpr float HHS_YAW_AUTHORITY = 0.5f;
 Controller::Controller(Model& model): _model(model), _rates{} {}
 
 namespace {
-float g_trim[AXIS_COUNT_RP] = {0.f, 0.f};
+// roll/pitch 为角度偏移（弧度），yaw 为航向角速度偏移（弧度/秒）
+float g_trim[AXIS_COUNT_RPY] = {0.f, 0.f, 0.f};
 }
 
 void Controller::setTrim(int axis, float radians)
 {
-  if (axis < 0 || axis >= AXIS_COUNT_RP) return;
+  if (axis < 0 || axis >= AXIS_COUNT_RPY) return;
   g_trim[axis] = radians;
 }
 
 float Controller::getTrim(int axis)
 {
-  if (axis < 0 || axis >= AXIS_COUNT_RP) return 0.f;
+  if (axis < 0 || axis >= AXIS_COUNT_RPY) return 0.f;
   return g_trim[axis];
 }
 
@@ -123,7 +124,9 @@ void Controller::outerLoopRobot()
     angle = _model.state.outerPid[AXIS_PITCH].update(input.ch[AXIS_PITCH], speed) * Utils::toRad(levelConf.rateLimit);
   }
   _model.state.setpoint.angle.set(AXIS_PITCH, angle);
-  _model.state.setpoint.rate[AXIS_YAW] = input.ch[AXIS_YAW] * Utils::toRad(levelConf.rateLimit);
+  // 航向为角速度控制，正微调对应右旋（与摇杆正方向一致）
+  _model.state.setpoint.rate[AXIS_YAW] =
+      input.ch[AXIS_YAW] * Utils::toRad(levelConf.rateLimit) - getTrim(AXIS_YAW);
 
   if (_model.config.debug.mode == DEBUG_ANGLERATE)
   {
@@ -184,8 +187,9 @@ void FAST_CODE_ATTR Controller::outerLoop()
     }
   }
 
-  // Yaw rates control
-  _model.state.setpoint.rate[AXIS_YAW] = calculateSetpointRate(AXIS_YAW, _model.state.input.ch[AXIS_YAW]);
+  // Yaw rates control（叠加航向微调，正微调右旋）
+  _model.state.setpoint.rate[AXIS_YAW] =
+      calculateSetpointRate(AXIS_YAW, _model.state.input.ch[AXIS_YAW]) - getTrim(AXIS_YAW);
 
   // thrust control
   if (_model.isModeActive(MODE_ALTHOLD))

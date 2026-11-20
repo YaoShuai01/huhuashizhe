@@ -33,6 +33,7 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
   int _throttleValue = 0; // 竖向油门 0~100%
   int _trimRoll = 0; // 横滚微调，单位 0.1 度
   int _trimPitch = 0; // 俯仰微调，单位 0.1 度
+  int _trimYaw = 0; // 航向微调，单位 0.1 度/秒
   bool _trimBusy = false;
 
   // 北斗卫星实时状态（用于底部遥测与起飞播报）
@@ -192,18 +193,20 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
     );
   }
 
-  Future<void> _applyTrim({int dr = 0, int dp = 0}) async {
+  Future<void> _applyTrim({int dr = 0, int dp = 0, int dy = 0}) async {
     if (_trimBusy) return;
     final r = (_trimRoll + dr).clamp(-100, 100);
     final p = (_trimPitch + dp).clamp(-100, 100);
+    final y = (_trimYaw + dy).clamp(-100, 100);
     setState(() => _trimBusy = true);
-    final res = await _udp.setTrim(roll: r, pitch: p);
+    final res = await _udp.setTrim(roll: r, pitch: p, yaw: y);
     if (!mounted) return;
     setState(() {
       _trimBusy = false;
       if (res != null) {
         _trimRoll = res['roll'] ?? _trimRoll;
         _trimPitch = res['pitch'] ?? _trimPitch;
+        _trimYaw = res['yaw'] ?? _trimYaw;
       }
     });
     if (res == null) {
@@ -229,6 +232,7 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
       setState(() {
         _trimRoll = t['roll'] ?? 0;
         _trimPitch = t['pitch'] ?? 0;
+        _trimYaw = t['yaw'] ?? 0;
       });
     }
 
@@ -246,6 +250,7 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
             required String title,
             required String subtitle,
             required int value,
+            String unit = '°',
             required VoidCallback onMinus,
             required VoidCallback onPlus,
           }) {
@@ -274,7 +279,7 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      '${value > 0 ? '+' : ''}${(value * 0.1).toStringAsFixed(1)}°',
+                      '${value > 0 ? '+' : ''}${(value * 0.1).toStringAsFixed(1)}$unit',
                       style: const TextStyle(
                           color: Colors.white,
                           fontSize: 20,
@@ -354,10 +359,25 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
                           setSheet(() {});
                         },
                       ),
+                      const SizedBox(width: 12),
+                      trimCard(
+                        title: '旋转',
+                        subtitle: '航向',
+                        value: _trimYaw,
+                        unit: '°/s',
+                        onMinus: () async {
+                          await _applyTrim(dy: -5);
+                          setSheet(() {});
+                        },
+                        onPlus: () async {
+                          await _applyTrim(dy: 5);
+                          setSheet(() {});
+                        },
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
-                  const Text('每步 0.5°，范围 ±10°',
+                  const Text('每步 0.5°，范围 ±10°；旋转 + 右旋、− 左旋（单位 °/s），用于修正缓慢自转',
                       style: TextStyle(color: Colors.white38, fontSize: 10)),
                   const SizedBox(height: 10),
                   SizedBox(

@@ -24,7 +24,7 @@ public:
   float calculateSetpointRate(int axis, float input) const;
   float calcualteAltHoldSetpoint() const;
 
-  // 水平微调：在角度模式下给 roll/pitch 角目标叠加固定偏移（弧度）。
+  // 飞行微调：roll/pitch 为角度目标偏移（弧度），yaw 为航向角速度偏移（弧度/秒）。
   // 由地面站/APP 写入，飞控重启后由 InputUdp 从 NVS 恢复。
   static void setTrim(int axis, float radians);
   static float getTrim(int axis);

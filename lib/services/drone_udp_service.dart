@@ -214,19 +214,28 @@ class DroneUdpService {
     return r != null && r['ok'] == 1;
   }
 
-  /// 读取前后/左右微调（单位 0.1 度）
+  /// 读取前后/左右/旋转微调（水平单位 0.1 度，旋转单位 0.1 度/秒）
   Future<Map<String, int>?> getTrim() async {
     final r = await _httpGet('/api/trimget');
     if (r == null || r['ok'] != 1) return null;
-    return {'roll': (r['r'] as num).toInt(), 'pitch': (r['p'] as num).toInt()};
+    return {
+      'roll': (r['r'] as num).toInt(),
+      'pitch': (r['p'] as num).toInt(),
+      'yaw': (r['y'] as num? ?? 0).toInt(),
+    };
   }
 
-  /// 设置微调（单位 0.1 度，范围 ±100 = ±10 度），飞控立即写入 NVS
-  Future<Map<String, int>?> setTrim({int? roll, int? pitch}) async {
-    final cur = await getTrim() ?? {'roll': 0, 'pitch': 0};
-    final r = await _httpGet('/api/trim?r=${roll ?? cur['roll']}&p=${pitch ?? cur['pitch']}');
+  /// 设置飞行微调（水平 ±100 = ±10 度，旋转 ±100 = ±10 度/秒），飞控立即写入 NVS
+  Future<Map<String, int>?> setTrim({int? roll, int? pitch, int? yaw}) async {
+    final cur = await getTrim() ?? {'roll': 0, 'pitch': 0, 'yaw': 0};
+    final r = await _httpGet(
+        '/api/trim?r=${roll ?? cur['roll']}&p=${pitch ?? cur['pitch']}&y=${yaw ?? cur['yaw']}');
     if (r == null || r['ok'] != 1) return null;
-    return {'roll': (r['r'] as num).toInt(), 'pitch': (r['p'] as num).toInt()};
+    return {
+      'roll': (r['r'] as num).toInt(),
+      'pitch': (r['p'] as num).toInt(),
+      'yaw': (r['y'] as num? ?? 0).toInt(),
+    };
   }
 
   /// 清除无人机微调数据（归零）

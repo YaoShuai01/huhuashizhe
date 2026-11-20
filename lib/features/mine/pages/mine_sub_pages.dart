@@ -783,6 +783,16 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.4.4',
+        'date': '2026-11-20',
+        'content': [
+          '遥控器微调面板新增「旋转（航向）」微调，可修正缓慢自转，每步 0.5°/s，范围 ±10°/s',
+          '飞控固件同步支持航向微调，参数永久保存，重启后仍生效',
+          '微调面板改为前后/左右/旋转三列布局，横屏与小屏均完整显示',
+          '设置页「清除无人机微调数据」同步清零旋转微调',
+        ],
+      },
+      {
         'version': 'v3.4.3',
         'date': '2026-11-20',
         'content': [
