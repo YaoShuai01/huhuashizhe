@@ -2,9 +2,11 @@ package com.huhuashizhe.schedule.web;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.huhuashizhe.schedule.config.AiRuntimeConfig;
 import com.huhuashizhe.schedule.config.AppConfig;
 import com.huhuashizhe.schedule.db.MessageRepository;
 import com.huhuashizhe.schedule.db.ScheduleRepository;
+import com.huhuashizhe.schedule.model.AiConfigRequest;
 import com.huhuashizhe.schedule.model.AuthRequest;
 import com.huhuashizhe.schedule.model.AuthResponse;
 import com.huhuashizhe.schedule.model.ConflictResponse;
@@ -33,6 +35,8 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -89,6 +93,7 @@ public class ApiServlet extends HttpServlet {
         super.init(servletConfig);
         try {
             config = AppConfig.load();
+            AiRuntimeConfig.init(config);
             repository = new ScheduleRepository(config.dbPath, config.backupDir);
             repository.initialize();
             messageRepository = new MessageRepository(config.dbPath);
@@ -170,6 +175,27 @@ public class ApiServlet extends HttpServlet {
             if ("/admin/publish".equals(path) && "POST".equalsIgnoreCase(request.getMethod())) {
                 requireAdmin(request);
                 publishApp(request, response);
+                return;
+            }
+            if ("/ai-admin".equals(path) && "GET".equalsIgnoreCase(request.getMethod())) {
+                serveAiAdminPage(response);
+                return;
+            }
+            if ("/admin/ai/config".equals(path)) {
+                requireAdmin(request);
+                if ("GET".equalsIgnoreCase(request.getMethod())) {
+                    getAiConfig(response);
+                    return;
+                }
+                if ("PUT".equalsIgnoreCase(request.getMethod())) {
+                    updateAiConfig(request, response);
+                    return;
+                }
+                throw new ApiException(405, "method_not_allowed", "不支持的请求方法");
+            }
+            if ("/admin/ai/test".equals(path) && "POST".equalsIgnoreCase(request.getMethod())) {
+                requireAdmin(request);
+                testAi(response);
                 return;
             }
             if ("/schedule".equals(path)) {
@@ -412,6 +438,201 @@ public class ApiServlet extends HttpServlet {
             response.setHeader("Cache-Control", "no-cache");
             response.getOutputStream().write(bytes);
         }
+    }
+
+    /** 打包在 war 里的 AI 密钥管理页，地址 /ai-admin */
+    private void serveAiAdminPage(HttpServletResponse response) throws IOException {
+        try (InputStream in = getClass().getClassLoader()
+                .getResourceAsStream("web/ai-admin.html")) {
+            if (in == null) {
+                throw new ApiException(404, "not_found", "AI 管理页未打包");
+            }
+            byte[] bytes = in.readAllBytes();
+            response.setStatus(200);
+            response.setContentType("text/html;charset=UTF-8");
+            response.setCharacterEncoding("UTF-8");
+            response.setHeader("Cache-Control", "no-store");
+            response.setHeader("X-Frame-Options", "DENY");
+            response.setHeader("X-Robots-Tag", "noindex, nofollow");
+            response.getOutputStream().write(bytes);
+        }
+    }
+
+    private void getAiConfig(HttpServletResponse response) throws IOException {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("configured", !AiRuntimeConfig.apiKey().isEmpty());
+        body.put("keyMasked", AiRuntimeConfig.maskedKey());
+        body.put("baseUrl", AiRuntimeConfig.baseUrl());
+        body.put("model", AiRuntimeConfig.model());
+        write(response, 200, body);
+    }
+
+    private void updateAiConfig(HttpServletRequest request, HttpServletResponse response) throws IOException {
+        AiConfigRequest body = readBody(request, AiConfigRequest.class);
+        if (body == null) {
+            throw new ApiException(400, "bad_request", "请求格式错误");
+        }
+        String newKey = trim(body.apiKey);
+        if (newKey.contains("****")) {
+            newKey = "";
+        }
+        String baseUrl = trim(body.baseUrl);
+        String model = trim(body.model);
+
+        if (!newKey.isEmpty()) {
+            if (newKey.length() > 300 || newKey.contains(" ") || newKey.contains("\r") || newKey.contains("\n")) {
+                throw new ApiException(400, "invalid_key", "API Key 格式不正确");
+            }
+        }
+        if (baseUrl.isEmpty()) {
+            baseUrl = AiRuntimeConfig.baseUrl();
+        }
+        if (!(baseUrl.startsWith("http://") || baseUrl.startsWith("https://")) || baseUrl.length() > 300) {
+            throw new ApiException(400, "invalid_base_url", "服务地址必须以 http:// 或 https:// 开头");
+        }
+        if (model.isEmpty()) {
+            model = AiRuntimeConfig.model();
+        }
+        if (model.length() > 100 || model.contains("\r") || model.contains("\n")) {
+            throw new ApiException(400, "invalid_model", "模型名称不正确");
+        }
+
+        String keyToSave = newKey.isEmpty() ? AiRuntimeConfig.apiKey() : newKey;
+        if (keyToSave.isEmpty()) {
+            throw new ApiException(400, "invalid_key", "请填写 API Key");
+        }
+        persistAiConfig(keyToSave, baseUrl, model);
+        AiRuntimeConfig.update(keyToSave, baseUrl, model);
+        LOG.info("[AI] 管理员已更新 AI 配置；base=" + baseUrl + "；model=" + model);
+        getAiConfig(response);
+    }
+
+    /** 写回服务器 config.properties；其他配置行原样保留。 */
+    private void persistAiConfig(String apiKey, String baseUrl, String model) throws IOException {
+        Path target = config.configPath;
+        if (target == null) {
+            throw new ApiException(409, "config_not_writable", "服务器使用内置配置，无法在线修改");
+        }
+        List<String> lines = Files.isRegularFile(target)
+                ? Files.readAllLines(target, StandardCharsets.UTF_8)
+                : new ArrayList<>();
+        List<String> output = new ArrayList<>();
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.startsWith("ai.api.key=")
+                    || trimmed.startsWith("ai.base.url=")
+                    || trimmed.startsWith("ai.model=")) {
+                continue;
+            }
+            output.add(line);
+        }
+        output.add("ai.api.key=" + apiKey);
+        output.add("ai.base.url=" + baseUrl);
+        output.add("ai.model=" + model);
+
+        Path temp = target.resolveSibling(target.getFileName().toString() + ".tmp");
+        Files.write(temp, output, StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE);
+        try {
+            Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (Exception e) {
+            Files.move(temp, target, StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
+
+    /** 用当前配置真实调用一次上游，验证 Key / 地址 / 模型是否可用。 */
+    private void testAi(HttpServletResponse response) throws IOException {
+        String key = AiRuntimeConfig.apiKey();
+        Map<String, Object> result = new LinkedHashMap<>();
+        if (key.isEmpty()) {
+            result.put("ok", false);
+            result.put("message", "尚未配置 API Key");
+            write(response, 200, result);
+            return;
+        }
+        HttpURLConnection connection = null;
+        try {
+            URL url = new URL(AiRuntimeConfig.baseUrl() + "/chat/completions");
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("POST");
+            connection.setDoOutput(true);
+            connection.setConnectTimeout(10_000);
+            connection.setReadTimeout(40_000);
+            connection.setRequestProperty("Authorization", "Bearer " + key);
+            connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+            connection.setRequestProperty("Accept", "application/json");
+            connection.setRequestProperty("Accept-Encoding", "identity");
+
+            Map<String, Object> payload = new LinkedHashMap<>();
+            payload.put("model", AiRuntimeConfig.model());
+            List<Map<String, Object>> messages = new ArrayList<>();
+            Map<String, Object> user = new LinkedHashMap<>();
+            user.put("role", "user");
+            user.put("content", "请回复：连接正常");
+            messages.add(user);
+            payload.put("messages", messages);
+            payload.put("max_tokens", 128);
+            payload.put("temperature", 0.1);
+            payload.put("stream", false);
+            if (!AiRuntimeConfig.baseUrl().contains("xiaomimimo")) {
+                payload.put("enable_thinking", false);
+            }
+            byte[] body = mapper.writeValueAsBytes(payload);
+            connection.setFixedLengthStreamingMode(body.length);
+            try (OutputStream out = connection.getOutputStream()) {
+                out.write(body);
+            }
+
+            int status = connection.getResponseCode();
+            if (status != 200) {
+                result.put("ok", false);
+                result.put("message", "上游返回 HTTP " + status + "，请检查 Key 与模型名称");
+                write(response, 200, result);
+                return;
+            }
+            Map<?, ?> upstream = mapper.readValue(connection.getInputStream(), Map.class);
+            String reply = extractAiReply(upstream);
+            if (reply.isEmpty()) {
+                reply = "已连通（模型未返回正文，可能被思考过程占满）";
+            }
+            if (reply.length() > 120) {
+                reply = reply.substring(0, 120) + "…";
+            }
+            result.put("ok", true);
+            result.put("message", "连接正常");
+            result.put("reply", reply);
+            write(response, 200, result);
+        } catch (Exception e) {
+            LOG.log(Level.WARNING, "[AI] 测试连接失败", e);
+            result.put("ok", false);
+            result.put("message", "连接失败，请检查 Key、服务地址与服务器网络");
+            write(response, 200, result);
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
+
+    private String extractAiReply(Map<?, ?> upstream) {
+        Object choices = upstream.get("choices");
+        if (!(choices instanceof List) || ((List<?>) choices).isEmpty()) {
+            return "";
+        }
+        Object first = ((List<?>) choices).get(0);
+        if (!(first instanceof Map)) {
+            return "";
+        }
+        Object message = ((Map<?, ?>) first).get("message");
+        if (!(message instanceof Map)) {
+            return "";
+        }
+        Object content = ((Map<?, ?>) message).get("content");
+        if (content instanceof String && !((String) content).isEmpty()) {
+            return (String) content;
+        }
+        Object reasoning = ((Map<?, ?>) message).get("reasoning_content");
+        return reasoning instanceof String ? (String) reasoning : "";
     }
 
     private void auth(HttpServletRequest request, HttpServletResponse response) throws IOException {

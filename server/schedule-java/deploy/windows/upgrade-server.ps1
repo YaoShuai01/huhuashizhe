@@ -3,19 +3,20 @@
   ------------------------------------------------------------------
   把 schedule.war 和本脚本复制到服务器（RDP 直接拷贝），以管理员身份执行：
 
-      powershell -ExecutionPolicy Bypass -File .\upgrade-server.ps1 `
-          -War .\schedule.war -AiApiKey "sk-xxxx"
+      powershell -ExecutionPolicy Bypass -File .\upgrade-server.ps1 -War .\schedule.war
 
-  脚本会：停止服务 -> 备份旧 WAR 与配置 -> 部署新 WAR -> 写入 AI 配置 -> 启动服务 -> 健康检查。
+  可选参数：-AiApiKey / -AiBaseUrl / -AiModel；不传时保留服务器已有的 AI 配置。
+  首次部署或要换 Key 时再传 -AiApiKey。
+  脚本会：停止服务 -> 备份旧 WAR 与配置 -> 部署新 WAR -> 更新 AI 配置 -> 启动服务 -> 健康检查。
   其他配置项（schedule.key / admin.key / token.secret / db.path）原样保留。
   注意：ai.api.key 只保存在服务器 config.properties，禁止提交到 Git。
 #>
 [CmdletBinding()]
 param(
     [Parameter(Mandatory = $true)][string]$War,
-    [Parameter(Mandatory = $true)][string]$AiApiKey,
-    [string]$AiBaseUrl = 'https://maas.qianwenaiapi.com/compatible-mode/v1',
-    [string]$AiModel = 'qwen3.8-flash',
+    [string]$AiApiKey = '',
+    [string]$AiBaseUrl = '',
+    [string]$AiModel = '',
     [string]$InstallDir = 'C:\huhuashizhe',
     [int]$Port = 8080
 )
@@ -27,10 +28,6 @@ $ServiceName = 'HuHuaShiZheSchedule'
 $warPath = (Resolve-Path $War).Path
 if ([IO.Path]::GetExtension($warPath).ToLower() -ne '.war') {
     throw "不是 WAR 文件：$warPath"
-}
-$AiApiKey = $AiApiKey.Trim()
-if (-not $AiApiKey) {
-    throw 'ai.api.key 不能为空'
 }
 
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
@@ -83,14 +80,27 @@ Write-Step '部署新 schedule.war'
 Remove-Item (Join-Path $webappsDir 'schedule') -Recurse -Force -ErrorAction SilentlyContinue
 Copy-Item $warPath (Join-Path $webappsDir 'schedule.war') -Force
 
-# ---------- 更新 AI 配置（保留其他行） ----------
-Write-Step '写入 AI 代理配置'
-$lines = Get-Content $configFile -Encoding UTF8 | Where-Object {
-    $_ -notmatch '^\s*ai\.(api\.key|base\.url|model)\s*='
+# ---------- 更新 AI 配置（未传参数时保留现有值） ----------
+Write-Step '更新 AI 代理配置'
+$existingKey = ''
+$existingBase = ''
+$existingModel = ''
+foreach ($line in (Get-Content $configFile -Encoding UTF8)) {
+    if ($line -match '^\s*ai\.api\.key\s*=\s*(.*)$') { $existingKey = $Matches[1].Trim() }
+    elseif ($line -match '^\s*ai\.base\.url\s*=\s*(.*)$') { $existingBase = $Matches[1].Trim() }
+    elseif ($line -match '^\s*ai\.model\s*=\s*(.*)$') { $existingModel = $Matches[1].Trim() }
 }
-$lines += "ai.api.key=$AiApiKey"
-$lines += "ai.base.url=$AiBaseUrl"
-$lines += "ai.model=$AiModel"
+$keyToSave = if ($AiApiKey.Trim()) { $AiApiKey.Trim() } else { $existingKey }
+$baseToSave = if ($AiBaseUrl.Trim()) { $AiBaseUrl.Trim() } else { if ($existingBase) { $existingBase } else { 'https://maas.qianwenaiapi.com/compatible-mode/v1' } }
+$modelToSave = if ($AiModel.Trim()) { $AiModel.Trim() } else { if ($existingModel) { $existingModel } else { 'qwen3.8-flash' } }
+$lines = @(Get-Content $configFile -Encoding UTF8 | Where-Object {
+    $_ -notmatch '^\s*ai\.(api\.key|base\.url|model)\s*='
+})
+if ($keyToSave) {
+    $lines += "ai.api.key=$keyToSave"
+}
+$lines += "ai.base.url=$baseToSave"
+$lines += "ai.model=$modelToSave"
 Write-Utf8NoBom $configFile (($lines -join "`r`n") + "`r`n")
 
 # ---------- 启动服务 ----------
@@ -120,4 +130,5 @@ if (-not $ok) {
 
 Write-Host ""
 Write-Host "升级完成。AI 代理地址：http://<服务器IP>:$Port/schedule/ai/chat" -ForegroundColor Green
+Write-Host "AI 密钥管理页：http://<服务器IP>:$Port/schedule/ai-admin" -ForegroundColor Green
 Write-Host "请勿把 $configFile 提交到 Git。" -ForegroundColor Yellow

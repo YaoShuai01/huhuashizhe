@@ -1,6 +1,7 @@
 package com.huhuashizhe.schedule.web;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.huhuashizhe.schedule.config.AiRuntimeConfig;
 import com.huhuashizhe.schedule.config.AppConfig;
 import com.huhuashizhe.schedule.service.AiQuota;
 
@@ -54,10 +55,11 @@ public class AiProxyServlet extends HttpServlet {
         super.init(servletConfig);
         try {
             config = AppConfig.load();
+            AiRuntimeConfig.init(config);
             quota = new AiQuota();
-            LOG.info("AI 代理已启动；base=" + config.aiBaseUrl
-                    + "；model=" + config.aiModel
-                    + "；keyConfigured=" + !config.aiApiKey.isEmpty());
+            LOG.info("AI 代理已启动；base=" + AiRuntimeConfig.baseUrl()
+                    + "；model=" + AiRuntimeConfig.model()
+                    + "；keyConfigured=" + !AiRuntimeConfig.apiKey().isEmpty());
         } catch (Exception e) {
             LOG.log(Level.SEVERE, "AI 代理启动失败", e);
             throw new ServletException("AI 代理启动失败: " + e.getMessage(), e);
@@ -85,7 +87,7 @@ public class AiProxyServlet extends HttpServlet {
             writeError(response, 405, "method_not_allowed", "不支持的请求方法");
             return;
         }
-        if (config.aiApiKey.isEmpty()) {
+        if (AiRuntimeConfig.apiKey().isEmpty()) {
             writeError(response, 503, "ai_not_configured", "AI 服务尚未配置");
             return;
         }
@@ -111,13 +113,13 @@ public class AiProxyServlet extends HttpServlet {
             double topP = doubleValue(payload.get("top_p"), 0.95, 0.01, 1.0);
 
             Map<String, Object> upstream = new LinkedHashMap<>();
-            upstream.put("model", config.aiModel);
+            upstream.put("model", AiRuntimeConfig.model());
             upstream.put("messages", messages);
             upstream.put("max_tokens", maxTokens);
             upstream.put("temperature", temperature);
             upstream.put("top_p", topP);
             // 千问支持关闭思考模式；小米 MiMo 接口不保证接受该参数，切到小米时不传
-            if (!config.aiBaseUrl.contains("xiaomimimo")) {
+            if (!AiRuntimeConfig.baseUrl().contains("xiaomimimo")) {
                 upstream.put("enable_thinking", false);
             }
             upstream.put("stream", stream);
@@ -135,13 +137,13 @@ public class AiProxyServlet extends HttpServlet {
             int messageCount, int totalChars, HttpServletResponse response) throws IOException {
         HttpURLConnection connection = null;
         try {
-            URL url = new URL(config.aiBaseUrl + "/chat/completions");
+            URL url = new URL(AiRuntimeConfig.baseUrl() + "/chat/completions");
             connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("POST");
             connection.setDoOutput(true);
             connection.setConnectTimeout(10_000);
             connection.setReadTimeout(UPSTREAM_TIMEOUT_MS);
-            connection.setRequestProperty("Authorization", "Bearer " + config.aiApiKey);
+            connection.setRequestProperty("Authorization", "Bearer " + AiRuntimeConfig.apiKey());
             connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
             connection.setRequestProperty("Accept", stream ? "text/event-stream" : "application/json");
             connection.setRequestProperty("Accept-Encoding", "identity");
