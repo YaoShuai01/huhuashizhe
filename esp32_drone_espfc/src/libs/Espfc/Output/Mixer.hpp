@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_OUTPUT_MIXER_HPP_
+#define HHHS_LIBS_ESPFC_OUTPUT_MIXER_HPP_
 
 #include "Model.hpp"
 #include <EscDriver.hpp>
@@ -34,3 +35,4 @@ private:
 };
 
 } // namespace Espfc::Output
+#endif // HHHS_LIBS_ESPFC_OUTPUT_MIXER_HPP_

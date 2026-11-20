@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_SENSOR_BAROSENSOR_HPP_
+#define HHHS_LIBS_ESPFC_SENSOR_BAROSENSOR_HPP_
 
 #include "Device/BaroDevice.hpp"
 #include "Model.hpp"
@@ -43,3 +44,4 @@ private:
 };
 
 } // namespace Espfc::Sensor
+#endif // HHHS_LIBS_ESPFC_SENSOR_BAROSENSOR_HPP_

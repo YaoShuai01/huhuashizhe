@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_TELEMETRY_TELEMETRYCRSF_HPP_
+#define HHHS_LIBS_ESPFC_TELEMETRY_TELEMETRYCRSF_HPP_
 
 #include "Model.hpp"
 #include "Rc/Crsf.hpp"
@@ -45,3 +46,4 @@ private:
 } // namespace Telemetry
 
 } // namespace Espfc
+#endif // HHHS_LIBS_ESPFC_TELEMETRY_TELEMETRYCRSF_HPP_

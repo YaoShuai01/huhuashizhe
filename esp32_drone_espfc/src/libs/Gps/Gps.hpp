@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_GPS_GPS_HPP_
+#define HHHS_LIBS_GPS_GPS_HPP_
 
 #include <cstdint>
 #include <tuple>
@@ -17,3 +18,4 @@ namespace Gps {
 std::tuple<float, float> calculateDistanceAndBearing(int32_t homeLat, int32_t homeLon, int32_t curLat, int32_t curLon);
 
 } // namespace Gps
+#endif // HHHS_LIBS_GPS_GPS_HPP_

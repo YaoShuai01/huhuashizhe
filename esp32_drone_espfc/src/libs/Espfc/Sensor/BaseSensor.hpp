@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_SENSOR_BASESENSOR_HPP_
+#define HHHS_LIBS_ESPFC_SENSOR_BASESENSOR_HPP_
 
 #include <cstdint>
 #include <helper_3dmath.hpp>
@@ -13,3 +14,4 @@ public:
 };
 
 } // namespace Espfc::Sensor
+#endif // HHHS_LIBS_ESPFC_SENSOR_BASESENSOR_HPP_

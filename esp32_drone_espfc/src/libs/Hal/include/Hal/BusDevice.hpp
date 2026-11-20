@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_HAL_INCLUDE_HAL_BUSDEVICE_HPP_
+#define HHHS_LIBS_HAL_INCLUDE_HAL_BUSDEVICE_HPP_
 
 #include "Hal/Bits.hpp"
 #include <cstdint>
@@ -139,3 +140,4 @@ protected:
 };
 
 } // namespace Hal
+#endif // HHHS_LIBS_HAL_INCLUDE_HAL_BUSDEVICE_HPP_

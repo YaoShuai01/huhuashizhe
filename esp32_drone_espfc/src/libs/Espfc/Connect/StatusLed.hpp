@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_CONNECT_STATUSLED_HPP_
+#define HHHS_LIBS_ESPFC_CONNECT_STATUSLED_HPP_
 
 #include "Hal/RgbLed.hpp"
 #include <cstddef>
@@ -42,3 +43,4 @@ private:
 };
 
 } // namespace Espfc::Connect
+#endif // HHHS_LIBS_ESPFC_CONNECT_STATUSLED_HPP_

@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_DEVICE_INPUT_INPUTIBUS_HPP_
+#define HHHS_LIBS_ESPFC_DEVICE_INPUT_INPUTIBUS_HPP_
 
 #include "Device/InputDevice.hpp"
 #include "Stream/ReadWritable.hpp"
@@ -53,3 +54,4 @@ private:
 };
 
 } // namespace Espfc::Device::Input
+#endif // HHHS_LIBS_ESPFC_DEVICE_INPUT_INPUTIBUS_HPP_

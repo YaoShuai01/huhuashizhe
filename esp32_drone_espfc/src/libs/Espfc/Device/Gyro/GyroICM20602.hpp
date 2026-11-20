@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_DEVICE_GYRO_GYROICM20602_HPP_
+#define HHHS_LIBS_ESPFC_DEVICE_GYRO_GYROICM20602_HPP_
 
 #include "GyroMPU6050.hpp"
 
@@ -15,3 +16,4 @@ public:
 };
 
 } // namespace Espfc::Device::Gyro
+#endif // HHHS_LIBS_ESPFC_DEVICE_GYRO_GYROICM20602_HPP_

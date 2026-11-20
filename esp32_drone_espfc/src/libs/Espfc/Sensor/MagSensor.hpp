@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_SENSOR_MAGSENSOR_HPP_
+#define HHHS_LIBS_ESPFC_SENSOR_MAGSENSOR_HPP_
 
 #include "BaseSensor.hpp"
 #include "Device/MagDevice.hpp"
@@ -28,3 +29,4 @@ private:
 };
 
 } // namespace Espfc::Sensor
+#endif // HHHS_LIBS_ESPFC_SENSOR_MAGSENSOR_HPP_

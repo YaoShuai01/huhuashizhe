@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_ESPFC_HPP_
+#define HHHS_LIBS_ESPFC_ESPFC_HPP_
 
 #include "Blackbox/Blackbox.hpp"
 #include "Connect/Buzzer.hpp"
@@ -50,3 +51,4 @@ private:
 };
 
 } // namespace Espfc
+#endif // HHHS_LIBS_ESPFC_ESPFC_HPP_

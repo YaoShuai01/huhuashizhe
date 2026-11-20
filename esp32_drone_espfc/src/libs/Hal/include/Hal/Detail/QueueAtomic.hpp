@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_HAL_INCLUDE_HAL_DETAIL_QUEUEATOMIC_HPP_
+#define HHHS_LIBS_HAL_INCLUDE_HAL_DETAIL_QUEUEATOMIC_HPP_
 
 #include "Hal/Detail/QueueIndex.hpp"
 #include <cstddef>
@@ -45,3 +46,4 @@ private:
 } // namespace Hal::Detail
 
 #include "Hal/Detail/QueueAtomic.ipp"
+#endif // HHHS_LIBS_HAL_INCLUDE_HAL_DETAIL_QUEUEATOMIC_HPP_

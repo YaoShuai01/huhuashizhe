@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_SENSORMANAGER_HPP_
+#define HHHS_LIBS_ESPFC_SENSORMANAGER_HPP_
 
 #include "Control/Altitude.hpp"
 #include "Control/Fusion.hpp"
@@ -43,3 +44,4 @@ private:
 };
 
 } // namespace Espfc
+#endif // HHHS_LIBS_ESPFC_SENSORMANAGER_HPP_

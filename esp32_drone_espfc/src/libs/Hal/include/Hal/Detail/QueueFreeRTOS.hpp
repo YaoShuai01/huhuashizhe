@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_HAL_INCLUDE_HAL_DETAIL_QUEUEFREERTOS_HPP_
+#define HHHS_LIBS_HAL_INCLUDE_HAL_DETAIL_QUEUEFREERTOS_HPP_
 
 #include <cstddef>
 
@@ -67,3 +68,4 @@ public:
 };
 
 } // namespace Hal::Detail
+#endif // HHHS_LIBS_HAL_INCLUDE_HAL_DETAIL_QUEUEFREERTOS_HPP_

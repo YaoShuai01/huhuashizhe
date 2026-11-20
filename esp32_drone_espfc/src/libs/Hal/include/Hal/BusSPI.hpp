@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_HAL_INCLUDE_HAL_BUSSPI_HPP_
+#define HHHS_LIBS_HAL_INCLUDE_HAL_BUSSPI_HPP_
 
 #include "Hal/BusDevice.hpp"
 #include <cstddef>
@@ -35,3 +36,4 @@ private:
 BusSPI* getBusSPI(size_t index);
 
 } // namespace Hal
+#endif // HHHS_LIBS_HAL_INCLUDE_HAL_BUSSPI_HPP_

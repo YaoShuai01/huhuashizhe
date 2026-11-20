@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_DEVICE_INPUTDEVICE_HPP_
+#define HHHS_LIBS_ESPFC_DEVICE_INPUTDEVICE_HPP_
 
 #include <cstddef>
 #include <cstdint>
@@ -28,3 +29,4 @@ public:
 } // namespace Device
 
 } // namespace Espfc
+#endif // HHHS_LIBS_ESPFC_DEVICE_INPUTDEVICE_HPP_

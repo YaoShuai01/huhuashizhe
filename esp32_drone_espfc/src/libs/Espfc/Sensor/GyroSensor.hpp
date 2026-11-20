@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_SENSOR_GYROSENSOR_HPP_
+#define HHHS_LIBS_ESPFC_SENSOR_GYROSENSOR_HPP_
 
 #include "Device/GyroDevice.hpp"
 #include "Hal/Platform.hpp"
@@ -60,3 +61,4 @@ private:
 } // namespace Sensor
 
 } // namespace Espfc
+#endif // HHHS_LIBS_ESPFC_SENSOR_GYROSENSOR_HPP_

@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_HAL_SRC_DETAIL_GPIOCAPTURE_HPP_
+#define HHHS_LIBS_HAL_SRC_DETAIL_GPIOCAPTURE_HPP_
 
 #include "Hal/FastCode.hpp"
 #include "Hal/Gpio.hpp"
@@ -72,3 +73,4 @@ inline void captureDetachFallback(uint8_t pin)
 }
 
 } // namespace Hal::Detail
+#endif // HHHS_LIBS_HAL_SRC_DETAIL_GPIOCAPTURE_HPP_

@@ -1,0 +1,25 @@
+{
+  "palettes": [
+    "lunar-grey-bronze"
+  ],
+  "types": [
+    "geist"
+  ],
+  "dealt": [
+    "geist",
+    "manrope",
+    "archivo"
+  ],
+  "moments": [
+    {
+      "id": "liquid-type",
+      "at": "2026-11-12T11:29:03.239Z",
+      "seed": "26ee3816"
+    },
+    {
+      "id": "marquee-row",
+      "at": "2026-11-12T11:29:03.239Z",
+      "seed": "26ee3816"
+    }
+  ]
+}

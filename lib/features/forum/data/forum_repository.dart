@@ -26,7 +26,6 @@ abstract class ForumRepository extends ChangeNotifier {
     required String section,
     required String title,
     required String content,
-    bool pendingReview = false,
   });
 
   void toggleLike(ForumPost post);
@@ -147,7 +146,6 @@ class InMemoryForumRepository extends ForumRepository {
     required String section,
     required String title,
     required String content,
-    bool pendingReview = false,
   }) {
     final post = ForumPost(
       id: 'local_${DateTime.now().microsecondsSinceEpoch}_${_idSeed++}',
@@ -156,7 +154,6 @@ class InMemoryForumRepository extends ForumRepository {
       content: content.trim(),
       author: currentUserName,
       createdAt: DateTime.now(),
-      pendingReview: pendingReview,
     );
     _posts.add(post);
     notifyListeners();

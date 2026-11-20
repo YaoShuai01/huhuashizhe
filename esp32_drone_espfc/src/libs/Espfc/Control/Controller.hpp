@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_CONTROL_CONTROLLER_HPP_
+#define HHHS_LIBS_ESPFC_CONTROL_CONTROLLER_HPP_
 
 #include "Control/Rates.hpp"
 #include "Model.hpp"
@@ -33,3 +34,4 @@ private:
 };
 
 } // namespace Espfc::Control
+#endif // HHHS_LIBS_ESPFC_CONTROL_CONTROLLER_HPP_

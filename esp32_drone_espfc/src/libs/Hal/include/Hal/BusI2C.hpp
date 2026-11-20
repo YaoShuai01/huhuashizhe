@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_HAL_INCLUDE_HAL_BUSI2C_HPP_
+#define HHHS_LIBS_HAL_INCLUDE_HAL_BUSI2C_HPP_
 
 #include "Hal/BusDevice.hpp"
 #include <cstddef>
@@ -23,3 +24,4 @@ private:
 BusI2C* getBusI2C(size_t index);
 
 } // namespace Hal
+#endif // HHHS_LIBS_HAL_INCLUDE_HAL_BUSI2C_HPP_

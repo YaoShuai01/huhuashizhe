@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_TARGET_TARGETESP32S3_H_
+#define HHHS_LIBS_ESPFC_TARGET_TARGETESP32S3_H_
 
 // HuHuaShiZhe flight controller pin map (ESP32-S3)
 // pins to avoid:
@@ -48,3 +49,4 @@
 // 100kHz soft I2C cannot sustain 1kHz; 500Hz gyro / 250Hz PID is safe.
 #define ESPFC_GYRO_I2C_RATE_MAX 500
 #define ESPFC_GYRO_SPI_RATE_MAX 4000
+#endif // HHHS_LIBS_ESPFC_TARGET_TARGETESP32S3_H_

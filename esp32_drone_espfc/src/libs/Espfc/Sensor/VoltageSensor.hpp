@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_SENSOR_VOLTAGESENSOR_HPP_
+#define HHHS_LIBS_ESPFC_SENSOR_VOLTAGESENSOR_HPP_
 
 #include "BaseSensor.hpp"
 #include "Model.hpp"
@@ -31,3 +32,4 @@ private:
 };
 
 } // namespace Espfc::Sensor
+#endif // HHHS_LIBS_ESPFC_SENSOR_VOLTAGESENSOR_HPP_

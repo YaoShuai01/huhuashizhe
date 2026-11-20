@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_EVENT_HPP_
+#define HHHS_LIBS_ESPFC_EVENT_HPP_
 
 #include "Hal/Queue.hpp"
 
@@ -23,3 +24,4 @@ struct Event
 using EventQueue = Hal::Queue<Event, 16>;
 
 } // namespace Espfc
+#endif // HHHS_LIBS_ESPFC_EVENT_HPP_

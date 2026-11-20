@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_CONTROL_ACTUATOR_HPP_
+#define HHHS_LIBS_ESPFC_CONTROL_ACTUATOR_HPP_
 
 #include "Model.hpp"
 
@@ -31,3 +32,4 @@ private:
 };
 
 } // namespace Espfc::Control
+#endif // HHHS_LIBS_ESPFC_CONTROL_ACTUATOR_HPP_

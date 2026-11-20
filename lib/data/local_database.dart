@@ -42,7 +42,6 @@ class LocalDatabase {
 
   /// 异步持久化到文件（内部使用，不阻塞调用方）
   Future<void> _persistToFile(String key) async {
-    if (_dataDir == null) return; // 未完成 init 时仅写入内存缓存
     final content = _cache[key];
     if (content == null) return;
     final file = File(_filePath(key));

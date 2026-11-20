@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_HAL_INCLUDE_HAL_SERIAL_HPP_
+#define HHHS_LIBS_HAL_INCLUDE_HAL_SERIAL_HPP_
 
 #include "Hal/Platform.hpp"
 
@@ -92,3 +93,4 @@ SerialUsb* getSerialUsb();
 #endif // defined(ESPFC_HAL_USB_CDC)
 
 } // namespace Hal
+#endif // HHHS_LIBS_HAL_INCLUDE_HAL_SERIAL_HPP_

@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_AHRS_RTQF_HPP_
+#define HHHS_LIBS_AHRS_RTQF_HPP_
 
 #include "helper_3dmath.hpp"
 
@@ -28,3 +29,4 @@ private:
   float _slerpPower;
   bool _first;
 };
+#endif // HHHS_LIBS_AHRS_RTQF_HPP_

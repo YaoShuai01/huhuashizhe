@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/forum_repository.dart';
 import '../forum_scope.dart';
-import '../services/forum_moderation_service.dart';
 import '../services/forum_voice_input.dart';
 import '../widgets/forum_back_button.dart';
 import '../widgets/forum_responsive_body.dart';
@@ -18,7 +17,6 @@ class ForumComposePage extends StatefulWidget {
     this.initialSection,
     this.repository,
     this.voiceRecognizer,
-    this.moderationService,
   });
 
   final String? initialSection;
@@ -28,9 +26,6 @@ class ForumComposePage extends StatefulWidget {
 
   /// 外部注入的语音识别实现，为空时使用系统语音识别
   final ForumVoiceRecognizer? voiceRecognizer;
-
-  /// 外部注入的内容初审实现，为空时使用 AI 初审
-  final ForumModerationService? moderationService;
 
   @override
   State<ForumComposePage> createState() => _ForumComposePageState();
@@ -44,7 +39,6 @@ class _ForumComposePageState extends State<ForumComposePage> {
   final _contentCtrl = TextEditingController();
 
   String? _section;
-  bool _submitting = false;
 
   @override
   void dispose() {
@@ -67,12 +61,7 @@ class _ForumComposePageState extends State<ForumComposePage> {
     return sections.first;
   }
 
-  ForumModerationService get _moderator =>
-      widget.moderationService ?? defaultForumModerationService;
-
-  Future<void> _publish() async {
-    if (_submitting) return;
-
+  void _publish() {
     final sections = _repository.sectionTitles;
     final section = _resolveSection(sections);
     final title = _titleCtrl.text.trim();
@@ -91,63 +80,12 @@ class _ForumComposePageState extends State<ForumComposePage> {
       return;
     }
 
-    // AI 初审：通过即发布，驳回拦截，无法判定转人工复审
-    setState(() => _submitting = true);
-    final result = await _moderator.review(title: title, content: content);
-    if (!mounted) return;
-    setState(() => _submitting = false);
-
-    if (result.rejected) {
-      await _showRejectDialog(result);
-      return;
-    }
-    _finishPublish(
-      section: section,
-      title: title,
-      content: content,
-      pendingReview: result.needsManualReview,
-    );
-  }
-
-  void _finishPublish({
-    required String section,
-    required String title,
-    required String content,
-    bool pendingReview = false,
-  }) {
-    _repository.publish(
-      section: section,
-      title: title,
-      content: content,
-      pendingReview: pendingReview,
-    );
+    _repository.publish(section: section, title: title, content: content);
     final messenger = ScaffoldMessenger.of(context);
     context.pop();
     messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(pendingReview ? '已提交，人工复审通过后展示' : '发布成功'),
-        ),
-      );
-  }
-
-  Future<void> _showRejectDialog(ForumAuditResult result) {
-    return showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('未通过审核'),
-        content: Text(
-          '违规类型：${result.violationType}\n\n${result.reason}\n\n请修改后重新发布。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('我知道了'),
-          ),
-        ],
-      ),
-    );
+      ..showSnackBar(const SnackBar(content: Text('发布成功')));
   }
 
   void _toast(String message) {
@@ -167,23 +105,14 @@ class _ForumComposePageState extends State<ForumComposePage> {
         title: const Text('发布帖子'),
         actions: [
           TextButton(
-            onPressed: _submitting ? null : _publish,
-            child: _submitting
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: AppColors.textOnPrimary,
-                    ),
-                  )
-                : const Text(
-                    '发布',
-                    style: TextStyle(
-                      color: AppColors.textOnPrimary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+            onPressed: _publish,
+            child: const Text(
+              '发布',
+              style: TextStyle(
+                color: AppColors.textOnPrimary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
           ),
         ],
       ),
@@ -228,26 +157,6 @@ class _ForumComposePageState extends State<ForumComposePage> {
               '发布后所有用户可见，请遵守社区版规，勿发布广告与违规内容。',
               style: TextStyle(fontSize: 12, color: AppColors.textHint),
             ),
-            if (_submitting) ...[
-              const SizedBox(height: 12),
-              const Row(
-                children: [
-                  SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  SizedBox(width: 8),
-                  Text(
-                    'AI 审核中，请稍候…',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ],
           ],
         ),
       ),

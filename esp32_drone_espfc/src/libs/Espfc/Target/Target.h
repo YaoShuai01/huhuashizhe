@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_TARGET_TARGET_H_
+#define HHHS_LIBS_ESPFC_TARGET_TARGET_H_
 
 #if defined(ESP32C3)
 #include "TargetESP32c3.h"
@@ -17,3 +18,4 @@
 #else
 #error "Unsupported platform!"
 #endif
+#endif // HHHS_LIBS_ESPFC_TARGET_TARGET_H_

@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_UTILS_FILTER_HPP_
+#define HHHS_LIBS_ESPFC_UTILS_FILTER_HPP_
 
 #include "Utils/Math.hpp"
 #include <cstddef>
@@ -190,3 +191,4 @@ float estimateFilterDelay(const FilterConfig& config, int rate);
 } // namespace Utils
 
 } // namespace Espfc
+#endif // HHHS_LIBS_ESPFC_UTILS_FILTER_HPP_

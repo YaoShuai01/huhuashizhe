@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_DEBUG_ESPFC_HPP_
+#define HHHS_LIBS_ESPFC_DEBUG_ESPFC_HPP_
 
 #include "Stream/Printer.hpp"
 
@@ -46,3 +47,4 @@ void D(T t, Args... args)
 #endif
 
 } // namespace Espfc
+#endif // HHHS_LIBS_ESPFC_DEBUG_ESPFC_HPP_

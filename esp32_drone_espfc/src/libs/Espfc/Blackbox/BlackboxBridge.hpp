@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_BLACKBOX_BLACKBOXBRIDGE_HPP_
+#define HHHS_LIBS_ESPFC_BLACKBOX_BLACKBOXBRIDGE_HPP_
 
 #include "Model.hpp"
 #include <platform.h>
@@ -10,3 +11,4 @@ bool blackboxShouldLogIFrame(void);
 }
 
 void initBlackboxModel(Espfc::Model* m);
+#endif // HHHS_LIBS_ESPFC_BLACKBOX_BLACKBOXBRIDGE_HPP_

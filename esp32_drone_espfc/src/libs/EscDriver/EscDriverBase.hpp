@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESCDRIVER_ESCDRIVERBASE_HPP_
+#define HHHS_LIBS_ESCDRIVER_ESCDRIVERBASE_HPP_
 
 #include <cstddef>
 #include <cstdint>
@@ -84,3 +85,4 @@ public:
   }
 #endif
 };
+#endif // HHHS_LIBS_ESCDRIVER_ESCDRIVERBASE_HPP_

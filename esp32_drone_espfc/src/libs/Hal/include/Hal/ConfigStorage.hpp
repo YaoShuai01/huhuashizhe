@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_HAL_INCLUDE_HAL_CONFIGSTORAGE_HPP_
+#define HHHS_LIBS_HAL_INCLUDE_HAL_CONFIGSTORAGE_HPP_
 
 #include <cstddef>
 #include <cstdint>
@@ -24,3 +25,4 @@ private:
 };
 
 } // namespace Hal
+#endif // HHHS_LIBS_HAL_INCLUDE_HAL_CONFIGSTORAGE_HPP_

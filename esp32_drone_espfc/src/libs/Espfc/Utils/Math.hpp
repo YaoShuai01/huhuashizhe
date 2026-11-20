@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_UTILS_MATH_HPP_
+#define HHHS_LIBS_ESPFC_UTILS_MATH_HPP_
 
 #include <algorithm>
 #include <cmath>
@@ -163,3 +164,4 @@ void inline peakSort(Peak* peaks, size_t peak_count)
 }
 
 } // namespace Espfc::Utils
+#endif // HHHS_LIBS_ESPFC_UTILS_MATH_HPP_

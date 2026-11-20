@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_HAL_INCLUDE_HAL_TIME_HPP_
+#define HHHS_LIBS_HAL_INCLUDE_HAL_TIME_HPP_
 
 #include <cstdint>
 
@@ -17,3 +18,4 @@ unsigned long micros();
 unsigned long millis();
 
 } // extern "C"
+#endif // HHHS_LIBS_HAL_INCLUDE_HAL_TIME_HPP_

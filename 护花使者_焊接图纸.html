@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>护花使者无人机 - 专业焊接接线图纸</title>
+<style>
+  body { font-family: "Microsoft YaHei", sans-serif; margin: 16px; background: #fff; color: #222; }
+  h1 { text-align: center; color: #1a5276; margin-bottom: 4px; }
+  .sub { text-align: center; color: #777; margin-bottom: 16px; font-size: 13px; }
+  .section { border: 2px solid #1a5276; border-radius: 10px; padding: 12px 16px; margin: 20px 0; }
+  .section h2 { margin: 0 0 10px; color: #1a5276; font-size: 17px; }
+  table { border-collapse: collapse; width: 100%; margin: 6px 0; font-size: 13px; }
+  th, td { border: 1px solid #bbb; padding: 5px 8px; text-align: left; }
+  th { background: #eaf2f8; }
+  .red { color: #c0392b; font-weight: bold; }
+  .black { color: #000; font-weight: bold; }
+  .yellow { color: #b7950b; font-weight: bold; }
+  .blue { color: #2471a3; font-weight: bold; }
+  .orange { color: #d35400; font-weight: bold; }
+  .warn { background: #fef9e7; border: 1px solid #f0b429; border-radius: 6px; padding: 8px 12px; margin: 8px 0; font-size: 13px; }
+  .danger { background: #fdedec; border: 1px solid #e74c3c; border-radius: 6px; padding: 8px 12px; margin: 8px 0; font-size: 13px; }
+  svg { max-width: 100%; height: auto; }
+  .info-bar { display: flex; justify-content: space-between; background: #1a5276; color: #fff; border-radius: 6px; padding: 8px 14px; margin-bottom: 16px; font-size: 13px; flex-wrap: wrap; gap: 8px; }
+  .info-bar b { color: #f9e79f; }
+</style>
+</head>
+<body>
+
+<h1>护花使者无人机 · 专业焊接接线图纸</h1>
+<div class="sub">ESP32-S3 N16R8 + 4×30A电调 + 4×2212电机 + 3S电池 + 降压模块 + 12V水泵(MOS低边驱动)</div>
+
+<div class="info-bar">
+  <span>图号：<b>HHS-DRONE-WIR-001</b></span>
+  <span>版本：<b>V2.0</b></span>
+  <span>日期：<b>2026-09-14</b></span>
+  <span>线号规范：<b>W1~W44（见接线表）</b></span>
+  <span>网络标签：<b>同名标签即视为相连</b></span>
+</div>
+
+<div class="danger">
+  <b>⚠️ 焊接前必读：</b> 所有接线必须在<b>断电</b>状态下进行。电调电源线接分电板（电池经分电板），<b>绝不</b>接 ESP32。<br>
+  电调信号线 3-Pin 的 <b>红色 BEC 线不接</b>（剪掉或包绝缘胶带）——本机 5V 由专用降压模块提供，接红线会造成双电源并联冲突。<br>
+  首次上电测试<b>必须拆下螺旋桨</b>；降压模块输出<b>先调准 5V</b> 再接 ESP32；470µF 电解电容极性不能反。
+</div>
+
+<!-- ==================== 系统接线原理图 ==================== -->
+<div class="section">
+  <h2>一、系统接线原理图（正交布线；交叉点白圆缺口=不相连；同名网络标签即相连）</h2>
+  <svg viewBox="0 0 1600 1400" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="dot" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6"><circle cx="5" cy="5" r="3.5" fill="#1a5276"/></marker>
+    </defs>
+
+    <!-- ===== 图框 ===== -->
+    <rect x="10" y="10" width="1580" height="1380" fill="none" stroke="#1a5276" stroke-width="2"/>
+    <rect x="16" y="16" width="1568" height="1368" fill="none" stroke="#1a5276" stroke-width="0.8"/>
+
+    <!-- ==================== 区块一：电源系统 ==================== -->
+    <text x="40" y="85" fill="#1a5276" font-size="16" font-weight="bold">一、电源系统：电池 → 分电板 → 降压 → ESP32（3S 12V）</text>
+
+    <!-- 电池 -->
+    <rect x="40" y="100" width="200" height="110" fill="#f9e79f" stroke="#7d6608" stroke-width="2" rx="6"/>
+    <text x="140" y="140" text-anchor="middle" font-size="14" font-weight="bold">3S 锂电池</text>
+    <text x="140" y="158" text-anchor="middle" font-size="11">11.1V / 35C / XT60</text>
+    <circle cx="250" cy="185" r="4" fill="#c0392b"/><text x="250" y="176" text-anchor="middle" fill="#c0392b" font-size="11" font-weight="bold">+</text>
+    <circle cx="250" cy="200" r="4" fill="#000"/><text x="250" y="191" text-anchor="middle" font-size="11" font-weight="bold">−</text>
+
+    <!-- 分电板 -->
+    <rect x="280" y="100" width="200" height="110" fill="#d5f5e3" stroke="#1e8449" stroke-width="2" rx="6"/>
+    <text x="380" y="140" text-anchor="middle" font-size="14" font-weight="bold">分电板 PDB</text>
+    <text x="380" y="158" text-anchor="middle" font-size="11">4路并联输出 / XT60</text>
+    <circle cx="300" cy="185" r="4" fill="#c0392b"/>
+    <circle cx="300" cy="200" r="4" fill="#000"/>
+    <circle cx="360" cy="210" r="4" fill="#c0392b"/>
+    <circle cx="410" cy="210" r="4" fill="#000"/>
+
+    <!-- 降压模块 -->
+    <rect x="520" y="100" width="200" height="110" fill="#fdebd0" stroke="#d35400" stroke-width="2" rx="6"/>
+    <text x="620" y="140" text-anchor="middle" font-size="14" font-weight="bold">降压模块 DC-DC</text>
+    <text x="620" y="158" text-anchor="middle" font-size="11">11.1V → 5V / 3A</text>
+    <circle cx="540" cy="210" r="4" fill="#c0392b"/>
+    <circle cx="580" cy="210" r="4" fill="#000"/>
+    <circle cx="720" cy="135" r="4" fill="#d35400"/><text x="726" y="130" fill="#d35400" font-size="11" font-weight="bold">OUT+</text>
+    <circle cx="720" cy="165" r="4" fill="#000"/><text x="726" y="160" font-size="11" font-weight="bold">OUT−</text>
+
+    <!-- 滤波电容组 -->
+    <rect x="760" y="100" width="200" height="110" fill="#eafaf1" stroke="#1e8449" stroke-width="1.5" rx="6"/>
+    <text x="860" y="122" text-anchor="middle" font-size="11" font-weight="bold">滤波电容组</text>
+    <circle cx="760" cy="135" r="4" fill="#d35400"/>
+    <circle cx="760" cy="165" r="4" fill="#000"/>
+    <!-- 正极轨（接 OUT+） -->
+    <line x1="760" y1="135" x2="930" y2="135" stroke="#d35400" stroke-width="2"/>
+    <!-- 负极轨（接 OUT−） -->
+    <line x1="760" y1="165" x2="930" y2="165" stroke="#000" stroke-width="2"/>
+    <text x="944" y="140" font-size="10" fill="#d35400" font-weight="bold">+</text>
+    <text x="944" y="170" font-size="10" font-weight="bold">−</text>
+    <!-- 470µF 电解电容 -->
+    <rect x="790" y="135" width="26" height="30" fill="#fff" stroke="#1e8449" stroke-width="1.2"/>
+    <text x="816" y="190" text-anchor="middle" font-size="10">470µF/16V</text>
+    <!-- 0.1µF 陶瓷电容 -->
+    <rect x="870" y="135" width="22" height="30" fill="#fff" stroke="#1e8449" stroke-width="1.2"/>
+    <text x="892" y="190" text-anchor="middle" font-size="10">0.1µF</text>
+
+    <!-- 电源总线 -->
+    <line x1="40" y1="280" x2="1400" y2="280" stroke="#c0392b" stroke-width="4"/>
+    <line x1="40" y1="310" x2="1400" y2="310" stroke="#000" stroke-width="4"/>
+    <text x="44" y="272" font-size="11" fill="#c0392b" font-weight="bold">12V+ 总线（分电板输出）</text>
+    <text x="44" y="325" font-size="11" font-weight="bold">GND 总线（公共地）</text>
+
+    <!-- 区块一内部连线 -->
+    <line x1="250" y1="185" x2="300" y2="185" stroke="#c0392b" stroke-width="3"/>
+    <line x1="250" y1="200" x2="300" y2="200" stroke="#000" stroke-width="3"/>
+    <line x1="360" y1="210" x2="360" y2="280" stroke="#c0392b" stroke-width="3"/>
+    <line x1="410" y1="210" x2="410" y2="310" stroke="#000" stroke-width="3"/>
+    <line x1="540" y1="210" x2="540" y2="280" stroke="#c0392b" stroke-width="2"/>
+    <line x1="580" y1="210" x2="580" y2="310" stroke="#000" stroke-width="2"/>
+    <line x1="720" y1="135" x2="760" y2="135" stroke="#d35400" stroke-width="2"/>
+    <line x1="720" y1="165" x2="760" y2="165" stroke="#000" stroke-width="2"/>
+
+    <!-- ==================== 区块二：动力系统 ==================== -->
+    <text x="980" y="400" fill="#1a5276" font-size="15" font-weight="bold">二、动力系统：电调→电机三相 + GPIO 控制信号</text>
+
+    <!-- 电调 ×4 -->
+    <g font-size="12">
+      <rect x="60"  y="420" width="150" height="90" fill="#d6eaf8" stroke="#2471a3" stroke-width="2" rx="6"/>
+      <rect x="300" y="420" width="150" height="90" fill="#d6eaf8" stroke="#2471a3" stroke-width="2" rx="6"/>
+      <rect x="540" y="420" width="150" height="90" fill="#d6eaf8" stroke="#2471a3" stroke-width="2" rx="6"/>
+      <rect x="780" y="420" width="150" height="90" fill="#d6eaf8" stroke="#2471a3" stroke-width="2" rx="6"/>
+      <text x="135" y="452" text-anchor="middle" font-weight="bold">ESC1 · 前右</text>
+      <text x="375" y="452" text-anchor="middle" font-weight="bold">ESC2 · 前左</text>
+      <text x="615" y="452" text-anchor="middle" font-weight="bold">ESC3 · 后右</text>
+      <text x="855" y="452" text-anchor="middle" font-weight="bold">ESC4 · 后左</text>
+      <text x="135" y="472" text-anchor="middle" font-size="10">30A 电调</text>
+      <text x="375" y="472" text-anchor="middle" font-size="10">30A 电调</text>
+      <text x="615" y="472" text-anchor="middle" font-size="10">30A 电调</text>
+      <text x="855" y="472" text-anchor="middle" font-size="10">30A 电调</text>
+      <text x="135" y="492" text-anchor="middle" font-size="10" fill="#c0392b">红线BEC不接</text>
+      <text x="375" y="492" text-anchor="middle" font-size="10" fill="#c0392b">红线BEC不接</text>
+      <text x="615" y="492" text-anchor="middle" font-size="10" fill="#c0392b">红线BEC不接</text>
+      <text x="855" y="492" text-anchor="middle" font-size="10" fill="#c0392b">红线BEC不接</text>
+    </g>
+
+    <!-- 电调电源端子（顶部）与总线连接 -->
+    <line x1="185" y1="280" x2="185" y2="420" stroke="#c0392b" stroke-width="3"/>
+    <line x1="160" y1="310" x2="160" y2="420" stroke="#000" stroke-width="3"/>
+    <line x1="310" y1="280" x2="310" y2="420" stroke="#c0392b" stroke-width="3"/>
+    <line x1="400" y1="310" x2="400" y2="420" stroke="#000" stroke-width="3"/>
+    <line x1="550" y1="280" x2="550" y2="420" stroke="#c0392b" stroke-width="3"/>
+    <line x1="640" y1="310" x2="640" y2="420" stroke="#000" stroke-width="3"/>
+    <line x1="790" y1="280" x2="790" y2="420" stroke="#c0392b" stroke-width="3"/>
+    <line x1="880" y1="310" x2="880" y2="420" stroke="#000" stroke-width="3"/>
+    <g fill="#1a5276">
+      <circle cx="185" cy="420" r="3"/><circle cx="160" cy="420" r="3"/>
+      <circle cx="310" cy="420" r="3"/><circle cx="400" cy="420" r="3"/>
+      <circle cx="550" cy="420" r="3"/><circle cx="640" cy="420" r="3"/>
+      <circle cx="790" cy="420" r="3"/><circle cx="880" cy="420" r="3"/>
+    </g>
+
+    <!-- 总线连接点（实心圆=相连）与交叉缺口（白圆=不相连） -->
+    <g>
+      <!-- 12V+ 总线连接点 -->
+      <circle cx="360" cy="280" r="3.5" fill="#c0392b"/>
+      <circle cx="540" cy="280" r="3.5" fill="#c0392b"/>
+      <circle cx="185" cy="280" r="3.5" fill="#c0392b"/>
+      <circle cx="310" cy="280" r="3.5" fill="#c0392b"/>
+      <circle cx="550" cy="280" r="3.5" fill="#c0392b"/>
+      <circle cx="790" cy="280" r="3.5" fill="#c0392b"/>
+      <!-- GND 总线连接点 -->
+      <circle cx="410" cy="310" r="3.5" fill="#000"/>
+      <circle cx="580" cy="310" r="3.5" fill="#000"/>
+      <circle cx="160" cy="310" r="3.5" fill="#000"/>
+      <circle cx="400" cy="310" r="3.5" fill="#000"/>
+      <circle cx="640" cy="310" r="3.5" fill="#000"/>
+      <circle cx="880" cy="310" r="3.5" fill="#000"/>
+      <!-- 交叉缺口：竖线穿过另一条总线处表示不相连 -->
+      <circle cx="410" cy="280" r="5" fill="#fff"/>
+      <circle cx="580" cy="280" r="5" fill="#fff"/>
+      <circle cx="185" cy="310" r="5" fill="#fff"/>
+      <circle cx="310" cy="310" r="5" fill="#fff"/>
+      <circle cx="550" cy="310" r="5" fill="#fff"/>
+      <circle cx="790" cy="310" r="5" fill="#fff"/>
+    </g>
+
+    <!-- 电机 ×4 -->
+    <g font-size="12">
+      <rect x="240" y="420" width="140" height="90" fill="#ebdef0" stroke="#7d3c98" stroke-width="2" rx="6"/>
+      <rect x="480" y="420" width="140" height="90" fill="#ebdef0" stroke="#7d3c98" stroke-width="2" rx="6"/>
+      <rect x="720" y="420" width="140" height="90" fill="#ebdef0" stroke="#7d3c98" stroke-width="2" rx="6"/>
+      <rect x="960" y="420" width="140" height="90" fill="#ebdef0" stroke="#7d3c98" stroke-width="2" rx="6"/>
+      <text x="310" y="452" text-anchor="middle" font-weight="bold">M1 前右</text>
+      <text x="550" y="452" text-anchor="middle" font-weight="bold">M2 前左</text>
+      <text x="790" y="452" text-anchor="middle" font-weight="bold">M3 后右</text>
+      <text x="1030" y="452" text-anchor="middle" font-weight="bold">M4 后左</text>
+      <text x="310" y="472" text-anchor="middle" font-size="10">2212 920KV</text>
+      <text x="550" y="472" text-anchor="middle" font-size="10">2212 920KV</text>
+      <text x="790" y="472" text-anchor="middle" font-size="10">2212 920KV</text>
+      <text x="1030" y="472" text-anchor="middle" font-size="10">2212 920KV</text>
+      <text x="310" y="492" text-anchor="middle" font-size="10" fill="#7d3c98">CW 顺时针</text>
+      <text x="550" y="492" text-anchor="middle" font-size="10" fill="#7d3c98">CCW 逆时针</text>
+      <text x="790" y="492" text-anchor="middle" font-size="10" fill="#7d3c98">CCW 逆时针</text>
+      <text x="1030" y="492" text-anchor="middle" font-size="10" fill="#7d3c98">CW 顺时针</text>
+    </g>
+
+    <!-- 三相线：电调右缘 → 电机左缘（短水平线） -->
+    <g stroke-width="2.5">
+      <line x1="210" y1="445" x2="240" y2="445" stroke="#2471a3"/>
+      <line x1="210" y1="465" x2="240" y2="465" stroke="#000"/>
+      <line x1="210" y1="485" x2="240" y2="485" stroke="#b7950b"/>
+      <line x1="450" y1="445" x2="480" y2="445" stroke="#2471a3"/>
+      <line x1="450" y1="465" x2="480" y2="465" stroke="#000"/>
+      <line x1="450" y1="485" x2="480" y2="485" stroke="#b7950b"/>
+      <line x1="690" y1="445" x2="720" y2="445" stroke="#2471a3"/>
+      <line x1="690" y1="465" x2="720" y2="465" stroke="#000"/>
+      <line x1="690" y1="485" x2="720" y2="485" stroke="#b7950b"/>
+      <line x1="930" y1="445" x2="960" y2="445" stroke="#2471a3"/>
+      <line x1="930" y1="465" x2="960" y2="465" stroke="#000"/>
+      <line x1="930" y1="485" x2="960" y2="485" stroke="#b7950b"/>
+    </g>
+    <g fill="#1a5276">
+      <circle cx="210" cy="445" r="3"/><circle cx="210" cy="465" r="3"/><circle cx="210" cy="485" r="3"/>
+      <circle cx="240" cy="445" r="3"/><circle cx="240" cy="465" r="3"/><circle cx="240" cy="485" r="3"/>
+      <circle cx="450" cy="445" r="3"/><circle cx="450" cy="465" r="3"/><circle cx="450" cy="485" r="3"/>
+      <circle cx="480" cy="445" r="3"/><circle cx="480" cy="465" r="3"/><circle cx="480" cy="485" r="3"/>
+      <circle cx="690" cy="445" r="3"/><circle cx="690" cy="465" r="3"/><circle cx="690" cy="485" r="3"/>
+      <circle cx="720" cy="445" r="3"/><circle cx="720" cy="465" r="3"/><circle cx="720" cy="485" r="3"/>
+      <circle cx="930" cy="445" r="3"/><circle cx="930" cy="465" r="3"/><circle cx="930" cy="485" r="3"/>
+      <circle cx="960" cy="445" r="3"/><circle cx="960" cy="465" r="3"/><circle cx="960" cy="485" r="3"/>
+    </g>
+    <text x="60" y="598" font-size="11" fill="#2471a3" font-weight="bold">三相 U(蓝)/V(黑)/W(黄)——任意对接，转向不对对调任意两根即可反转</text>
+
+    <!-- 电调信号端子（底部，网络标签） -->
+    <g>
+      <line x1="135" y1="510" x2="135" y2="528" stroke="#b7950b" stroke-width="2"/>
+      <line x1="375" y1="510" x2="375" y2="528" stroke="#b7950b" stroke-width="2"/>
+      <line x1="615" y1="510" x2="615" y2="528" stroke="#b7950b" stroke-width="2"/>
+      <line x1="855" y1="510" x2="855" y2="528" stroke="#b7950b" stroke-width="2"/>
+      <circle cx="135" cy="510" r="3" fill="#b7950b"/>
+      <circle cx="375" cy="510" r="3" fill="#b7950b"/>
+      <circle cx="615" cy="510" r="3" fill="#b7950b"/>
+      <circle cx="855" cy="510" r="3" fill="#b7950b"/>
+      <text x="135" y="544" text-anchor="middle" fill="#b7950b" font-size="12" font-weight="bold">SIG → GPIO1</text>
+      <text x="375" y="544" text-anchor="middle" fill="#b7950b" font-size="12" font-weight="bold">SIG → GPIO4</text>
+      <text x="615" y="544" text-anchor="middle" fill="#b7950b" font-size="12" font-weight="bold">SIG → GPIO21</text>
+      <text x="855" y="544" text-anchor="middle" fill="#b7950b" font-size="12" font-weight="bold">SIG → GPIO12</text>
+      <text x="135" y="562" text-anchor="middle" font-size="10" fill="#000">GND 共地 → ESP32 GND</text>
+      <text x="375" y="562" text-anchor="middle" font-size="10" fill="#000">GND 共地 → ESP32 GND</text>
+      <text x="615" y="562" text-anchor="middle" font-size="10" fill="#000">GND 共地 → ESP32 GND</text>
+      <text x="855" y="562" text-anchor="middle" font-size="10" fill="#000">GND 共地 → ESP32 GND</text>
+    </g>
+
+    <!-- ESP32 -->
+    <rect x="1000" y="580" width="460" height="220" fill="#d5f5e3" stroke="#1e8449" stroke-width="2" rx="6"/>
+    <text x="1230" y="612" text-anchor="middle" font-size="15" font-weight="bold">ESP32-S3 N16R8</text>
+    <text x="1230" y="632" text-anchor="middle" font-size="11" fill="#555">5V ← 降压 OUT+ · GND ← 降压 OUT− / 4×电调 GND</text>
+    <!-- 顶部端子与标签 -->
+    <g font-size="11">
+      <line x1="1030" y1="580" x2="1030" y2="565" stroke="#d35400" stroke-width="2"/>
+      <line x1="1080" y1="580" x2="1080" y2="565" stroke="#000" stroke-width="2"/>
+      <line x1="1150" y1="580" x2="1150" y2="565" stroke="#b7950b" stroke-width="2"/>
+      <line x1="1200" y1="580" x2="1200" y2="565" stroke="#b7950b" stroke-width="2"/>
+      <line x1="1250" y1="580" x2="1250" y2="565" stroke="#b7950b" stroke-width="2"/>
+      <line x1="1300" y1="580" x2="1300" y2="565" stroke="#b7950b" stroke-width="2"/>
+      <circle cx="1030" cy="580" r="3.5" fill="#d35400"/><circle cx="1080" cy="580" r="3.5" fill="#000"/>
+      <circle cx="1150" cy="580" r="3.5" fill="#b7950b"/><circle cx="1200" cy="580" r="3.5" fill="#b7950b"/>
+      <circle cx="1250" cy="580" r="3.5" fill="#b7950b"/><circle cx="1300" cy="580" r="3.5" fill="#b7950b"/>
+      <text x="1030" y="558" text-anchor="middle" fill="#d35400" font-weight="bold">5V</text>
+      <text x="1080" y="558" text-anchor="middle" font-weight="bold">GND</text>
+      <text x="1150" y="558" text-anchor="middle" fill="#b7950b" font-weight="bold">GPIO1</text>
+      <text x="1200" y="558" text-anchor="middle" fill="#b7950b" font-weight="bold">GPIO4</text>
+      <text x="1250" y="558" text-anchor="middle" fill="#b7950b" font-weight="bold">GPIO21</text>
+      <text x="1300" y="558" text-anchor="middle" fill="#b7950b" font-weight="bold">GPIO12</text>
+      <text x="1020" y="660" font-size="10" fill="#555">←ESC1 前右</text>
+      <text x="1135" y="660" font-size="10" fill="#555">←ESC2 前左</text>
+      <text x="1235" y="660" font-size="10" fill="#555">←ESC3 后右</text>
+      <text x="1330" y="660" font-size="10" fill="#555">←ESC4 后左</text>
+    </g>
+    <!-- GPIO18 底部端子 -->
+    <line x1="1100" y1="800" x2="1100" y2="820" stroke="#b7950b" stroke-width="2"/>
+    <circle cx="1100" cy="800" r="3.5" fill="#b7950b"/>
+    <text x="1108" y="832" fill="#b7950b" font-size="12" font-weight="bold">GPIO18 → 喷洒驱动（见区块三）</text>
+
+    <!-- ==================== 区块三：喷洒系统 ==================== -->
+    <text x="60" y="860" fill="#1a5276" font-size="15" font-weight="bold">三、喷洒系统：GPIO18 → 1kΩ → MOS 栅极 → 水泵（12V，MOS 低边驱动）</text>
+
+    <!-- R1 -->
+    <rect x="1040" y="900" width="80" height="30" fill="#fff" stroke="#b7950b" stroke-width="1.6" rx="3"/>
+    <text x="1080" y="919" text-anchor="middle" font-size="11" fill="#b7950b" font-weight="bold">R1 1kΩ</text>
+    <line x1="1100" y1="820" x2="1100" y2="900" stroke="#b7950b" stroke-width="2"/>
+
+    <!-- MOS -->
+    <rect x="1180" y="890" width="160" height="100" fill="#d6eaf8" stroke="#2471a3" stroke-width="2" rx="6"/>
+    <text x="1260" y="916" text-anchor="middle" font-size="13" font-weight="bold">Q1 AO3400</text>
+    <text x="1260" y="936" text-anchor="middle" font-size="10" fill="#555">N-MOS · 丝印朝上</text>
+    <text x="1185" y="956" font-size="10" fill="#2471a3" font-weight="bold">G=1</text>
+    <text x="1305" y="956" font-size="10" fill="#2471a3" font-weight="bold">D=3</text>
+    <text x="1255" y="976" font-size="10" fill="#2471a3" font-weight="bold">S=2</text>
+    <!-- MOS 端子 -->
+    <circle cx="1180" cy="915" r="3.5" fill="#b7950b"/><text x="1162" y="910" font-size="10" fill="#b7950b" font-weight="bold">G</text>
+    <circle cx="1340" cy="940" r="3.5" fill="#2471a3"/><text x="1348" y="935" font-size="10" fill="#2471a3" font-weight="bold">D</text>
+    <circle cx="1260" cy="990" r="3.5" fill="#000"/><text x="1268" y="985" font-size="10" font-weight="bold">S</text>
+    <!-- R1 → G -->
+    <line x1="1120" y1="915" x2="1180" y2="915" stroke="#b7950b" stroke-width="2"/>
+    <!-- R2 下拉（框内） -->
+    <rect x="1195" y="930" width="20" height="50" fill="#fff" stroke="#000" stroke-width="1.4" rx="2"/>
+    <text x="1205" y="927" text-anchor="middle" font-size="10">R2</text>
+    <text x="1190" y="1040" font-size="10">R2=10kΩ G↔S 下拉</text>
+    <line x1="1205" y1="930" x2="1205" y2="915" stroke="#000" stroke-width="1.5"/>
+    <line x1="1205" y1="915" x2="1180" y2="915" stroke="#000" stroke-width="1.5"/>
+    <line x1="1205" y1="980" x2="1260" y2="980" stroke="#000" stroke-width="1.5"/>
+    <line x1="1260" y1="980" x2="1260" y2="990" stroke="#000" stroke-width="1.5"/>
+
+    <!-- 水泵 -->
+    <rect x="1360" y="890" width="140" height="90" fill="#fdebd0" stroke="#d35400" stroke-width="2" rx="6"/>
+    <text x="1430" y="918" text-anchor="middle" font-size="13" font-weight="bold">12V 水泵</text>
+    <text x="1430" y="938" text-anchor="middle" font-size="10">高压薄膜泵</text>
+    <text x="1430" y="958" text-anchor="middle" font-size="10" fill="#555">正接12V · 负接MOS D</text>
+    <circle cx="1340" cy="940" r="3.5" fill="#2471a3"/>
+    <circle cx="1360" cy="940" r="3.5" fill="#2471a3"/>
+    <circle cx="1420" cy="890" r="3.5" fill="#c0392b"/>
+    <!-- MOS D → 泵− -->
+    <line x1="1340" y1="940" x2="1360" y2="940" stroke="#2471a3" stroke-width="2.5"/>
+    <!-- 泵+ 网络标签 -->
+    <line x1="1420" y1="890" x2="1420" y2="872" stroke="#c0392b" stroke-width="2.5"/>
+    <text x="1432" y="886" fill="#c0392b" font-size="12" font-weight="bold">+12V</text>
+    <!-- MOS S → GND 网络标签 -->
+    <line x1="1260" y1="990" x2="1260" y2="1010" stroke="#000" stroke-width="2.5"/>
+    <text x="1268" y="1024" font-size="12" font-weight="bold">GND（共地）</text>
+
+    <!-- D1 续流二极管（水泵下方空位；标题在上、两行接法说明错开在下，无遮挡） -->
+    <g>
+      <path d="M1370,1012 L1400,1012 L1400,1002 L1425,1012 L1400,1022 L1400,1012 Z" fill="#fff" stroke="#c0392b" stroke-width="2"/>
+      <line x1="1425" y1="1002" x2="1425" y2="1022" stroke="#c0392b" stroke-width="3"/>
+      <line x1="1365" y1="1012" x2="1370" y2="1012" stroke="#c0392b" stroke-width="2"/>
+      <line x1="1425" y1="1012" x2="1432" y2="1012" stroke="#c0392b" stroke-width="2"/>
+      <text x="1360" y="996" font-size="11" fill="#c0392b" font-weight="bold">D1 1N5819 续流二极管</text>
+      <text x="1360" y="1055" font-size="10" fill="#c0392b">阳极 → 泵−（黑）</text>
+      <text x="1460" y="1055" font-size="10" fill="#c0392b">阴极 → 泵+（红）</text>
+    </g>
+
+    <!-- ==================== 图例 ==================== -->
+    <g font-size="12">
+      <text x="60" y="1070" fill="#1a5276" font-size="15" font-weight="bold">图例</text>
+
+      <text x="60" y="1105" font-weight="bold">线色规范</text>
+      <line x1="60" y1="1125" x2="110" y2="1125" stroke="#c0392b" stroke-width="3"/><text x="118" y="1129">12V+ 电源（红）</text>
+      <line x1="60" y1="1150" x2="110" y2="1150" stroke="#000" stroke-width="3"/><text x="118" y="1154">GND / 负极（黑）</text>
+      <line x1="60" y1="1175" x2="110" y2="1175" stroke="#d35400" stroke-width="3"/><text x="118" y="1179">5V 供电（橙）</text>
+      <line x1="60" y1="1200" x2="110" y2="1200" stroke="#b7950b" stroke-width="3"/><text x="118" y="1204">控制信号（黄）</text>
+      <line x1="60" y1="1225" x2="110" y2="1225" stroke="#2471a3" stroke-width="3"/><text x="118" y="1229">电机三相 / 功率输出（蓝）</text>
+
+      <text x="460" y="1105" font-weight="bold">符号说明</text>
+      <circle cx="475" cy="1130" r="3.5" fill="#1a5276"/><text x="490" y="1134">端子 / 连接点（实心圆）</text>
+      <rect x="460" y="1145" width="30" height="10" fill="#fff" stroke="#000" stroke-width="1.2"/><text x="500" y="1154">电阻（矩形）</text>
+      <rect x="460" y="1170" width="30" height="10" fill="#fff" stroke="#1e8449" stroke-width="1.2"/><text x="500" y="1179">电容（带竖条=极性端）</text>
+      <path d="M462,1205 L485,1205 L485,1197 L502,1205 L485,1213 L485,1205 Z" fill="#fff" stroke="#c0392b" stroke-width="1.6"/><line x1="502" y1="1197" x2="502" y2="1213" stroke="#c0392b" stroke-width="2"/><text x="512" y="1209">二极管（竖条=阴极）</text>
+      <text x="460" y="1235" font-size="11" fill="#777">网络标签：同名的文字标签即视为导线相连（连线省略，见接线表）</text>
+      <circle cx="475" cy="1252" r="4" fill="#fff" stroke="#000" stroke-width="1"/><text x="490" y="1256" font-size="11" fill="#777">交叉缺口（白圆=两线不相连，如 12V 竖线穿 GND 总线处）</text>
+
+      <text x="60" y="1280" font-weight="bold">安全提醒</text>
+      <text x="60" y="1302" font-size="11">· 电调红线(BEC)一律不接 · 降压输出先调准5V · 470µF电容极性不可反 · 首次上电拆桨测试</text>
+    </g>
+
+    <!-- 标题栏（右下） -->
+    <g font-size="11">
+      <rect x="1180" y="1330" width="390" height="46" fill="#eaf2f8" stroke="#1a5276" stroke-width="1.5"/>
+      <text x="1192" y="1348">图号 HHS-DRONE-WIR-001</text>
+      <text x="1390" y="1348">版本 V2.0</text>
+      <text x="1192" y="1366">日期 2026-09-14</text>
+      <text x="1390" y="1366">设计 护花使者项目组</text>
+    </g>
+  </svg>
+</div>
+
+<!-- ==================== 电源系统接线表 ==================== -->
+<div class="section">
+  <h2>二、电源系统接线（电池 → 分电板 → 各模块）</h2>
+  <table>
+    <tr><th>起点</th><th>终点</th><th>导线</th><th>说明</th></tr>
+    <tr><td>电池 XT60 母头</td><td>分电板 XT60 公头</td><td class="red">红/黑 粗硅胶线 (14AWG)</td><td>电池主供电，可加 5A 保险丝（可选）</td></tr>
+    <tr><td>分电板正极排</td><td>4×电调 正极（红粗线）</td><td class="red">红</td><td>4路并联，每路 14AWG</td></tr>
+    <tr><td>分电板负极排</td><td>4×电调 负极（黑粗线）</td><td class="black">黑</td><td>4路并联</td></tr>
+    <tr><td>分电板正极排</td><td>降压模块 IN+</td><td class="red">红</td><td>给 ESP32 供电</td></tr>
+    <tr><td>分电板负极排</td><td>降压模块 IN−</td><td class="black">黑</td><td>共地源头</td></tr>
+    <tr><td>降压模块 OUT+</td><td>ESP32 5V/VIN 引脚</td><td class="orange">橙 20AWG</td><td><b>必须调成 5V</b>，走板载 LDO → 3.3V</td></tr>
+    <tr><td>降压模块 OUT−</td><td>ESP32 GND 引脚</td><td class="black">黑</td><td>共地</td></tr>
+    <tr><td>降压模块 OUT+ / OUT−</td><td>470µF/16V 电解电容 + 0.1µF 陶瓷电容</td><td class="orange">焊盘并联</td><td>滤波防电机干扰，电容引脚尽量短</td></tr>
+  </table>
+  <div class="warn"><b>注意：</b>降压模块必须先调到 5V 再接入。输出端电容 470µF 正极接 OUT+，负极接 OUT−，极性不能反。</div>
+</div>
+
+<!-- ==================== 动力系统接线表 ==================== -->
+<div class="section">
+  <h2>三、动力系统接线（电调 → 电机 + 信号线）</h2>
+  <table>
+    <tr><th>电调</th><th>位置</th><th>信号线接 ESP32</th><th>三相线接电机</th><th>电机转向</th></tr>
+    <tr><td>ESC1</td><td>前右 FR</td><td class="yellow">信号(黄/白) → <b>GPIO1</b></td><td class="blue">U/V/W → M1</td><td>顺时针 CW</td></tr>
+    <tr><td>ESC2</td><td>前左 FL</td><td class="yellow">信号(黄/白) → <b>GPIO4</b></td><td class="blue">U/V/W → M2</td><td>逆时针 CCW</td></tr>
+    <tr><td>ESC3</td><td>后右 BR</td><td class="yellow">信号(黄/白) → <b>GPIO21</b></td><td class="blue">U/V/W → M3</td><td>逆时针 CCW</td></tr>
+    <tr><td>ESC4</td><td>后左 BL</td><td class="yellow">信号(黄/白) → <b>GPIO12</b></td><td class="blue">U/V/W → M4</td><td>顺时针 CW</td></tr>
+  </table>
+  <table>
+    <tr><th>电调信号线接口（3-Pin）</th><th>接法</th></tr>
+    <tr><td class="yellow">黄色/白色线 (SIGNAL)</td><td>接 ESP32 GPIO（如上表）</td></tr>
+    <tr><td class="black">黑色线 (GND)</td><td>接 ESP32 GND（共地，必须）</td></tr>
+    <tr><td class="red">红色线 (VCC/BEC 5V)</td><td><b>不接！剪掉或包绝缘胶带</b>——本机 5V 由降压模块独立提供，接上会双电源冲突</td></tr>
+  </table>
+  <div class="warn">
+    <b>电机转向校正：</b>电机转向不对时，任意对调两根三相线（U/V/W 中两根）即可反转。<br>
+    <b>标准 X 型四旋翼：</b>前右(CW)、前左(CCW)、后右(CCW)、后左(CW)——对角同向。
+  </div>
+</div>
+
+<!-- ==================== 喷洒系统接线表 ==================== -->
+<div class="section">
+  <h2>四、喷洒系统接线（水泵 MOS 驱动电路）</h2>
+  <table>
+    <tr><th>元件</th><th>引脚</th><th>连接</th></tr>
+    <tr><td>ESP32 GPIO18</td><td>数字输出</td><td class="yellow">→ 1kΩ 电阻 (R1) → MOS 栅极 G</td></tr>
+    <tr><td>R1 1kΩ</td><td>限流电阻</td><td>GPIO18 与 MOS G 之间（防冲击）</td></tr>
+    <tr><td>R2 10kΩ</td><td>栅极下拉</td><td>MOS G ↔ MOS S 之间（防误触发，上电默认关）</td></tr>
+    <tr><td>Q1 AO3400</td><td>漏极 D</td><td class="blue">→ 水泵负极（黑）</td></tr>
+    <tr><td>Q1 AO3400</td><td>源极 S</td><td class="black">→ 电池负极 / ESP32 GND</td></tr>
+    <tr><td>Q1 AO3400</td><td>栅极 G</td><td>← 1kΩ ← GPIO18；↔ R2 10kΩ ↔ S</td></tr>
+    <tr><td>水泵 正极（红）</td><td>电源+</td><td class="red">→ 分电板正极（电池 12V 直接供电）</td></tr>
+    <tr><td>D1 1N5819/SS34</td><td>续流二极管</td><td>反并联在水泵两端：<b>阴极(带环端)接水泵正极</b>，阳极接水泵负极</td></tr>
+  </table>
+  <div class="warn">
+    <b>MOS 管接法（AO3400 SOT-23，丝印朝上）：</b><br>
+    引脚 1 = 栅极 G（← 1kΩ ← GPIO18）<br>
+    引脚 2 = 源极 S（→ GND）<br>
+    引脚 3 = 漏极 D（← 水泵负极）<br>
+    <b>D1 续流二极管必不可少</b>，不装会在关断瞬间烧毁 MOS 管。
+  </div>
+</div>
+
+<!-- ==================== ESP32 引脚 ==================== -->
+<div class="section">
+  <h2>五、ESP32-S3 N16R8 引脚连接总表</h2>
+  <table>
+    <tr><th>ESP32 引脚</th><th>功能</th><th>连接对象</th><th>线号</th></tr>
+    <tr><td>GPIO1</td><td>电调信号 1</td><td class="yellow">ESC1 前右 信号线</td><td>W20</td></tr>
+    <tr><td>GPIO4</td><td>电调信号 2</td><td class="yellow">ESC2 前左 信号线</td><td>W21</td></tr>
+    <tr><td>GPIO21</td><td>电调信号 3</td><td class="yellow">ESC3 后右 信号线</td><td>W22</td></tr>
+    <tr><td>GPIO12</td><td>电调信号 4</td><td class="yellow">ESC4 后左 信号线</td><td>W23</td></tr>
+    <tr><td>GPIO18</td><td>水泵 PWM</td><td class="yellow">→ R1 1kΩ → MOS 栅极 G</td><td>W37/W38</td></tr>
+    <tr><td>5V / VIN</td><td>供电</td><td class="orange">← 降压模块 OUT+（5V 网）</td><td>W18</td></tr>
+    <tr><td>GND</td><td>公共地</td><td class="black">← 降压 OUT− + 4×电调 GND + MOS S</td><td>W19/W24/W41</td></tr>
+  </table>
+  <div class="danger"><b>⚠️ GPIO21 为后右电机信号线，不可更改</b>（项目硬约束）；其余引脚定义同样保持。</div>
+</div>
+
+<!-- ==================== BOM ==================== -->
+<div class="section">
+  <h2>六、元器件清单（BOM）</h2>
+  <table>
+    <tr><th>#</th><th>元件</th><th>规格</th><th>数量</th><th>用途</th></tr>
+    <tr><td>1</td><td>锂电池</td><td>3S 11.1V 35C + XT60</td><td>1</td><td>整机供电</td></tr>
+    <tr><td>2</td><td>分电板</td><td>4路并联 XT60</td><td>1</td><td>电源分配</td></tr>
+    <tr><td>3</td><td>无刷电调</td><td>30A, 2-4S, 模拟PWM（含BEC）</td><td>4</td><td>电机驱动</td></tr>
+    <tr><td>4</td><td>无刷电机</td><td>2212 920KV</td><td>4</td><td>动力</td></tr>
+    <tr><td>5</td><td>螺旋桨</td><td>1045 自锁（对角正反桨）</td><td>4</td><td>产生推力（测试时拆下）</td></tr>
+    <tr><td>6</td><td>飞控主控</td><td>ESP32-S3 N16R8 开发板</td><td>1</td><td>控制</td></tr>
+    <tr><td>7</td><td>降压模块</td><td>DC-DC 可调, 12V→5V/3A</td><td>1</td><td>ESP32 供电</td></tr>
+    <tr><td>8</td><td>水泵</td><td>12V 高压薄膜泵</td><td>1</td><td>喷洒</td></tr>
+    <tr><td>9</td><td>MOS 管</td><td>AO3400 (SOT-23, N-MOS)</td><td>1</td><td>水泵开关调速</td></tr>
+    <tr><td>10</td><td>电阻 R1</td><td>1kΩ 1/4W</td><td>1</td><td>MOS 栅极限流</td></tr>
+    <tr><td>11</td><td>电阻 R2</td><td>10kΩ 1/4W</td><td>1</td><td>MOS 栅极下拉</td></tr>
+    <tr><td>12</td><td>续流二极管 D1</td><td>1N5819 或 SS34</td><td>1</td><td>水泵续流保护</td></tr>
+    <tr><td>13</td><td>电解电容</td><td>470µF / 16V</td><td>1</td><td>降压输出滤波</td></tr>
+    <tr><td>14</td><td>陶瓷电容</td><td>0.1µF / 50V</td><td>1</td><td>高频滤波</td></tr>
+    <tr><td>15</td><td>硅胶线</td><td>14AWG 红/黑 若干米</td><td>若干</td><td>电源/三相线</td></tr>
+    <tr><td>16</td><td>信号线</td><td>20AWG 细线 + 杜邦线</td><td>若干</td><td>GPIO/信号线</td></tr>
+    <tr><td>17</td><td>热缩管/绝缘胶带</td><td>各种规格</td><td>若干</td><td>绝缘防护</td></tr>
+  </table>
+</div>
+
+<!-- ==================== 注意事项 ==================== -->
+<div class="section">
+  <h2>七、焊接与测试注意事项</h2>
+  <table>
+    <tr><th>#</th><th>事项</th></tr>
+    <tr><td>1</td><td>全程断电焊接；先焊低压小件（电阻/二极管/电容），再焊电源大电流线</td></tr>
+    <tr><td>2</td><td>降压模块<b>先调准 5V 再接 ESP32</b>；470µF 电解电容极性不能反（长脚正极），反接会炸</td></tr>
+    <tr><td>3</td><td>D1 续流二极管方向：阴极（带环端）朝水泵正极，接反 = 短路</td></tr>
+    <tr><td>4</td><td>电调红线（BEC 5V）一律不接 ESP32，避免双电源并联烧板</td></tr>
+    <tr><td>5</td><td>电调信号 GND 必须与 ESP32 GND 相连（共地），否则信号乱跳</td></tr>
+    <tr><td>6</td><td>电池接上瞬间观察：电调应响"哔"自检音，无冒烟、无过热、电容无鼓包</td></tr>
+    <tr><td>7</td><td>首次上电<b>拆桨测试</b>，解锁后推油门电机慢转即可，勿全油门空转</td></tr>
+    <tr><td>8</td><td>所有焊点用热缩管/胶带绝缘，防止飞行振动短路</td></tr>
+    <tr><td>9</td><td>水泵首次通电先确认 MOS 栅极无信号时水泵处于关闭状态（R2 下拉生效）</td></tr>
+  </table>
+</div>
+
+<!-- ==================== 完整接线表 ==================== -->
+<div class="section">
+  <h2>八、完整接线表（W1~W44，按图纸网络标签一一对应）</h2>
+  <table>
+    <tr><th>线号</th><th>起点</th><th>终点</th><th>导线（色/线规）</th><th>说明</th></tr>
+    <tr><td>W1</td><td>电池 +（红）</td><td>分电板 PDB +</td><td class="red">红 14AWG 硅胶线</td><td>主供电正极</td></tr>
+    <tr><td>W2</td><td>电池 −（黑）</td><td>分电板 PDB −</td><td class="black">黑 14AWG 硅胶线</td><td>主供电负极</td></tr>
+    <tr><td>W3</td><td>分电板 PDB +</td><td>12V+ 总线</td><td class="red">红 14AWG</td><td>电源分配</td></tr>
+    <tr><td>W4</td><td>分电板 PDB −</td><td>GND 总线</td><td class="black">黑 14AWG</td><td>公共地源头</td></tr>
+    <tr><td>W5</td><td>12V+ 总线</td><td>ESC1 电源 +（红粗线）</td><td class="red">红 14AWG</td><td>前右电调供电</td></tr>
+    <tr><td>W6</td><td>GND 总线</td><td>ESC1 电源 −（黑粗线）</td><td class="black">黑 14AWG</td><td>前右电调接地</td></tr>
+    <tr><td>W7</td><td>12V+ 总线</td><td>ESC2 电源 +</td><td class="red">红 14AWG</td><td>前左电调供电</td></tr>
+    <tr><td>W8</td><td>GND 总线</td><td>ESC2 电源 −</td><td class="black">黑 14AWG</td><td>前左电调接地</td></tr>
+    <tr><td>W9</td><td>12V+ 总线</td><td>ESC3 电源 +</td><td class="red">红 14AWG</td><td>后右电调供电</td></tr>
+    <tr><td>W10</td><td>GND 总线</td><td>ESC3 电源 −</td><td class="black">黑 14AWG</td><td>后右电调接地</td></tr>
+    <tr><td>W11</td><td>12V+ 总线</td><td>ESC4 电源 +</td><td class="red">红 14AWG</td><td>后左电调供电</td></tr>
+    <tr><td>W12</td><td>GND 总线</td><td>ESC4 电源 −</td><td class="black">黑 14AWG</td><td>后左电调接地</td></tr>
+    <tr><td>W13</td><td>12V+ 总线</td><td>降压模块 IN+</td><td class="red">红 20AWG</td><td>ESP32 供电来源</td></tr>
+    <tr><td>W14</td><td>GND 总线</td><td>降压模块 IN−</td><td class="black">黑 20AWG</td><td>共地</td></tr>
+    <tr><td>W15</td><td>降压 OUT+</td><td>470µF 电解 + / 0.1µF 上端</td><td class="orange">橙 20AWG</td><td>滤波（先调准 5V）</td></tr>
+    <tr><td>W16</td><td>降压 OUT−</td><td>470µF 电解 − / 0.1µF 下端</td><td class="black">黑 20AWG</td><td>滤波电容共地</td></tr>
+    <tr><td>W17</td><td>470µF +</td><td>0.1µF 上端</td><td class="orange">焊盘短线</td><td>两电容并联（图上已连）</td></tr>
+    <tr><td>W18</td><td>降压 OUT+（5V 网）</td><td>ESP32 5V / VIN 引脚</td><td class="orange">橙 20AWG</td><td>ESP32 供电</td></tr>
+    <tr><td>W19</td><td>降压 OUT−（GND 网）</td><td>ESP32 GND 引脚</td><td class="black">黑 20AWG</td><td>共地</td></tr>
+    <tr><td>W20</td><td>ESC1 信号线（黄/白）</td><td>ESP32 <b>GPIO1</b></td><td class="yellow">黄 信号线</td><td>前右 50Hz PWM</td></tr>
+    <tr><td>W21</td><td>ESC2 信号线（黄/白）</td><td>ESP32 <b>GPIO4</b></td><td class="yellow">黄 信号线</td><td>前左</td></tr>
+    <tr><td>W22</td><td>ESC3 信号线（黄/白）</td><td>ESP32 <b>GPIO21</b></td><td class="yellow">黄 信号线</td><td>后右（硬约束，不可改）</td></tr>
+    <tr><td>W23</td><td>ESC4 信号线（黄/白）</td><td>ESP32 <b>GPIO12</b></td><td class="yellow">黄 信号线</td><td>后左</td></tr>
+    <tr><td>W24</td><td>ESC1~4 信号线 GND（黑）</td><td>ESP32 GND</td><td class="black">黑</td><td>共地，必须接，否则信号乱跳</td></tr>
+    <tr><td>W25~27</td><td>ESC1 三相 U/V/W</td><td>M1 三相 U/V/W</td><td class="blue">蓝/黑/黄 14AWG</td><td>前右，CW</td></tr>
+    <tr><td>W28~30</td><td>ESC2 三相 U/V/W</td><td>M2 三相 U/V/W</td><td class="blue">蓝/黑/黄 14AWG</td><td>前左，CCW</td></tr>
+    <tr><td>W31~33</td><td>ESC3 三相 U/V/W</td><td>M3 三相 U/V/W</td><td class="blue">蓝/黑/黄 14AWG</td><td>后右，CCW</td></tr>
+    <tr><td>W34~36</td><td>ESC4 三相 U/V/W</td><td>M4 三相 U/V/W</td><td class="blue">蓝/黑/黄 14AWG</td><td>后左，CW</td></tr>
+    <tr><td>W37</td><td>ESP32 GPIO18</td><td>R1 1kΩ 左端</td><td class="yellow">黄 信号线</td><td>水泵 PWM（5kHz/8bit）</td></tr>
+    <tr><td>W38</td><td>R1 1kΩ 右端</td><td>Q1 AO3400 栅极 G（引脚1）</td><td class="yellow">黄</td><td>限流防冲击</td></tr>
+    <tr><td>W39</td><td>12V+（分电板，+12V 网）</td><td>水泵 正极（红）</td><td class="red">红 18AWG</td><td>水泵直接 12V 供电</td></tr>
+    <tr><td>W40</td><td>Q1 AO3400 漏极 D（引脚3）</td><td>水泵 负极（黑）</td><td class="blue">蓝/黑 18AWG</td><td>MOS 低边控制</td></tr>
+    <tr><td>W41</td><td>Q1 AO3400 源极 S（引脚2）</td><td>GND（公共地）</td><td class="black">黑 18AWG</td><td>低边回路</td></tr>
+    <tr><td>W42</td><td>Q1 栅极 G</td><td>Q1 源极 S（经 R2 10kΩ）</td><td class="black">细线</td><td>栅极下拉，上电默认关</td></tr>
+    <tr><td>W43</td><td>D1 1N5819 阴极（带环端）</td><td>水泵 正极（红）</td><td class="red">细线</td><td>续流，方向不可反</td></tr>
+    <tr><td>W44</td><td>D1 1N5819 阳极</td><td>水泵 负极（黑）</td><td class="black">细线</td><td>续流，方向不可反</td></tr>
+  </table>
+  <div class="warn"><b>注：</b>"5V 网 / GND 网 / +12V 网"为图纸上的网络标签，同名标签代表用导线相连。W24 指 4 根电调地线全部并入 ESP32 GND。</div>
+</div>
+
+</body>
+</html>

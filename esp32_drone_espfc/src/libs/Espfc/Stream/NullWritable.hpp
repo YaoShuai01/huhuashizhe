@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_STREAM_NULLWRITABLE_HPP_
+#define HHHS_LIBS_ESPFC_STREAM_NULLWRITABLE_HPP_
 
 #include "Stream/Writable.hpp"
 
@@ -32,3 +33,4 @@ public:
 };
 
 } // namespace Espfc::Stream
+#endif // HHHS_LIBS_ESPFC_STREAM_NULLWRITABLE_HPP_

@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_DEVICE_INPUT_INPUTBUTTON_HPP_
+#define HHHS_LIBS_ESPFC_DEVICE_INPUT_INPUTBUTTON_HPP_
 
 namespace Espfc::Device::Input {
 
@@ -15,3 +16,4 @@ private:
 };
 
 } // namespace Espfc::Device::Input
+#endif // HHHS_LIBS_ESPFC_DEVICE_INPUT_INPUTBUTTON_HPP_

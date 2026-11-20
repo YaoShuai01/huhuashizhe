@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_GPS_GPSPROTOCOL_HPP_
+#define HHHS_LIBS_GPS_GPSPROTOCOL_HPP_
 
 #include <algorithm>
 #include <cstddef>
@@ -754,3 +755,4 @@ public:
 };
 
 } // namespace Gps
+#endif // HHHS_LIBS_GPS_GPSPROTOCOL_HPP_

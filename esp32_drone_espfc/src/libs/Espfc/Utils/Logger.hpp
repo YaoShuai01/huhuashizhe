@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_UTILS_LOGGER_HPP_
+#define HHHS_LIBS_ESPFC_UTILS_LOGGER_HPP_
 
 #include <cstddef>
 #include <memory>
@@ -61,3 +62,4 @@ private:
 };
 
 } // namespace Espfc::Utils
+#endif // HHHS_LIBS_ESPFC_UTILS_LOGGER_HPP_

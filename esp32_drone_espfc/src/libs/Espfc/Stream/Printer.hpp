@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_STREAM_PRINTER_HPP_
+#define HHHS_LIBS_ESPFC_STREAM_PRINTER_HPP_
 
 #include "Stream/Writable.hpp"
 
@@ -140,3 +141,4 @@ private:
 };
 
 } // namespace Espfc::Stream
+#endif // HHHS_LIBS_ESPFC_STREAM_PRINTER_HPP_

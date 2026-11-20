@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_HAL_INCLUDE_HAL_DETAIL_QUEUENULL_HPP_
+#define HHHS_LIBS_HAL_INCLUDE_HAL_DETAIL_QUEUENULL_HPP_
 
 #include <cstddef>
 
@@ -45,3 +46,4 @@ public:
 };
 
 } // namespace Hal::Detail
+#endif // HHHS_LIBS_HAL_INCLUDE_HAL_DETAIL_QUEUENULL_HPP_

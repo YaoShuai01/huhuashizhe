@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_TARGET_TARGETESP32C3_H_
+#define HHHS_LIBS_ESPFC_TARGET_TARGETESP32C3_H_
 
 // flash pins: 12-17 (reserved)
 // usb pins: 18,19
@@ -65,3 +66,4 @@
 
 #define ESPFC_GYRO_I2C_RATE_MAX 1000
 #define ESPFC_GYRO_SPI_RATE_MAX 2000
+#endif // HHHS_LIBS_ESPFC_TARGET_TARGETESP32C3_H_

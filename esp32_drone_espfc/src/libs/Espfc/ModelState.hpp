@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_MODELSTATE_HPP_
+#define HHHS_LIBS_ESPFC_MODELSTATE_HPP_
 
 #include <Kalman.hpp>
 #include <helper_3dmath.hpp>
@@ -545,3 +546,4 @@ struct ModelState
 };
 
 } // namespace Espfc
+#endif // HHHS_LIBS_ESPFC_MODELSTATE_HPP_

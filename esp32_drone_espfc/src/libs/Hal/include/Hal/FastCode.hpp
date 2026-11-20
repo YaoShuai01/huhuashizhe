@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_HAL_INCLUDE_HAL_FASTCODE_HPP_
+#define HHHS_LIBS_HAL_INCLUDE_HAL_FASTCODE_HPP_
 
 #if defined(ESP32)
 #include <esp_attr.h>
@@ -16,3 +17,4 @@
 #define FAST_CODE_ATTR
 #define ISR_CODE_ATTR
 #endif
+#endif // HHHS_LIBS_HAL_INCLUDE_HAL_FASTCODE_HPP_

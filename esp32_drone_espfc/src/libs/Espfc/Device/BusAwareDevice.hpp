@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_DEVICE_BUSAWAREDEVICE_HPP_
+#define HHHS_LIBS_ESPFC_DEVICE_BUSAWAREDEVICE_HPP_
 
 #include "Hal/BusDevice.hpp"
 #include <optional>
@@ -41,3 +42,4 @@ protected:
 };
 
 } // namespace Espfc::Device
+#endif // HHHS_LIBS_ESPFC_DEVICE_BUSAWAREDEVICE_HPP_

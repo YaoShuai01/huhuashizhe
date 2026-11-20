@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_AHRS_HELPER_3DMATH_HPP_
+#define HHHS_LIBS_AHRS_HELPER_3DMATH_HPP_
 
 #include <cmath>
 #include <cstdint>
@@ -679,3 +680,4 @@ private:
 using VectorFloat = VectorBase<float>;
 using VectorInt16 = VectorBase<int16_t>;
 using RotationMatrixFloat = RotationMatrix<float>;
+#endif // HHHS_LIBS_AHRS_HELPER_3DMATH_HPP_

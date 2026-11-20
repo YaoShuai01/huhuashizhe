@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_HAL_INCLUDE_HAL_BOARD_HPP_
+#define HHHS_LIBS_HAL_INCLUDE_HAL_BOARD_HPP_
 
 #include <cstdint>
 
@@ -34,3 +35,4 @@ public:
 bool isUnexpectedReset(ResetReason reason);
 
 } // namespace Hal
+#endif // HHHS_LIBS_HAL_INCLUDE_HAL_BOARD_HPP_

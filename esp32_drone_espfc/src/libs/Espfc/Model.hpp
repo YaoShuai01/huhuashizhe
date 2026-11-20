@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_MODEL_HPP_
+#define HHHS_LIBS_ESPFC_MODEL_HPP_
 
 #include "Event.hpp"
 #include "ModelConfig.hpp"
@@ -661,3 +662,4 @@ private:
 };
 
 } // namespace Espfc
+#endif // HHHS_LIBS_ESPFC_MODEL_HPP_

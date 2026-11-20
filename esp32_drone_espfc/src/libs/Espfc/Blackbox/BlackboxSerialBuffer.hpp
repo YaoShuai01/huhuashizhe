@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_BLACKBOX_BLACKBOXSERIALBUFFER_HPP_
+#define HHHS_LIBS_ESPFC_BLACKBOX_BLACKBOXSERIALBUFFER_HPP_
 
 #include <cstddef>
 #include <cstdint>
@@ -92,3 +93,4 @@ public:
 };
 
 } // namespace Espfc::Blackbox
+#endif // HHHS_LIBS_ESPFC_BLACKBOX_BLACKBOXSERIALBUFFER_HPP_

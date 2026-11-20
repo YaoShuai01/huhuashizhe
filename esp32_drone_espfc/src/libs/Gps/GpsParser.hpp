@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_GPS_GPSPARSER_HPP_
+#define HHHS_LIBS_GPS_GPSPARSER_HPP_
 
 #include "GpsProtocol.hpp"
 #include <cstdint>
@@ -18,3 +19,4 @@ public:
 };
 
 } // namespace Gps
+#endif // HHHS_LIBS_GPS_GPSPARSER_HPP_

@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_CONTROL_PID_HPP_
+#define HHHS_LIBS_ESPFC_CONTROL_PID_HPP_
 
 #include "Utils/Filter.hpp"
 #include "Utils/Math.hpp"
@@ -95,3 +96,4 @@ public:
 } // namespace Control
 
 } // namespace Espfc
+#endif // HHHS_LIBS_ESPFC_CONTROL_PID_HPP_

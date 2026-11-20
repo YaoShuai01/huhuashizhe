@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_WIRELESS_HPP_
+#define HHHS_LIBS_ESPFC_WIRELESS_HPP_
 
 #include "Device/SerialDeviceAdapter.hpp"
 #include "Hal/Wifi.hpp"
@@ -39,3 +40,4 @@ private:
 } // namespace Espfc
 
 #endif
+#endif // HHHS_LIBS_ESPFC_WIRELESS_HPP_

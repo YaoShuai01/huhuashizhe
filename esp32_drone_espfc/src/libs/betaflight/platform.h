@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_BETAFLIGHT_PLATFORM_H_
+#define HHHS_LIBS_BETAFLIGHT_PLATFORM_H_
 
 #define USE_BLACKBOX
 #define USE_ACC
@@ -1505,3 +1506,4 @@ uint32_t flashfsGetWriteBufferSize(void);
 #ifdef __cplusplus
 } // extern "C"
 #endif
+#endif // HHHS_LIBS_BETAFLIGHT_PLATFORM_H_

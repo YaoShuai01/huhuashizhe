@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_DEVICE_GYRO_GYROBMI160_HPP_
+#define HHHS_LIBS_ESPFC_DEVICE_GYRO_GYROBMI160_HPP_
 
 #include "Device/GyroDevice.hpp"
 #include "helper_3dmath.hpp"
@@ -26,3 +27,4 @@ public:
 };
 
 } // namespace Espfc::Device::Gyro
+#endif // HHHS_LIBS_ESPFC_DEVICE_GYRO_GYROBMI160_HPP_

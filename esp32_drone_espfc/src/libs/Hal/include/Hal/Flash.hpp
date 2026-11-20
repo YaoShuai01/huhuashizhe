@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_HAL_INCLUDE_HAL_FLASH_HPP_
+#define HHHS_LIBS_HAL_INCLUDE_HAL_FLASH_HPP_
 
 #include <cstddef>
 #include <cstdint>
@@ -35,3 +36,4 @@ public:
 };
 
 } // namespace Hal
+#endif // HHHS_LIBS_HAL_INCLUDE_HAL_FLASH_HPP_

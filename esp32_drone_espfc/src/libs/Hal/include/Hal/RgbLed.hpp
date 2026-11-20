@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_HAL_INCLUDE_HAL_RGBLED_HPP_
+#define HHHS_LIBS_HAL_INCLUDE_HAL_RGBLED_HPP_
 
 #include <cstdint>
 
@@ -22,3 +23,4 @@ private:
 };
 
 } // namespace Hal
+#endif // HHHS_LIBS_HAL_INCLUDE_HAL_RGBLED_HPP_

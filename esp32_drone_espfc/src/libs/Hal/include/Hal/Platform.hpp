@@ -1,4 +1,5 @@
-﻿#pragma once
+﻿#ifndef HHHS_LIBS_HAL_INCLUDE_HAL_PLATFORM_HPP_
+#define HHHS_LIBS_HAL_INCLUDE_HAL_PLATFORM_HPP_
 
 #include <cstddef>
 
@@ -40,3 +41,4 @@ inline constexpr size_t CORE_COUNT = ESPFC_HAL_CORE_COUNT;
 inline constexpr bool MULTI_CORE = CORE_COUNT > 1;
 
 } // namespace Hal
+#endif // HHHS_LIBS_HAL_INCLUDE_HAL_PLATFORM_HPP_

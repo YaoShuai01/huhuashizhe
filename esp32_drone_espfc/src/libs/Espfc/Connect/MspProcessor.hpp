@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_CONNECT_MSPPROCESSOR_HPP_
+#define HHHS_LIBS_ESPFC_CONNECT_MSPPROCESSOR_HPP_
 
 #include "Connect/Msp.hpp"
 #include "Connect/MspParser.hpp"
@@ -32,3 +33,4 @@ private:
 };
 
 } // namespace Espfc::Connect
+#endif // HHHS_LIBS_ESPFC_CONNECT_MSPPROCESSOR_HPP_

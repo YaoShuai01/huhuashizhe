@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_HARDWARE_HPP_
+#define HHHS_LIBS_ESPFC_HARDWARE_HPP_
 
 #include "Model.hpp"
 #if defined(ESPFC_I2C_0)
@@ -70,3 +71,4 @@ private:
 };
 
 } // namespace Espfc
+#endif // HHHS_LIBS_ESPFC_HARDWARE_HPP_

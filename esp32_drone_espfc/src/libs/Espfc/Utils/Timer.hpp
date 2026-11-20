@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_UTILS_TIMER_HPP_
+#define HHHS_LIBS_ESPFC_UTILS_TIMER_HPP_
 
 #include <cstdint>
 
@@ -29,3 +30,4 @@ public:
 };
 
 } // namespace Espfc::Utils
+#endif // HHHS_LIBS_ESPFC_UTILS_TIMER_HPP_

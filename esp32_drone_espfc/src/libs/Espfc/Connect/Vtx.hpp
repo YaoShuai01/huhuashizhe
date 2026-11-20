@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_CONNECT_VTX_HPP_
+#define HHHS_LIBS_ESPFC_CONNECT_VTX_HPP_
 
 #include "Model.hpp"
 #include "Utils/Timer.hpp"
@@ -45,3 +46,4 @@ private:
 };
 
 } // namespace Espfc::Connect
+#endif // HHHS_LIBS_ESPFC_CONNECT_VTX_HPP_

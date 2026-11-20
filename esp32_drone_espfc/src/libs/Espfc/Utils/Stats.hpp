@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_UTILS_STATS_HPP_
+#define HHHS_LIBS_ESPFC_UTILS_STATS_HPP_
 
 #include <cstdint>
 
@@ -100,3 +101,4 @@ private:
 } // namespace Utils
 
 } // namespace Espfc
+#endif // HHHS_LIBS_ESPFC_UTILS_STATS_HPP_

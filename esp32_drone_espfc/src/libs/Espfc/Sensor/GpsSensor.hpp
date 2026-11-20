@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_SENSOR_GPSSENSOR_HPP_
+#define HHHS_LIBS_ESPFC_SENSOR_GPSSENSOR_HPP_
 
 #include "Model.hpp"
 #include "Utils/Timer.hpp"
@@ -115,3 +116,4 @@ private:
 };
 
 } // namespace Espfc::Sensor
+#endif // HHHS_LIBS_ESPFC_SENSOR_GPSSENSOR_HPP_

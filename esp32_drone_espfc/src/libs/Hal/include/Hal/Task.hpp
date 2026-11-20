@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_HAL_INCLUDE_HAL_TASK_HPP_
+#define HHHS_LIBS_HAL_INCLUDE_HAL_TASK_HPP_
 
 #include <cstddef>
 #include <cstdint>
@@ -38,3 +39,4 @@ public:
 };
 
 } // namespace Hal
+#endif // HHHS_LIBS_HAL_INCLUDE_HAL_TASK_HPP_

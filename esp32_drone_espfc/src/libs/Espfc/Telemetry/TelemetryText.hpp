@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_TELEMETRY_TELEMETRYTEXT_HPP_
+#define HHHS_LIBS_ESPFC_TELEMETRY_TELEMETRYTEXT_HPP_
 
 #include "Model.hpp"
 
@@ -30,3 +31,4 @@ private:
 };
 
 } // namespace Espfc::Telemetry
+#endif // HHHS_LIBS_ESPFC_TELEMETRY_TELEMETRYTEXT_HPP_

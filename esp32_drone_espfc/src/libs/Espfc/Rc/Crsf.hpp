@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_RC_CRSF_HPP_
+#define HHHS_LIBS_ESPFC_RC_CRSF_HPP_
 
 #include "Connect/Msp.hpp"
 #include "Utils/Crc.hpp"
@@ -205,3 +206,4 @@ public:
 };
 
 } // namespace Espfc::Rc
+#endif // HHHS_LIBS_ESPFC_RC_CRSF_HPP_

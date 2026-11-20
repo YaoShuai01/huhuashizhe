@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_DEVICE_MAG_MAGQMC5883P_HPP_
+#define HHHS_LIBS_ESPFC_DEVICE_MAG_MAGQMC5883P_HPP_
 
 #include "Device/MagDevice.hpp"
 #include "Hal/BusDevice.hpp"
@@ -31,3 +32,4 @@ private:
 };
 
 } // namespace Espfc::Device::Mag
+#endif // HHHS_LIBS_ESPFC_DEVICE_MAG_MAGQMC5883P_HPP_

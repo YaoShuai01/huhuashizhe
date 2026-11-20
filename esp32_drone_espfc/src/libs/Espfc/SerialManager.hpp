@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_SERIALMANAGER_HPP_
+#define HHHS_LIBS_ESPFC_SERIALMANAGER_HPP_
 
 #include "Connect/Cli.hpp"
 #include "Connect/MspProcessor.hpp"
@@ -48,3 +49,4 @@ private:
 };
 
 } // namespace Espfc
+#endif // HHHS_LIBS_ESPFC_SERIALMANAGER_HPP_

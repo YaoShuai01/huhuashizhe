@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_HAL_INCLUDE_HAL_ADC_HPP_
+#define HHHS_LIBS_HAL_INCLUDE_HAL_ADC_HPP_
 
 #include <cstdint>
 
@@ -12,3 +13,4 @@ public:
 };
 
 } // namespace Hal
+#endif // HHHS_LIBS_HAL_INCLUDE_HAL_ADC_HPP_

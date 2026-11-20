@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_STREAM_WRITABLE_HPP_
+#define HHHS_LIBS_ESPFC_STREAM_WRITABLE_HPP_
 
 #include <cstddef>
 #include <cstdint>
@@ -22,3 +23,4 @@ protected:
 };
 
 } // namespace Espfc::Stream
+#endif // HHHS_LIBS_ESPFC_STREAM_WRITABLE_HPP_

@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_MODELCONFIG_HPP_
+#define HHHS_LIBS_ESPFC_MODELCONFIG_HPP_
 
 #include "Control/Pid.hpp"
 #include "Device/BaroDevice.hpp"
@@ -1299,3 +1300,4 @@ public:
 };
 
 } // namespace Espfc
+#endif // HHHS_LIBS_ESPFC_MODELCONFIG_HPP_

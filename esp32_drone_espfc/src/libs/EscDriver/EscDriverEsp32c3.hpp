@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESCDRIVER_ESCDRIVERESP32C3_HPP_
+#define HHHS_LIBS_ESCDRIVER_ESCDRIVERESP32C3_HPP_
 
 #if defined(ESP32C3)
 
@@ -95,3 +96,4 @@ private:
 };
 
 #endif // ESP32C3
+#endif // HHHS_LIBS_ESCDRIVER_ESCDRIVERESP32C3_HPP_

@@ -1,6 +1,7 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_DEVICE_MAGDEVICE_HPP_
+#define HHHS_LIBS_ESPFC_DEVICE_MAGDEVICE_HPP_
 
-#include "Device/BusAwareDevice.hpp"
+#include "BusAwareDevice.hpp"
 #include "helper_3dmath.hpp"
 
 namespace Espfc {
@@ -42,3 +43,4 @@ public:
 } // namespace Device
 
 } // namespace Espfc
+#endif // HHHS_LIBS_ESPFC_DEVICE_MAGDEVICE_HPP_

@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_DEVICE_BUSSLAVE_HPP_
+#define HHHS_LIBS_ESPFC_DEVICE_BUSSLAVE_HPP_
 
 #include "BusAwareDevice.hpp"
 #include "Hal/BusDevice.hpp"
@@ -29,3 +30,4 @@ public:
 };
 
 } // namespace Espfc::Device
+#endif // HHHS_LIBS_ESPFC_DEVICE_BUSSLAVE_HPP_

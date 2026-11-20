@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_DEVICE_INPUT_INPUTPPM_HPP_
+#define HHHS_LIBS_ESPFC_DEVICE_INPUT_INPUTPPM_HPP_
 
 #include "Device/InputDevice.hpp"
 #include <atomic>
@@ -43,3 +44,4 @@ private:
 } // namespace Device::Input
 
 } // namespace Espfc
+#endif // HHHS_LIBS_ESPFC_DEVICE_INPUT_INPUTPPM_HPP_

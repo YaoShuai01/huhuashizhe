@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_STREAM_READWRITABLE_HPP_
+#define HHHS_LIBS_ESPFC_STREAM_READWRITABLE_HPP_
 
 #include "Hal/Serial.hpp"
 #include "Stream/Readable.hpp"
@@ -18,3 +19,4 @@ protected:
 };
 
 } // namespace Espfc::Stream
+#endif // HHHS_LIBS_ESPFC_STREAM_READWRITABLE_HPP_

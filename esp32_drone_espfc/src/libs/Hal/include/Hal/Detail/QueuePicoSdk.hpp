@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_HAL_INCLUDE_HAL_DETAIL_QUEUEPICOSDK_HPP_
+#define HHHS_LIBS_HAL_INCLUDE_HAL_DETAIL_QUEUEPICOSDK_HPP_
 
 #include <cstddef>
 #include <cstdint>
@@ -72,3 +73,4 @@ public:
 };
 
 } // namespace Hal::Detail
+#endif // HHHS_LIBS_HAL_INCLUDE_HAL_DETAIL_QUEUEPICOSDK_HPP_

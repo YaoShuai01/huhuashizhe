@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_CONTROL_FUSION_HPP_
+#define HHHS_LIBS_ESPFC_CONTROL_FUSION_HPP_
 
 #include "Model.hpp"
 #include "Utils/Filter.hpp"
@@ -32,3 +33,4 @@ private:
 };
 
 } // namespace Espfc::Control
+#endif // HHHS_LIBS_ESPFC_CONTROL_FUSION_HPP_

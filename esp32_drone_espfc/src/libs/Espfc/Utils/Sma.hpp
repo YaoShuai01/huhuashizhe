@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_UTILS_SMA_HPP_
+#define HHHS_LIBS_ESPFC_UTILS_SMA_HPP_
 
 #include <cstddef>
 
@@ -21,3 +22,4 @@ private:
 };
 
 } // namespace Espfc::Utils
+#endif // HHHS_LIBS_ESPFC_UTILS_SMA_HPP_

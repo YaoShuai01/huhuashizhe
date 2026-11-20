@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_HAL_INCLUDE_HAL_QUEUE_HPP_
+#define HHHS_LIBS_HAL_INCLUDE_HAL_QUEUE_HPP_
 
 // Lock free queue used to pass events between cores.
 //
@@ -47,3 +48,4 @@ using Queue = std::conditional_t<MULTI_CORE, Detail::QueueAtomic<T, Capacity>, D
 #endif
 
 } // namespace Hal
+#endif // HHHS_LIBS_HAL_INCLUDE_HAL_QUEUE_HPP_

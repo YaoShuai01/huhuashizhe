@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_OUTPUT_OUTPUTIBUS_HPP_
+#define HHHS_LIBS_ESPFC_OUTPUT_OUTPUTIBUS_HPP_
 
 #include "Stream/ReadWritable.hpp"
 #include "Utils/Timer.hpp"
@@ -19,3 +20,4 @@ private:
 };
 
 } // namespace Espfc::Output
+#endif // HHHS_LIBS_ESPFC_OUTPUT_OUTPUTIBUS_HPP_

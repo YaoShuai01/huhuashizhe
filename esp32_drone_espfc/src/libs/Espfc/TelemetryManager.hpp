@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_TELEMETRYMANAGER_HPP_
+#define HHHS_LIBS_ESPFC_TELEMETRYMANAGER_HPP_
 
 #include "Connect/Msp.hpp"
 #include "Connect/MspProcessor.hpp"
@@ -30,3 +31,4 @@ private:
 };
 
 } // namespace Espfc
+#endif // HHHS_LIBS_ESPFC_TELEMETRYMANAGER_HPP_

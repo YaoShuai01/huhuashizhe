@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_DEVICE_GYRODEVICE_HPP_
+#define HHHS_LIBS_ESPFC_DEVICE_GYRODEVICE_HPP_
 
 #include "BusAwareDevice.hpp"
 #include "Hal/BusDevice.hpp"
@@ -49,3 +50,4 @@ public:
 } // namespace Device
 
 } // namespace Espfc
+#endif // HHHS_LIBS_ESPFC_DEVICE_GYRODEVICE_HPP_

@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/accessibility/elder_care_reader.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/forum_models.dart';
 import '../data/forum_repository.dart';
 import '../forum_scope.dart';
-import '../services/forum_moderation_service.dart';
 import '../services/forum_voice_input.dart';
 import '../widgets/forum_back_button.dart';
 import '../widgets/forum_comment_tile.dart';
@@ -19,7 +17,6 @@ class ForumPostDetailPage extends StatefulWidget {
     required this.post,
     this.repository,
     this.voiceRecognizer,
-    this.moderationService,
   });
 
   final ForumPost post;
@@ -30,9 +27,6 @@ class ForumPostDetailPage extends StatefulWidget {
   /// 外部注入的语音识别实现，为空时使用系统语音识别
   final ForumVoiceRecognizer? voiceRecognizer;
 
-  /// 外部注入的内容初审实现，为空时使用 AI 初审
-  final ForumModerationService? moderationService;
-
   @override
   State<ForumPostDetailPage> createState() => _ForumPostDetailPageState();
 }
@@ -41,38 +35,6 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
   final TextEditingController _controller = TextEditingController();
   final FocusNode _focusNode = FocusNode();
   bool _canSend = false;
-  bool _sending = false;
-  bool _showEmojiPanel = false;
-
-  /// 评论常用表情（点击插入正文）
-  static const List<String> _commentEmojis = [
-    '😀', '😁', '😂', '🤣', '😊', '😍', '🥰', '😎',
-    '🤔', '😅', '😭', '😢', '😡', '😴', '🤝', '🙏',
-    '👍', '👎', '👏', '💪', '❤️', '🔥', '🎉', '💯',
-    '🌱', '🌿', '🌾', '🌻', '🚜', '🐛', '💧', '☀️',
-  ];
-
-  void _toggleEmojiPanel() {
-    setState(() => _showEmojiPanel = !_showEmojiPanel);
-    if (_showEmojiPanel) {
-      _focusNode.unfocus();
-    } else {
-      _focusNode.requestFocus();
-    }
-  }
-
-  /// 在光标位置插入表情，并保持输入可用
-  void _insertEmoji(String emoji) {
-    final text = _controller.text;
-    final selection = _controller.selection;
-    final start = selection.start < 0 ? text.length : selection.start;
-    final end = selection.end < 0 ? text.length : selection.end;
-    _controller.value = TextEditingValue(
-      text: text.replaceRange(start, end, emoji),
-      selection: TextSelection.collapsed(offset: start + emoji.length),
-    );
-    if (!_canSend) setState(() => _canSend = true);
-  }
 
   @override
   void dispose() {
@@ -81,58 +43,13 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
     super.dispose();
   }
 
-  void _send(ForumRepository repository) async {
+  void _send(ForumRepository repository) {
     final text = _controller.text.trim();
-    if (text.isEmpty || _sending) return;
-    setState(() => _sending = true);
-
-    final service = widget.moderationService ?? defaultForumModerationService;
-    final result = await service.review(
-      title: '评论：${widget.post.title}',
-      content: text,
-    );
-    if (!mounted) return;
-    setState(() => _sending = false);
-
-    if (result.rejected) {
-      await _showRejectDialog(result);
-      return;
-    }
-
-    repository.addComment(
-      post: widget.post,
-      content: text,
-    );
+    if (text.isEmpty) return;
+    repository.addComment(post: widget.post, content: text);
     _controller.clear();
     _focusNode.unfocus();
     setState(() => _canSend = false);
-    if (result.needsManualReview) {
-      _toast('评论已提交，人工复审通过后展示');
-    }
-  }
-
-  Future<void> _showRejectDialog(ForumAuditResult result) {
-    return showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('评论未通过审核'),
-        content: Text(
-          '违规类型：${result.violationType}\n\n${result.reason}\n\n请修改后重新发送。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('我知道了'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _toast(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _toggleFavorite(ForumRepository repository) {
@@ -227,10 +144,6 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
   }
 
   Widget _postHeader(ForumRepository repository) {
-    return ElderCareBlock(child: _postHeaderCard(repository));
-  }
-
-  Widget _postHeaderCard(ForumRepository repository) {
     final post = widget.post;
     final avatarText = post.author.isEmpty
         ? '?'
@@ -414,116 +327,68 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
     return SafeArea(
       top: false,
       child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
         decoration: const BoxDecoration(
           color: AppColors.surface,
           border: Border(
             top: BorderSide(color: AppColors.surfaceVariant),
           ),
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      focusNode: _focusNode,
-                      minLines: 1,
-                      maxLines: 3,
-                      maxLength: 300,
-                      buildCounter: (context,
-                              {required currentLength,
-                              required isFocused,
-                              required maxLength}) =>
-                          null,
-                      onChanged: (value) {
-                        final canSend = value.trim().isNotEmpty;
-                        if (canSend != _canSend) {
-                          setState(() => _canSend = canSend);
-                        }
-                      },
-                      style: const TextStyle(fontSize: 13),
-                      decoration: InputDecoration(
-                        hintText: '写下你的评论…',
-                        hintStyle: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textHint,
-                        ),
-                        isDense: true,
-                        filled: true,
-                        fillColor: AppColors.surfaceVariant,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(20),
-                          borderSide: BorderSide.none,
-                        ),
-                      ),
-                    ),
+            Expanded(
+              child: TextField(
+                controller: _controller,
+                focusNode: _focusNode,
+                minLines: 1,
+                maxLines: 3,
+                maxLength: 300,
+                buildCounter: (context,
+                        {required currentLength,
+                        required isFocused,
+                        required maxLength}) =>
+                    null,
+                onChanged: (value) {
+                  final canSend = value.trim().isNotEmpty;
+                  if (canSend != _canSend) {
+                    setState(() => _canSend = canSend);
+                  }
+                },
+                style: const TextStyle(fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: '写下你的评论…',
+                  hintStyle: const TextStyle(
+                    fontSize: 13,
+                    color: AppColors.textHint,
                   ),
-                  const SizedBox(width: 4),
-                  IconButton(
-                    tooltip: '表情',
-                    onPressed: _toggleEmojiPanel,
-                    icon: Icon(
-                      _showEmojiPanel
-                          ? Icons.emoji_emotions
-                          : Icons.emoji_emotions_outlined,
-                      size: 26,
-                      color: _showEmojiPanel
-                          ? AppColors.primary
-                          : AppColors.textHint,
-                    ),
+                  isDense: true,
+                  filled: true,
+                  fillColor: AppColors.surfaceVariant,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
                   ),
-                  ForumVoiceButton(
-                    controller: _controller,
-                    recognizer: widget.voiceRecognizer,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    borderSide: BorderSide.none,
                   ),
-                  const SizedBox(width: 4),
-                  IconButton.filled(
-                    tooltip: '发送评论',
-                    onPressed: _canSend ? () => _send(repository) : null,
-                    icon: const Icon(Icons.send, size: 18),
-                  ),
-                ],
+                ),
               ),
             ),
-            if (_showEmojiPanel) _emojiPanel(),
+            const SizedBox(width: 8),
+            ForumVoiceButton(
+              controller: _controller,
+              recognizer: widget.voiceRecognizer,
+            ),
+            const SizedBox(width: 4),
+            IconButton.filled(
+              tooltip: '发送评论',
+              onPressed: _canSend ? () => _send(repository) : null,
+              icon: const Icon(Icons.send, size: 18),
+            ),
           ],
         ),
-      ),
-    );
-  }
-
-  /// 表情面板：点击插入到光标位置
-  Widget _emojiPanel() {
-    return Container(
-      height: 168,
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-      decoration: const BoxDecoration(
-        color: AppColors.surface,
-        border: Border(top: BorderSide(color: AppColors.surfaceVariant)),
-      ),
-      child: GridView.count(
-        crossAxisCount: 8,
-        padding: EdgeInsets.zero,
-        children: [
-          for (final emoji in _commentEmojis)
-            InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: () => _insertEmoji(emoji),
-              child: Center(
-                child: Text(emoji, style: const TextStyle(fontSize: 22)),
-              ),
-            ),
-        ],
       ),
     );
   }

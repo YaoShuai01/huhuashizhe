@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_HAL_INCLUDE_HAL_BITS_HPP_
+#define HHHS_LIBS_HAL_INCLUDE_HAL_BITS_HPP_
 
 #include <cstdint>
 
@@ -93,3 +94,4 @@ inline uint8_t setBitsLsb(uint8_t data, uint8_t bitStart, uint8_t bitLen, uint8_
 }
 
 } // namespace Hal
+#endif // HHHS_LIBS_HAL_INCLUDE_HAL_BITS_HPP_

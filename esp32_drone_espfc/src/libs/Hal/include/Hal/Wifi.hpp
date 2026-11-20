@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_HAL_INCLUDE_HAL_WIFI_HPP_
+#define HHHS_LIBS_HAL_INCLUDE_HAL_WIFI_HPP_
 
 #include "Hal/Serial.hpp"
 #include <cstddef>
@@ -73,3 +74,4 @@ public:
 WifiClient* getWifiClient();
 
 } // namespace Hal
+#endif // HHHS_LIBS_HAL_INCLUDE_HAL_WIFI_HPP_

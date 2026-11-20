@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_CONNECT_MSP_HPP_
+#define HHHS_LIBS_ESPFC_CONNECT_MSP_HPP_
 
 #include <cstddef>
 #include <cstdint>
@@ -105,3 +106,4 @@ public:
 };
 
 } // namespace Espfc::Connect
+#endif // HHHS_LIBS_ESPFC_CONNECT_MSP_HPP_

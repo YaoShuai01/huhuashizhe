@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_UTILS_SEQLOCKWRAPPER_HPP_
+#define HHHS_LIBS_ESPFC_UTILS_SEQLOCKWRAPPER_HPP_
 
 #include <atomic>
 #include <type_traits>
@@ -105,3 +106,4 @@ private:
 };
 
 } // namespace Espfc::Utils
+#endif // HHHS_LIBS_ESPFC_UTILS_SEQLOCKWRAPPER_HPP_

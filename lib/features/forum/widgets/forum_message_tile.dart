@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../../core/accessibility/elder_care_reader.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/forum_models.dart';
 
@@ -47,10 +46,7 @@ class ForumMessageTile extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) =>
-      ElderCareBlock(child: _buildTile(context));
-
-  Widget _buildTile(BuildContext context) {
+  Widget build(BuildContext context) {
     final unread = message.unread;
     final color = forumMessageColor(message.kind);
 

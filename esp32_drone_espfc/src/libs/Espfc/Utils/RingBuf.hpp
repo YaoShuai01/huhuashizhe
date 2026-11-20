@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_UTILS_RINGBUF_HPP_
+#define HHHS_LIBS_ESPFC_UTILS_RINGBUF_HPP_
 
 #include <algorithm>
 #include <cstddef>
@@ -93,3 +94,4 @@ private:
 };
 
 } // namespace Espfc::Utils
+#endif // HHHS_LIBS_ESPFC_UTILS_RINGBUF_HPP_

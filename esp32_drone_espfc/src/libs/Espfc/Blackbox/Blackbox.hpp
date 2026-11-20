@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_BLACKBOX_BLACKBOX_HPP_
+#define HHHS_LIBS_ESPFC_BLACKBOX_BLACKBOX_HPP_
 
 #include "BlackboxSerialBuffer.hpp"
 #include "Model.hpp"
@@ -25,3 +26,4 @@ private:
 };
 
 } // namespace Espfc::Blackbox
+#endif // HHHS_LIBS_ESPFC_BLACKBOX_BLACKBOX_HPP_

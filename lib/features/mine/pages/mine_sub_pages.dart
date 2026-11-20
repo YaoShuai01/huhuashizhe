@@ -783,32 +783,6 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
-        'version': 'v3.4.1',
-        'date': '2026-11-20',
-        'content': [
-          '论坛 AI 内容初审改为经自有服务器转发，App 内不再包含任何大模型 API 密钥',
-          '修复 AI 接口密钥泄露导致额度被异常消耗的安全问题',
-        ],
-      },
-      {
-        'version': 'v3.4.0',
-        'date': '2026-11-20',
-        'content': [
-          '新增老年关怀模式：字体放大，长按板块即可朗读帖子、评论与消息，滑动可取消',
-          '论坛评论支持表情包',
-          '论坛接入 AI 内容初审：违规内容自动拦截，可疑内容标记待人工复审',
-          '论坛消息提醒移至右上角，并新增未读角标',
-        ],
-      },
-      {
-        'version': 'v3.3.2',
-        'date': '2026-11-20',
-        'content': [
-          'AI 助手调用改为经自有服务器转发，App 内不再包含任何大模型 API 密钥',
-          '服务端新增调用限频与每日配额，保障 AI 服务稳定、避免额度异常消耗',
-        ],
-      },
-      {
         'version': 'v3.3.1',
         'date': '2026-11-19',
         'content': [

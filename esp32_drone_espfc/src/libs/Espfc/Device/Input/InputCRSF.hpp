@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_DEVICE_INPUT_INPUTCRSF_HPP_
+#define HHHS_LIBS_ESPFC_DEVICE_INPUT_INPUTCRSF_HPP_
 
 #include "Device/InputDevice.hpp"
 #include "Rc/Crsf.hpp"
@@ -56,3 +57,4 @@ private:
 };
 
 } // namespace Espfc::Device::Input
+#endif // HHHS_LIBS_ESPFC_DEVICE_INPUT_INPUTCRSF_HPP_

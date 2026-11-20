@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_HAL_INCLUDE_HAL_DETAIL_QUEUEINDEX_HPP_
+#define HHHS_LIBS_HAL_INCLUDE_HAL_DETAIL_QUEUEINDEX_HPP_
 
 #include "Hal/Platform.hpp"
 #include <atomic>
@@ -102,3 +103,4 @@ using DefaultIndex = PlainIndex;
 #endif
 
 } // namespace Hal::Detail
+#endif // HHHS_LIBS_HAL_INCLUDE_HAL_DETAIL_QUEUEINDEX_HPP_

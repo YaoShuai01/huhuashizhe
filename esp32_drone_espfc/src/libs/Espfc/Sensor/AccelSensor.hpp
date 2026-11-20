@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_SENSOR_ACCELSENSOR_HPP_
+#define HHHS_LIBS_ESPFC_SENSOR_ACCELSENSOR_HPP_
 
 #include "Device/GyroDevice.hpp"
 #include "Model.hpp"
@@ -26,3 +27,4 @@ private:
 };
 
 } // namespace Espfc::Sensor
+#endif // HHHS_LIBS_ESPFC_SENSOR_ACCELSENSOR_HPP_

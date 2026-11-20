@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_DEVICE_INPUT_INPUTUDP_HPP_
+#define HHHS_LIBS_ESPFC_DEVICE_INPUT_INPUTUDP_HPP_
 
 #include "Device/InputDevice.hpp"
 #include "Hal/Platform.hpp"
@@ -73,3 +74,4 @@ private:
 } // namespace Espfc::Device::Input
 
 #endif
+#endif // HHHS_LIBS_ESPFC_DEVICE_INPUT_INPUTUDP_HPP_

@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESCDRIVER_ESCDRIVER_HPP_
+#define HHHS_LIBS_ESCDRIVER_ESCDRIVER_HPP_
 
 #include "EscDriverBase.hpp"
 
@@ -60,3 +61,4 @@
 #error "Unsupported platform"
 
 #endif
+#endif // HHHS_LIBS_ESCDRIVER_ESCDRIVER_HPP_

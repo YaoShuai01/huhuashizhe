@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_DEVICE_GYRO_GYROMPU6050_HPP_
+#define HHHS_LIBS_ESPFC_DEVICE_GYRO_GYROMPU6050_HPP_
 
 // https://github.com/jrowberg/i2cdevlib/blob/master/Arduino/MPU6050/MPU6050.cpp#L1501
 // https://github.com/guywithaview/Arduino-Test/blob/master/GY87/GY87.ino
@@ -30,3 +31,4 @@ public:
 };
 
 } // namespace Espfc::Device::Gyro
+#endif // HHHS_LIBS_ESPFC_DEVICE_GYRO_GYROMPU6050_HPP_

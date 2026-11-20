@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_DEVICE_BARO_BAROBMP085_HPP_
+#define HHHS_LIBS_ESPFC_DEVICE_BARO_BAROBMP085_HPP_
 
 #include "Device/BaroDevice.hpp"
 
@@ -41,3 +42,4 @@ protected:
 };
 
 } // namespace Espfc::Device::Baro
+#endif // HHHS_LIBS_ESPFC_DEVICE_BARO_BAROBMP085_HPP_

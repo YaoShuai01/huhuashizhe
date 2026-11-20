@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_UTILS_FREQANALYZER_HPP_
+#define HHHS_LIBS_ESPFC_UTILS_FREQANALYZER_HPP_
 
 #include "Utils/Filter.hpp"
 
@@ -32,3 +33,4 @@ private:
 };
 
 } // namespace Espfc::Utils
+#endif // HHHS_LIBS_ESPFC_UTILS_FREQANALYZER_HPP_

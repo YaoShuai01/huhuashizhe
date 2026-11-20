@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_HAL_INCLUDE_HAL_HWTIMER_HPP_
+#define HHHS_LIBS_HAL_INCLUDE_HAL_HWTIMER_HPP_
 
 #include <cstdint>
 
@@ -33,3 +34,4 @@ private:
 };
 
 } // namespace Hal
+#endif // HHHS_LIBS_HAL_INCLUDE_HAL_HWTIMER_HPP_

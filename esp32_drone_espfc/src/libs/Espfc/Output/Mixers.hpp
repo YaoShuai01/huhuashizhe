@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_OUTPUT_MIXERS_HPP_
+#define HHHS_LIBS_ESPFC_OUTPUT_MIXERS_HPP_
 
 #include <cstddef>
 #include <cstdint>
@@ -94,3 +95,4 @@ public:
 } // namespace Output
 
 } // namespace Espfc
+#endif // HHHS_LIBS_ESPFC_OUTPUT_MIXERS_HPP_

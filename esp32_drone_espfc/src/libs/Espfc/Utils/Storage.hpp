@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_UTILS_STORAGE_HPP_
+#define HHHS_LIBS_ESPFC_UTILS_STORAGE_HPP_
 
 #include "Hal/ConfigStorage.hpp"
 #include "ModelConfig.hpp"
@@ -37,3 +38,4 @@ private:
 } // namespace Utils
 
 } // namespace Espfc
+#endif // HHHS_LIBS_ESPFC_UTILS_STORAGE_HPP_

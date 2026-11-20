@@ -1,4 +1,5 @@
-#pragma once
+﻿#ifndef HHHS_LIBS_ESPFC_CONNECT_CLI_HPP_
+#define HHHS_LIBS_ESPFC_CONNECT_CLI_HPP_
 
 #include "Model.hpp"
 
@@ -108,3 +109,4 @@ private:
 };
 
 } // namespace Espfc::Connect
+#endif // HHHS_LIBS_ESPFC_CONNECT_CLI_HPP_
