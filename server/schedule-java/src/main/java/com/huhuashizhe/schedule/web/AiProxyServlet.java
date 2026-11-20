@@ -116,7 +116,10 @@ public class AiProxyServlet extends HttpServlet {
             upstream.put("max_tokens", maxTokens);
             upstream.put("temperature", temperature);
             upstream.put("top_p", topP);
-            upstream.put("enable_thinking", false);
+            // 千问支持关闭思考模式；小米 MiMo 接口不保证接受该参数，切到小米时不传
+            if (!config.aiBaseUrl.contains("xiaomimimo")) {
+                upstream.put("enable_thinking", false);
+            }
             upstream.put("stream", stream);
 
             forward(upstream, stream, ip, messages.size(), totalChars, response);
