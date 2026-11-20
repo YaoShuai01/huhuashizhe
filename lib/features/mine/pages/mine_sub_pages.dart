@@ -783,6 +783,14 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.4.1',
+        'date': '2026-11-20',
+        'content': [
+          '论坛 AI 内容初审改为经自有服务器转发，App 内不再包含任何大模型 API 密钥',
+          '修复 AI 接口密钥泄露导致额度被异常消耗的安全问题',
+        ],
+      },
+      {
         'version': 'v3.4.0',
         'date': '2026-11-20',
         'content': [

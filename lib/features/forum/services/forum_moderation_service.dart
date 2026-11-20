@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../../core/constants/server_config.dart';
+
 /// AI 初审结论
 enum ForumAuditVerdict {
   /// 审核通过
@@ -78,7 +80,7 @@ ForumAuditResult parseModerationResponse(String raw) {
   }
 }
 
-/// 基于小米 MiMo 大模型的社区内容初审
+/// 基于千问大模型的社区内容初审（经自有服务器代理，App 内不含密钥）
 class AiForumModerationService implements ForumModerationService {
   AiForumModerationService({Dio? dio}) : _dio = dio ?? _createDio();
 
@@ -119,11 +121,10 @@ class AiForumModerationService implements ForumModerationService {
 
   static Dio _createDio() => Dio(
         BaseOptions(
-          baseUrl: 'https://api.xiaomimimo.com/v1',
+          baseUrl: '$serverBaseUrl/schedule/ai',
           connectTimeout: const Duration(seconds: 12),
-          receiveTimeout: const Duration(seconds: 25),
+          receiveTimeout: const Duration(seconds: 60),
           headers: const {
-            'api-key': '',
             'Content-Type': 'application/json',
           },
         ),
@@ -147,9 +148,8 @@ class AiForumModerationService implements ForumModerationService {
 
     try {
       final response = await _dio.post(
-        '/chat/completions',
+        '/chat',
         data: {
-          'model': 'mimo-v2.6-flash',
           'messages': [
             {'role': 'system', 'content': systemPrompt},
             {'role': 'user', 'content': buffer.toString()},
