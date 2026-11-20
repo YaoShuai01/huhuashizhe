@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'core/accessibility/elder_care_controller.dart';
+import 'core/accessibility/elder_care_reader.dart';
+import 'core/accessibility/elder_care_scope.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'data/local_database.dart';
@@ -59,23 +62,35 @@ class _HuHuaShiZheAppState extends State<HuHuaShiZheApp> {
         home: SplashPage(),
       );
     }
-    return _UpdateChecker(
-      child: MaterialApp.router(
-        title: '护花使者',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
-        themeMode: ThemeMode.system,
-        routerConfig: appRouter,
-        builder: (context, child) {
-          // 限制系统字体缩放最大1.2倍，防止大字号下卡片溢出报错
-          final mediaQuery = MediaQuery.of(context);
-          final clampedScale = mediaQuery.textScaler.clamp(maxScaleFactor: 1.2);
-          return MediaQuery(
-            data: mediaQuery.copyWith(textScaler: clampedScale),
-            child: child!,
-          );
-        },
+    return ElderCareScope(
+      controller: elderCareController,
+      child: _UpdateChecker(
+        child: MaterialApp.router(
+          title: '护花使者',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: ThemeMode.system,
+          routerConfig: appRouter,
+          builder: (context, child) {
+            // 老年关怀模式：全局放大小字号，并开启长按板块朗读
+            final elderCare = ElderCareScope.of(context);
+            final mediaQuery = MediaQuery.of(context);
+            final systemFactor = mediaQuery.textScaler.scale(16) / 16;
+            final factor = systemFactor *
+                (elderCare.enabled ? ElderCareController.textScaleFactor : 1.0);
+            final content = MediaQuery(
+              data: mediaQuery.copyWith(
+                textScaler:
+                    TextScaler.linear(factor.clamp(0.8, elderCare.enabled ? 1.6 : 1.2)),
+              ),
+              child: child!,
+            );
+            return elderCare.enabled
+                ? ElderCareReader(child: content)
+                : content;
+          },
+        ),
       ),
     );
   }

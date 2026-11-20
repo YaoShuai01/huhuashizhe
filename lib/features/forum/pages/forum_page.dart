@@ -7,6 +7,7 @@ import '../data/forum_repository.dart';
 import '../forum_scope.dart';
 import '../widgets/forum_category_card.dart';
 import '../widgets/forum_empty_state.dart';
+import '../widgets/forum_message_bell.dart';
 import '../widgets/forum_responsive_body.dart';
 import '../widgets/forum_section_tile.dart';
 
@@ -28,7 +29,22 @@ class _ForumPageState extends State<ForumPage> {
     final repository = widget.repository ?? ForumScope.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('论坛')),
+      appBar: AppBar(
+        title: const Text('论坛'),
+        actions: [
+          AnimatedBuilder(
+            animation: repository,
+            builder: (context, _) {
+              final unread =
+                  repository.messages.where((message) => message.unread).length;
+              return ForumMessageBell(
+                unreadCount: unread,
+                onTap: () => context.push('/forum/messages'),
+              );
+            },
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/forum/compose'),
         icon: const Icon(Icons.edit_outlined),

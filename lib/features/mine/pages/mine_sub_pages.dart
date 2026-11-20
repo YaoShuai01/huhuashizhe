@@ -783,6 +783,16 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.4.0',
+        'date': '2026-11-20',
+        'content': [
+          '新增老年关怀模式：字体放大，长按板块即可朗读帖子、评论与消息，滑动可取消',
+          '论坛评论支持表情包',
+          '论坛接入 AI 内容初审：违规内容自动拦截，可疑内容标记待人工复审',
+          '论坛消息提醒移至右上角，并新增未读角标',
+        ],
+      },
+      {
         'version': 'v3.3.2',
         'date': '2026-11-20',
         'content': [
