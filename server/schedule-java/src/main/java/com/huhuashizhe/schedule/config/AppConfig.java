@@ -25,6 +25,9 @@ public final class AppConfig {
     public final String scheduleKey;
     public final String adminKey;
     public final String tokenSecret;
+    public final String aiApiKey;
+    public final String aiBaseUrl;
+    public final String aiModel;
     public final Path dbPath;
     public final Path backupDir;
     public final long memberTokenTtlSeconds;
@@ -35,6 +38,9 @@ public final class AppConfig {
             String scheduleKey,
             String adminKey,
             String tokenSecret,
+            String aiApiKey,
+            String aiBaseUrl,
+            String aiModel,
             Path dbPath,
             Path backupDir,
             long memberTokenTtlSeconds,
@@ -43,6 +49,9 @@ public final class AppConfig {
         this.scheduleKey = scheduleKey;
         this.adminKey = adminKey;
         this.tokenSecret = tokenSecret;
+        this.aiApiKey = aiApiKey;
+        this.aiBaseUrl = aiBaseUrl;
+        this.aiModel = aiModel;
         this.dbPath = dbPath;
         this.backupDir = backupDir;
         this.memberTokenTtlSeconds = memberTokenTtlSeconds;
@@ -95,10 +104,27 @@ public final class AppConfig {
             throw new IllegalStateException("token TTL 必须大于 0");
         }
 
+        // AI 代理：Key 只保存在服务器配置中；未配置时 /ai/chat 返回 503，不影响轮协服务。
+        String aiApiKey = trim(properties.getProperty("ai.api.key"));
+        String aiBaseUrl = trim(properties.getProperty("ai.base.url"));
+        if (aiBaseUrl.isEmpty()) {
+            aiBaseUrl = "https://maas.qianwenaiapi.com/compatible-mode/v1";
+        }
+        while (aiBaseUrl.endsWith("/")) {
+            aiBaseUrl = aiBaseUrl.substring(0, aiBaseUrl.length() - 1);
+        }
+        String aiModel = trim(properties.getProperty("ai.model"));
+        if (aiModel.isEmpty()) {
+            aiModel = "qwen3.8-flash";
+        }
+
         return new AppConfig(
                 scheduleKey,
                 adminKey,
                 tokenSecret,
+                aiApiKey,
+                aiBaseUrl,
+                aiModel,
                 dbPath.toAbsolutePath().normalize(),
                 backupDir.toAbsolutePath().normalize(),
                 memberTtl,
