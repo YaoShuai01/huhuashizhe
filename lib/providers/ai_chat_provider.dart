@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/ai_chat_service.dart';
 import '../services/weather_service.dart';
 import '../data/local_database.dart';
+import '../services/voice_service.dart';
 
 final aiChatServiceProvider = Provider<AiChatService>((ref) => AiChatService());
 
@@ -94,6 +95,8 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
         isLoading: false,
       );
       _saveHistory();
+      // 回复完成后语音朗读开头部分
+      VoiceService.instance.speakAiReply(assistantMsg.content);
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -149,6 +152,10 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
 
       state = state.copyWith(isLoading: false);
       _saveHistory();
+      // 流式结束后朗读回复开头部分
+      if (state.messages.isNotEmpty) {
+        VoiceService.instance.speakAiReply(state.messages.last.content);
+      }
     } catch (e) {
       state = state.copyWith(
         isLoading: false,
@@ -206,6 +213,10 @@ class AiChatNotifier extends StateNotifier<AiChatState> {
 
       state = state.copyWith(isLoading: false);
       _saveHistory();
+      // 流式结束后朗读回复开头部分
+      if (state.messages.isNotEmpty) {
+        VoiceService.instance.speakAiReply(state.messages.last.content);
+      }
     } catch (e) {
       state = state.copyWith(
         isLoading: false,

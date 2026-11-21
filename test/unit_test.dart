@@ -2,6 +2,7 @@
 /// 测试数据模型、服务工具方法、本地存储
 import 'package:flutter_test/flutter_test.dart';
 import 'dart:convert';
+import 'package:huhuashizhe/services/wifi_service.dart';
 
 // ============================================================
 // 直接导入源码（纯Dart测试，无需Flutter框架）
@@ -124,91 +125,45 @@ void main() {
       });
     });
 
-    // ==================== TC-UNIT-03: DeviceStatus ====================
-    group('TC-UNIT-03: DeviceStatus / BtConnectionState', () {
-      test('Bluetooth连接状态枚举', () {
-        // 模拟枚举值
-        const disconnected = 0;
-        const scanning = 1;
-        const connecting = 2;
-        const connected = 3;
-
-        expect(disconnected, 0);
-        expect(connected, 3);
-        expect(disconnected != connected, true);
+    // ==================== TC-UNIT-03: WifiStatus ====================
+    group('TC-UNIT-03: WifiStatus / WifiNetwork', () {
+      test('未连接时的默认状态', () {
+        const status = WifiStatus();
+        expect(status.isConnected, false);
+        expect(status.displayName, '未连接');
+        expect(status.signalDisplay, '-- dBm');
       });
 
-      test('DeviceStatus isConnected判断', () {
-        // isConnected = connectionState == connected
-        const connected = 3;
-        bool isConnected(int state) => state == connected;
-        expect(isConnected(0), false);
-        expect(isConnected(1), false);
-        expect(isConnected(2), false);
-        expect(isConnected(3), true);
+      test('已连接无人机热点', () {
+        const status = WifiStatus(
+          ssid: WifiService.droneSsid,
+          connectedToDrone: true,
+          rssi: -52,
+        );
+        expect(status.isConnected, true);
+        expect(status.displayName, 'HuHuaShiZhe-Drone');
+        expect(status.signalDisplay, '-52 dBm');
       });
 
-      test('DeviceStatus 默认值', () {
-        // 默认状态：disconnected, battery=0, signal=0
-        const defaultBattery = 0;
-        const defaultSignal = 0;
-        expect(defaultBattery, 0);
-        expect(defaultSignal, 0);
-      });
-    });
-
-    // ==================== TC-UNIT-04: CommandFrame ====================
-    group('TC-UNIT-04: CommandFrame 蓝牙协议', () {
-      int crc16(List<int> data) {
-        int crc = 0xFFFF;
-        for (final byte in data) {
-          crc ^= byte << 8;
-          for (int i = 0; i < 8; i++) {
-            if ((crc & 0x8000) != 0) {
-              crc = ((crc << 1) ^ 0x1021) & 0xFFFF;
-            } else {
-              crc = (crc << 1) & 0xFFFF;
-            }
-          }
-        }
-        return crc;
-      }
-
-      test('CRC16 空数据', () {
-        expect(crc16([]), 0xFFFF);
+      test('连接普通 WiFi 不算设备已连接', () {
+        const status = WifiStatus(ssid: 'Home-2.4G', connectedToDrone: false);
+        expect(status.isConnected, false);
+        expect(status.displayName, 'Home-2.4G');
       });
 
-      test('CRC16 单字节', () {
-        final result = crc16([0x01]);
-        expect(result, isA<int>());
-        expect(result >= 0 && result <= 0xFFFF, true);
-      });
-
-      test('CRC16 多字节', () {
-        final result = crc16([0x01, 0x02, 0x03, 0x04]);
-        expect(result >= 0 && result <= 0xFFFF, true);
-      });
-
-      test('CRC16 确定性', () {
-        final data = [0xAA, 0xBB, 0xCC];
-        final r1 = crc16(data);
-        final r2 = crc16(data);
-        expect(r1, r2, reason: '相同输入应产生相同CRC16');
-      });
-
-      test('CRC16 不同数据不同结果', () {
-        final r1 = crc16([0x01, 0x02]);
-        final r2 = crc16([0x02, 0x01]);
-        expect(r1 != r2, true, reason: '不同数据CRC16应不同');
-      });
-
-      test('CommandFrame帧头帧尾常量', () {
-        const frameHeader = 0xAA55;
-        const frameFooter = 0x55AA;
-        const protocolVersion = 0x01;
-        expect(frameHeader, 0xAA55);
-        expect(frameFooter, 0x55AA);
-        expect(protocolVersion, 0x01);
+      test('WifiNetwork 解析原生扫描结果', () {
+        final network = WifiNetwork.fromMap({
+          'ssid': WifiService.droneSsid,
+          'bssid': 'AA:BB:CC:DD:EE:FF',
+          'rssi': -48,
+          'secured': true,
+          'isCurrent': true,
+        });
+        expect(network.isDrone, true);
+        expect(network.secured, true);
+        expect(network.isCurrent, true);
+        expect(network.signalDisplay, '-48 dBm');
+        expect(network.securityDisplay, '加密');
       });
     });
 

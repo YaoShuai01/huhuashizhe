@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import '../core/constants/server_config.dart';
 import 'weather_service.dart';
 
 class AiChatMessage {
@@ -27,11 +28,10 @@ class AiChatMessage {
       );
 }
 
-/// 小米MiMo大模型AI对话服务（OpenAI兼容格式）
+/// 千问AI大模型AI对话服务（经自有服务器转发，App 内不含任何 API Key）
 class AiChatService {
-  static const _baseUrl = 'https://api.xiaomimimo.com/v1';
-  static const _model = 'mimo-v2.6-flash'; // v2.5已下线（平台2026-11升级到v2.6系列）
-  static const _apiKey = 'sk-cmg9hlk0p32xk3zvwlx3q1ui4q4b5qql3qua554jfl5lshef';
+  /// 由后端 AiProxyServlet 转发到千问AI平台，密钥只保存在服务器
+  static const _baseUrl = '$serverBaseUrl/schedule/ai';
 
   /// 护花使者智能体系统提示词
   static const _systemPrompt = '''
@@ -74,12 +74,21 @@ class AiChatService {
   final Dio _dio = Dio(BaseOptions(
     baseUrl: _baseUrl,
     connectTimeout: const Duration(seconds: 15),
-    receiveTimeout: const Duration(seconds: 30),
+    receiveTimeout: const Duration(seconds: 90),
     headers: {
-      'api-key': _apiKey,
       'Content-Type': 'application/json',
     },
   ));
+
+  /// 把代理返回的状态码转换成用户可读的提示
+  static String _friendlyError(Object error) {
+    if (error is DioException) {
+      final status = error.response?.statusCode;
+      if (status == 429) return 'AI 调用过于频繁，请稍后再试。';
+      if (status == 502 || status == 503) return 'AI 服务暂时不可用，请稍后再试。';
+    }
+    return '网络连接出现问题，请检查网络后重试。';
+  }
 
   /// 发送消息并获取AI回复（流式输出）
   Stream<String> sendMessageStream(List<AiChatMessage> history, {WeatherData? weather}) async* {
@@ -98,11 +107,10 @@ class AiChatService {
 
     try {
       final response = await _dio.post(
-        '/chat/completions',
+        '/chat',
         data: {
-          'model': _model,
           'messages': messages,
-          'max_tokens': 1024, // v2.6为推理模型，需预留reasoning_content的token
+          'max_tokens': 1024,
           'temperature': 0.7,
           'top_p': 0.95,
           'stream': true,
@@ -163,7 +171,7 @@ class AiChatService {
       }
     } catch (e) {
       debugPrint('[AI] 流式请求异常: $e');
-      yield '抱歉，网络连接出现问题，请稍后再试。';
+      yield _friendlyError(e);
     }
   }
 
@@ -197,9 +205,8 @@ class AiChatService {
 
     try {
       final response = await _dio.post(
-        '/chat/completions',
+        '/chat',
         data: {
-          'model': _model,
           'messages': messages,
           'max_tokens': 1024,
           'temperature': 0.7,
@@ -219,7 +226,7 @@ class AiChatService {
       return '抱歉，AI暂时无法回复，请稍后再试。';
     } catch (e) {
       debugPrint('[AI] 请求异常: $e');
-      return '网络连接出现问题，请检查网络后重试。';
+      return _friendlyError(e);
     }
   }
 
@@ -235,9 +242,8 @@ class AiChatService {
 
     try {
       final response = await _dio.post(
-        '/chat/completions',
+        '/chat',
         data: {
-          'model': _model,
           'messages': messages,
           'max_tokens': 1024,
           'temperature': 0.7,
@@ -257,7 +263,7 @@ class AiChatService {
       return '抱歉，AI暂时无法分析，请稍后再试。';
     } catch (e) {
       debugPrint('[AI] 分析请求异常: $e');
-      return '网络连接出现问题，请检查网络后重试。';
+      return _friendlyError(e);
     }
   }
 }

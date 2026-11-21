@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/device_provider.dart';
-import '../../../services/bluetooth_service.dart';
+import '../../../services/wifi_service.dart';
+import '../../../services/voice_service.dart';
 
 class MissionMonitorPage extends ConsumerStatefulWidget {
   final String missionId;
@@ -24,8 +25,16 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
   bool _isFlying = false;
   bool _isSpraying = false;
 
+  /// 上一次连接状态，用于识别“连接断开”事件
+  bool _wasConnected = false;
+
   @override
   Widget build(BuildContext context) {
+    // 设备状态变化 → 语音告警（断连、信号弱）
+    ref.listen<AsyncValue<WifiStatus>>(deviceStatusProvider, (prev, next) {
+      final status = next.valueOrNull;
+      if (status != null) _handleStatus(status);
+    });
     final deviceStatus = ref.watch(deviceStatusProvider).valueOrNull;
 
     return Scaffold(
@@ -42,21 +51,21 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
           Expanded(
             flex: 3,
             child: Container(
-              color: AppColors.background,
+              color: context.palette.background,
               child: Center(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.videocam_outlined, size: 64, color: AppColors.textDisabled.withValues(alpha: 0.3)),
+                    Icon(Icons.videocam_outlined, size: 64, color: context.palette.textDisabled.withValues(alpha: 0.3)),
                     const SizedBox(height: 16),
                     Text(
                       '实时监控画面',
-                      style: TextStyle(fontSize: 18, color: AppColors.textHint, fontWeight: FontWeight.w500),
+                      style: TextStyle(fontSize: 18, color: context.palette.textHint, fontWeight: FontWeight.w500),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       '航点数量: ${widget.waypoints.length}',
-                      style: TextStyle(fontSize: 13, color: AppColors.textDisabled),
+                      style: TextStyle(fontSize: 13, color: context.palette.textDisabled),
                     ),
                   ],
                 ),
@@ -68,7 +77,7 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
           Expanded(
             flex: 2,
             child: Container(
-              color: AppColors.surface,
+              color: context.palette.surface,
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -88,7 +97,33 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
     );
   }
 
-  Widget _buildStatusBar(DeviceStatus? status) {
+  /// 设备状态告警播报：连接成功 / 连接断开 / 信号弱
+  void _handleStatus(WifiStatus status) {
+    if (!status.isConnected) {
+      if (_wasConnected) {
+        VoiceService.instance.speak(
+          '设备连接已断开',
+          priority: VoicePriority.alert,
+          dedup: const Duration(seconds: 30),
+        );
+      }
+      _wasConnected = false;
+      return;
+    }
+
+    _wasConnected = true;
+
+    // 与状态栏一致的判定：弱于 -75 dBm 提示信号弱
+    if (status.rssi <= -75) {
+      VoiceService.instance.speak(
+        '信号较弱，请注意作业安全',
+        priority: VoicePriority.status,
+        dedup: const Duration(seconds: 120),
+      );
+    }
+  }
+
+  Widget _buildStatusBar(WifiStatus? status) {
     final isConnected = status?.isConnected ?? false;
     return Container(
       padding: const EdgeInsets.all(12),
@@ -105,7 +140,7 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
           ),
           const SizedBox(width: 8),
           Text(
-            isConnected ? '设备已连接: ${status!.deviceName}' : '未连接设备',
+            isConnected ? '设备已连接: ${status!.displayName}' : '未连接设备',
             style: TextStyle(
               color: isConnected ? AppColors.primary : AppColors.error,
               fontWeight: FontWeight.w600,
@@ -114,9 +149,9 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
           ),
           const Spacer(),
           Text(
-            '信号: ${status?.signalStrength ?? 0}%',
+            '信号: ${status?.signalDisplay ?? "-- dBm"}',
             style: TextStyle(
-              color: (status?.signalStrength ?? 0) > 30 ? AppColors.primary : AppColors.warning,
+              color: (status?.rssi ?? -100) > -70 ? AppColors.primary : AppColors.warning,
               fontSize: 12,
             ),
           ),
@@ -125,7 +160,7 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
     );
   }
 
-  Widget _buildInfoGrid(DeviceStatus? status) {
+  Widget _buildInfoGrid(WifiStatus? status) {
     return GridView.count(
       crossAxisCount: 3,
       shrinkWrap: true,
@@ -134,7 +169,7 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
       crossAxisSpacing: 8,
       childAspectRatio: 1.3,
       children: [
-        _infoTile('电量', '${status?.batteryLevel ?? 0}%', Icons.battery_5_bar),
+        _infoTile('电量', '--', Icons.battery_5_bar),
         _infoTile('高度', '2.5 m', Icons.height),
         _infoTile('速度', '5.0 m/s', Icons.speed),
         _infoTile('喷洒量', '1.5 L/亩', Icons.water_drop),
@@ -148,7 +183,7 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: AppColors.background,
+        color: context.palette.background,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
@@ -157,7 +192,7 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
           Icon(icon, size: 18, color: AppColors.primary),
           const SizedBox(height: 4),
           Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-          Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textHint)),
+          Text(label, style:  TextStyle(fontSize: 10, color: context.palette.textHint)),
         ],
       ),
     );
@@ -171,7 +206,13 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
             _isFlying ? '暂停' : '起飞',
             _isFlying ? Icons.pause : Icons.flight_takeoff,
             _isFlying ? AppColors.warning : AppColors.primary,
-            () => setState(() => _isFlying = !_isFlying),
+            () {
+              setState(() => _isFlying = !_isFlying);
+              VoiceService.instance.speak(
+                _isFlying ? '作业开始，无人机已起飞' : '作业已暂停',
+                priority: VoicePriority.status,
+              );
+            },
           ),
         ),
         const SizedBox(width: 8),
@@ -180,7 +221,13 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
             _isSpraying ? '停止喷洒' : '开始喷洒',
             Icons.water_drop,
             _isSpraying ? AppColors.warning : AppColors.info,
-            () => setState(() => _isSpraying = !_isSpraying),
+            () {
+              setState(() => _isSpraying = !_isSpraying);
+              VoiceService.instance.speak(
+                _isSpraying ? '开始喷洒' : '已停止喷洒',
+                priority: VoicePriority.status,
+              );
+            },
           ),
         ),
         const SizedBox(width: 8),
@@ -189,7 +236,13 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
             '返航',
             Icons.flight_land,
             AppColors.accent,
-            () {},
+            () {
+              setState(() => _isSpraying = false);
+              VoiceService.instance.speak(
+                '正在返航，请保持信号通畅',
+                priority: VoicePriority.alert,
+              );
+            },
           ),
         ),
         const SizedBox(width: 8),
@@ -206,6 +259,10 @@ class _MissionMonitorPageState extends ConsumerState<MissionMonitorPage> {
                 _isFlying = false;
                 _isSpraying = false;
               });
+              VoiceService.instance.speak(
+                '已紧急停止',
+                priority: VoicePriority.alert,
+              );
             },
             icon: const Icon(Icons.stop, color: Colors.white),
           ),

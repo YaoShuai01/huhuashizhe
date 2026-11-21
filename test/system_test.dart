@@ -65,33 +65,59 @@ void main() {
         expect(find.byType(Center), findsOneWidget);
       });
 
-      testWidgets('白色背景', (tester) async {
-        await tester.pumpWidget(const MaterialApp(home: SplashPage()));
+      testWidgets('背景跟随主题', (tester) async {
+        await tester.pumpWidget(MaterialApp(
+          theme: AppTheme.lightTheme,
+          home: const SplashPage(),
+        ));
         final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
-        expect(scaffold.backgroundColor, Colors.white);
+        // 闪屏背景改为取主题语义色，深色模式下不再闪白底
+        expect(scaffold.backgroundColor, AppPalette.light.surface);
+      });
+
+      testWidgets('深色主题下背景变深', (tester) async {
+        await tester.pumpWidget(MaterialApp(
+          theme: AppTheme.darkTheme,
+          home: const SplashPage(),
+        ));
+        final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+        expect(scaffold.backgroundColor, AppPalette.dark.surface);
       });
     });
 
     // ==================== TC-SYS-02: SettingsPage ====================
     group('TC-SYS-02: 设置页', () {
-      testWidgets('三个开关存在', (tester) async {
+      testWidgets('六个开关存在', (tester) async {
         await tester.pumpWidget(providerScope(const SettingsPage()));
         await tester.pump();
         expect(find.text('设置'), findsOneWidget);
+        // 显示区：跟随系统 + 深色模式；功能区：推送通知 / 自动天气 / 语音播报 / 朗读AI回复
+        expect(find.text('跟随系统'), findsOneWidget);
         expect(find.text('深色模式'), findsOneWidget);
         expect(find.text('推送通知'), findsOneWidget);
         expect(find.text('自动获取天气'), findsOneWidget);
-        expect(find.byType(SwitchListTile), findsNWidgets(3));
+        expect(find.text('语音播报'), findsOneWidget);
+        // 新增「跟随系统」后视口变长，「朗读AI回复」落在首屏之外，先滚动到它
+        await tester.dragUntilVisible(
+          find.text('朗读AI回复'),
+          find.byType(ListView),
+          const Offset(0, -100),
+        );
+        expect(find.text('朗读AI回复'), findsOneWidget);
+        expect(find.byType(SwitchListTile), findsNWidgets(6));
       });
 
-      testWidgets('深色模式开关可切换', (tester) async {
+      testWidgets('主题开关状态正确', (tester) async {
         await tester.pumpWidget(providerScopeWithOverrides(const SettingsPage()));
         await tester.pump();
-        final switches = find.byType(Switch);
-        expect(switches, findsNWidgets(3));
-        // 验证开关存在且可交互
-        final switchFinder = find.byType(SwitchListTile);
-        expect(switchFinder, findsNWidgets(3));
+        // 默认「跟随系统」开启；此时深色模式开关置灰不可点。
+        // 注意 ListView 懒加载，只断言首屏内的前两个开关。
+        final tiles = tester
+            .widgetList<SwitchListTile>(find.byType(SwitchListTile))
+            .toList();
+        expect(tiles.length, greaterThanOrEqualTo(2));
+        expect(tiles[0].value, true); // 跟随系统
+        expect(tiles[1].onChanged, isNull); // 跟随系统时深色模式不可手动切换
       });
 
       testWidgets('分区标题存在', (tester) async {
@@ -122,7 +148,7 @@ void main() {
         await tester.tap(find.text('快速入门指南'));
         await tester.pump();
         // 应该能看到展开的内容
-        expect(find.textContaining('打开APP，确保蓝牙已开启'), findsOneWidget);
+        expect(find.textContaining('打开APP，确保 WiFi 已开启'), findsOneWidget);
       });
     });
 
@@ -271,7 +297,7 @@ void main() {
         await tester.pumpWidget(providerScope(const HelpPage()));
         await tester.pumpAndSettle();
         expect(find.text('帮助'), findsOneWidget);
-        expect(find.text('如何连接遥控器？'), findsOneWidget);
+        expect(find.text('如何连接无人机？'), findsOneWidget);
         expect(find.text('如何创建飞行任务？'), findsOneWidget);
         expect(find.text('作业区域面积太小怎么办？'), findsOneWidget);
         expect(find.text('离线可以使用吗？'), findsOneWidget);
@@ -282,9 +308,9 @@ void main() {
         await tester.pumpWidget(providerScope(const HelpPage()));
         await tester.pumpAndSettle();
         // 点击第一个FAQ
-        await tester.tap(find.text('如何连接遥控器？'));
+        await tester.tap(find.text('如何连接无人机？'));
         await tester.pumpAndSettle();
-        expect(find.textContaining('打开遥控器电源'), findsOneWidget);
+        expect(find.textContaining('HuHuaShiZhe-Drone'), findsOneWidget);
       });
     });
 

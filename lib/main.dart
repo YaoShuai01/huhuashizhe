@@ -1,21 +1,32 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'core/accessibility/elder_care_controller.dart';
+import 'core/accessibility/elder_care_reader.dart';
+import 'core/accessibility/elder_care_scope.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'data/local_database.dart';
+import 'providers/device_provider.dart';
+import 'providers/theme_provider.dart';
 import 'providers/update_provider.dart';
 import 'services/ai_suggestion_worker.dart';
 import 'services/model_hotupdate_service.dart';
+import 'services/schedule_service.dart';
+import 'services/voice_service.dart';
+import 'services/wifi_service.dart';
 import 'widgets/update_dialog.dart';
 import 'widgets/splash_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await LocalDatabase().init(); // 初始化本地数据持久化
+  unawaited(VoiceService.instance.init()); // 语音播报预热（系统TTS，不阻塞启动）
   AiSuggestionWorker().start(); // 生长检测AI建议：启动离线补全监听
   // 模型热更新：联网后静默检查/下载新模型（不阻塞启动，可重入安全）
   unawaited(ModelHotupdateService.instance.checkAndDownload());
+  // 轮协静默同步：已登录用户联网后自动拉取最新轮协并重排本地提醒
+  unawaited(ScheduleService.instance.syncSilently());
   runApp(
     const ProviderScope(
       child: HuHuaShiZheApp(),
@@ -23,14 +34,14 @@ void main() async {
   );
 }
 
-class HuHuaShiZheApp extends StatefulWidget {
+class HuHuaShiZheApp extends ConsumerStatefulWidget {
   const HuHuaShiZheApp({super.key});
 
   @override
-  State<HuHuaShiZheApp> createState() => _HuHuaShiZheAppState();
+  ConsumerState<HuHuaShiZheApp> createState() => _HuHuaShiZheAppState();
 }
 
-class _HuHuaShiZheAppState extends State<HuHuaShiZheApp> {
+class _HuHuaShiZheAppState extends ConsumerState<HuHuaShiZheApp> {
   bool _showSplash = true;
 
   @override
@@ -46,29 +57,48 @@ class _HuHuaShiZheAppState extends State<HuHuaShiZheApp> {
 
   @override
   Widget build(BuildContext context) {
+    // 主题模式来自设置页开关；跟随系统时由 platformBrightness 决定明暗。
+    final themeMode = ref.watch(themeModeProvider);
+
+    // 闪屏和主界面共用同一个 MaterialApp，避免夜间启动时白底闪一下。
     if (_showSplash) {
-      return const MaterialApp(
-        debugShowCheckedModeBanner: false,
-        home: SplashPage(),
-      );
-    }
-    return _UpdateChecker(
-      child: MaterialApp.router(
-        title: '护花使者',
+      return MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
-        themeMode: ThemeMode.system,
-        routerConfig: appRouter,
-        builder: (context, child) {
-          // 限制系统字体缩放最大1.2倍，防止大字号下卡片溢出报错
-          final mediaQuery = MediaQuery.of(context);
-          final clampedScale = mediaQuery.textScaler.clamp(maxScaleFactor: 1.2);
-          return MediaQuery(
-            data: mediaQuery.copyWith(textScaler: clampedScale),
-            child: child!,
-          );
-        },
+        themeMode: themeMode,
+        home: const SplashPage(),
+      );
+    }
+    return ElderCareScope(
+      controller: elderCareController,
+      child: _UpdateChecker(
+        child: MaterialApp.router(
+          title: '护花使者',
+          debugShowCheckedModeBanner: false,
+          theme: AppTheme.lightTheme,
+          darkTheme: AppTheme.darkTheme,
+          themeMode: themeMode,
+          routerConfig: appRouter,
+          builder: (context, child) {
+            // 老年关怀模式：全局放大小字号，并开启长按板块朗读
+            final elderCare = ElderCareScope.of(context);
+            final mediaQuery = MediaQuery.of(context);
+            final systemFactor = mediaQuery.textScaler.scale(16) / 16;
+            final factor = systemFactor *
+                (elderCare.enabled ? ElderCareController.textScaleFactor : 1.0);
+            final content = MediaQuery(
+              data: mediaQuery.copyWith(
+                textScaler:
+                    TextScaler.linear(factor.clamp(0.8, elderCare.enabled ? 1.6 : 1.2)),
+              ),
+              child: child!,
+            );
+            return elderCare.enabled
+                ? ElderCareReader(child: content)
+                : content;
+          },
+        ),
       ),
     );
   }
@@ -83,6 +113,9 @@ class _UpdateChecker extends ConsumerStatefulWidget {
 }
 
 class _UpdateCheckerState extends ConsumerState<_UpdateChecker> with WidgetsBindingObserver {
+  /// 上一次无人机 WiFi 连接状态；null 表示尚未收到初始状态
+  bool? _lastDroneConnected;
+
   @override
   void initState() {
     super.initState();
@@ -101,6 +134,7 @@ class _UpdateCheckerState extends ConsumerState<_UpdateChecker> with WidgetsBind
     // 应用从后台回到前台时自动刷新
     if (state == AppLifecycleState.resumed) {
       _checkUpdate();
+      unawaited(ScheduleService.instance.syncSilently());
     }
   }
 
@@ -125,6 +159,22 @@ class _UpdateCheckerState extends ConsumerState<_UpdateChecker> with WidgetsBind
           }
         });
       }
+    });
+
+    // 无人机 WiFi 连接成功播报：只在“未连接 → 已连接”时触发，
+    // 打开遥控页或 App 启动时已连接都不会误播。
+    ref.listen<AsyncValue<WifiStatus>>(deviceStatusProvider, (prev, next) {
+      final status = next.valueOrNull;
+      if (status == null) return;
+      final connected = status.isConnected;
+      if (_lastDroneConnected == false && connected) {
+        VoiceService.instance.speak(
+          '飞机连接成功',
+          priority: VoicePriority.status,
+          dedup: const Duration(seconds: 10),
+        );
+      }
+      _lastDroneConnected = connected;
     });
     return widget.child;
   }

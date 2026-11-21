@@ -14,6 +14,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.location.Geocoder
 import android.location.GnssStatus
 import android.location.GpsSatellite
@@ -22,12 +26,18 @@ import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
 import android.net.Uri
+import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.os.ParcelUuid
+import android.provider.Settings
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
+import android.view.Surface
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
@@ -43,6 +53,13 @@ class MainActivity : FlutterActivity() {
     private val LOCATION_CHANNEL = "com.huhuashizhe/location"
     private val BLUETOOTH_CHANNEL = "com.huhuashizhe/bluetooth"
     private val BLUETOOTH_EVENT_CHANNEL = "com.huhuashizhe/bluetooth_events"
+    private val WIFI_CHANNEL = "com.huhuashizhe/wifi"
+    private val WIFI_EVENT_CHANNEL = "com.huhuashizhe/wifi_events"
+    private val GNSS_EVENT_CHANNEL = "com.huhuashizhe/gnss_events"
+    private val COMPASS_EVENT_CHANNEL = "com.huhuashizhe/compass_events"
+    private val VOICE_CHANNEL = "com.huhuashizhe/voice_input"
+    private var voiceChannel: MethodChannel? = null
+    private var speechRecognizer: SpeechRecognizer? = null
     private var locationResult: MethodChannel.Result? = null
     private var locationManager: LocationManager? = null
     private var locationListener: LocationListener? = null
@@ -52,7 +69,17 @@ class MainActivity : FlutterActivity() {
 
     // GNSS卫星状态追踪（北斗+GPS+GLONASS+Galileo）
     private var gnssStatusCallback: GnssStatus.Callback? = null
-    private var satelliteInfo: Map<String, Int> = mapOf("gps" to 0, "beidou" to 0, "glonass" to 0, "galileo" to 0, "total" to 0)
+    private var satelliteInfo: Map<String, Int> =
+        mapOf("gps" to 0, "beidou" to 0, "glonass" to 0, "galileo" to 0, "total" to 0, "used" to 0)
+    private var gnssEventSink: EventChannel.EventSink? = null
+    private var gnssSatellites: List<Map<String, Any>> = emptyList()
+    private var gnssKeepAliveListener: LocationListener? = null
+
+    // 罗盘方向传感器
+    private var compassEventSink: EventChannel.EventSink? = null
+    private var sensorManager: SensorManager? = null
+    private var compassSensor: Sensor? = null
+    private var compassListener: SensorEventListener? = null
 
     // 蓝牙相关
     private var bluetoothAdapter: BluetoothAdapter? = null
@@ -62,6 +89,13 @@ class MainActivity : FlutterActivity() {
     private var scanTimeoutHandler: Handler? = null
     private var scanTimeoutRunnable: Runnable? = null
     private val discoveredDevices = mutableSetOf<String>()
+
+    // WiFi 相关
+    private var wifiEventSink: EventChannel.EventSink? = null
+    private var isWifiScanning = false
+    private var wifiScanTimeoutHandler: Handler? = null
+    private var wifiScanTimeoutRunnable: Runnable? = null
+    private var wifiReceiverRegistered = false
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -116,6 +150,87 @@ class MainActivity : FlutterActivity() {
                 "stopScan" -> stopBluetoothScan(result)
                 "getBondedDevices" -> getBondedDevices(result)
                 "isBluetoothEnabled" -> isBluetoothEnabled(result)
+                else -> result.notImplemented()
+            }
+        }
+
+        // WiFi 扫描事件通道
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, WIFI_EVENT_CHANNEL).setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    wifiEventSink = events
+                }
+                override fun onCancel(arguments: Any?) {
+                    wifiEventSink = null
+                }
+            }
+        )
+
+        // WiFi 控制通道
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, WIFI_CHANNEL).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "isWifiEnabled" -> result.success(wifiManager()?.isWifiEnabled == true)
+                "getCurrentSsid" -> result.success(currentWifiSsid())
+                "startScan" -> startWifiScan(result)
+                "stopScan" -> stopWifiScan(result)
+                "openWifiSettings" -> openWifiSettings(result)
+                else -> result.notImplemented()
+            }
+        }
+
+        // GNSS 逐星状态事件通道（实时卫星方位/仰角/信噪比）
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, GNSS_EVENT_CHANNEL).setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    gnssEventSink = events
+                    locationManager = getSystemService(LOCATION_SERVICE) as LocationManager
+                    if (ContextCompat.checkSelfPermission(
+                            this@MainActivity,
+                            Manifest.permission.ACCESS_FINE_LOCATION
+                        ) != PackageManager.PERMISSION_GRANTED
+                    ) {
+                        events?.error("permission", "需要定位权限才能搜星", null)
+                        return
+                    }
+                    startGnssMonitoring()
+                    startGnssKeepAlive()
+                    sendGnssSnapshot()
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    gnssEventSink = null
+                    stopGnssKeepAlive()
+                    if (locationResult == null) stopGnssMonitoring()
+                }
+            }
+        )
+
+        // 罗盘方向事件通道（手机朝向，供卫星罗盘指北）
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, COMPASS_EVENT_CHANNEL).setStreamHandler(
+            object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    compassEventSink = events
+                    startCompass()
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    compassEventSink = null
+                    stopCompass()
+                }
+            }
+        )
+
+        // 语音输入通道（论坛发帖/评论）
+        val voice = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, VOICE_CHANNEL)
+        voiceChannel = voice
+        voice.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "start" -> startVoiceRecognition(result)
+                "stop" -> {
+                    stopVoiceRecognition()
+                    result.success(true)
+                }
+                "isAvailable" -> result.success(SpeechRecognizer.isRecognitionAvailable(this))
                 else -> result.notImplemented()
             }
         }
@@ -346,25 +461,47 @@ class MainActivity : FlutterActivity() {
     @SuppressLint("MissingPermission")
     private fun startGnssMonitoring() {
         if (gnssStatusCallback != null) return // 已在监听
+        locationManager = locationManager ?: getSystemService(LOCATION_SERVICE) as LocationManager
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             gnssStatusCallback = object : GnssStatus.Callback() {
                 override fun onSatelliteStatusChanged(status: GnssStatus) {
                     var gps = 0; var beidou = 0; var glonass = 0; var galileo = 0; var used = 0
+                    val sats = mutableListOf<Map<String, Any>>()
                     for (i in 0 until status.satelliteCount) {
-                        if (status.usedInFix(i)) used++
-                        when (status.getConstellationType(i)) {
-                            GnssStatus.CONSTELLATION_GPS -> gps++
-                            GnssStatus.CONSTELLATION_BEIDOU -> beidou++
-                            GnssStatus.CONSTELLATION_GLONASS -> glonass++
-                            GnssStatus.CONSTELLATION_GALILEO -> galileo++
+                        val constellation = status.getConstellationType(i)
+                        val system = when (constellation) {
+                            GnssStatus.CONSTELLATION_GPS -> "gps"
+                            GnssStatus.CONSTELLATION_BEIDOU -> "beidou"
+                            GnssStatus.CONSTELLATION_GLONASS -> "glonass"
+                            GnssStatus.CONSTELLATION_GALILEO -> "galileo"
+                            else -> "unknown"
                         }
+                        val isUsed = status.usedInFix(i)
+                        if (isUsed) used++
+                        when (system) {
+                            "gps" -> gps++
+                            "beidou" -> beidou++
+                            "glonass" -> glonass++
+                            "galileo" -> galileo++
+                        }
+                        sats.add(mapOf(
+                            "system" to system,
+                            "constellation" to constellation,
+                            "svid" to status.getSvid(i),
+                            "azimuth" to status.getAzimuthDegrees(i).toDouble(),
+                            "elevation" to status.getElevationDegrees(i).toDouble(),
+                            "snr" to status.getCn0DbHz(i).toDouble(),
+                            "used" to isUsed
+                        ))
                     }
                     satelliteInfo = mapOf(
                         "gps" to gps, "beidou" to beidou,
                         "glonass" to glonass, "galileo" to galileo,
                         "total" to status.satelliteCount, "used" to used
                     )
+                    gnssSatellites = sats
+                    sendGnssSnapshot()
                 }
             }
             locationManager?.registerGnssStatusCallback(gnssStatusCallback!!)
@@ -379,21 +516,75 @@ class MainActivity : FlutterActivity() {
             if (event == GpsStatus.GPS_EVENT_SATELLITE_STATUS) {
                 val status = locationManager?.getGpsStatus(null)
                 if (status != null) {
-                    var gps = 0; var beidou = 0; var glonass = 0; var galileo = 0
+                    val sats = mutableListOf<Map<String, Any>>()
+                    var used = 0
                     val iter = status.satellites.iterator()
                     while (iter.hasNext()) {
                         val sat = iter.next()
+                        if (sat.usedInFix()) used++
                         // Android 6以下无法区分星座，全部归为GPS
-                        gps++
+                        sats.add(mapOf(
+                            "system" to "gps",
+                            "constellation" to 1,
+                            "svid" to sat.prn,
+                            "azimuth" to sat.azimuth.toDouble(),
+                            "elevation" to sat.elevation.toDouble(),
+                            "snr" to sat.snr.toDouble(),
+                            "used" to sat.usedInFix()
+                        ))
                     }
                     satelliteInfo = mapOf(
-                        "gps" to gps, "beidou" to beidou,
-                        "glonass" to glonass, "galileo" to galileo,
-                        "total" to gps, "used" to 0
+                        "gps" to sats.size, "beidou" to 0,
+                        "glonass" to 0, "galileo" to 0,
+                        "total" to sats.size, "used" to used
                     )
+                    gnssSatellites = sats
+                    sendGnssSnapshot()
                 }
             }
         }
+    }
+
+    /// 搜星页打开期间保持 GPS 引擎工作，保证卫星状态持续上报
+    @SuppressLint("MissingPermission")
+    private fun startGnssKeepAlive() {
+        if (gnssKeepAliveListener != null) return
+        locationManager = locationManager ?: getSystemService(LOCATION_SERVICE) as LocationManager
+        val listener = object : LocationListener {
+            override fun onLocationChanged(location: Location) {}
+            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
+            override fun onProviderEnabled(provider: String) {}
+            override fun onProviderDisabled(provider: String) {}
+        }
+        gnssKeepAliveListener = listener
+        try {
+            locationManager?.requestLocationUpdates(
+                LocationManager.GPS_PROVIDER, 1000L, 0f, listener, Looper.getMainLooper()
+            )
+        } catch (e: Exception) {
+            gnssKeepAliveListener = null
+        }
+    }
+
+    private fun stopGnssKeepAlive() {
+        gnssKeepAliveListener?.let {
+            try {
+                locationManager?.removeUpdates(it)
+            } catch (e: Exception) {}
+        }
+        gnssKeepAliveListener = null
+    }
+
+    private fun sendGnssSnapshot() {
+        val sink = gnssEventSink ?: return
+        val payload = mapOf(
+            "timestamp" to System.currentTimeMillis(),
+            "total" to (satelliteInfo["total"] ?: 0),
+            "used" to (satelliteInfo["used"] ?: 0),
+            "counts" to satelliteInfo,
+            "satellites" to gnssSatellites
+        )
+        runOnUiThread { sink.success(payload) }
     }
 
     private fun stopGnssMonitoring() {
@@ -408,6 +599,58 @@ class MainActivity : FlutterActivity() {
 
     private fun getSatelliteInfo(result: MethodChannel.Result) {
         result.success(satelliteInfo)
+    }
+
+    // ==================== 罗盘方向传感器 ====================
+
+    private fun startCompass() {
+        if (compassListener != null) return
+        sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
+        compassSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+            ?: sensorManager?.getDefaultSensor(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR)
+        val sensor = compassSensor
+        if (sensor == null) {
+            compassEventSink?.error("unavailable", "设备没有方向传感器", null)
+            return
+        }
+
+        val rotationMatrix = FloatArray(9)
+        val orientation = FloatArray(3)
+        val listener = object : SensorEventListener {
+            override fun onSensorChanged(event: SensorEvent) {
+                SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
+                SensorManager.getOrientation(rotationMatrix, orientation)
+                var degrees = Math.toDegrees(orientation[0].toDouble()).toFloat()
+                degrees = (degrees + 360f) % 360f
+
+                // 补偿屏幕方向，让 heading 相对于当前屏幕顶部
+                val screenRotation = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    display?.rotation ?: Surface.ROTATION_0
+                } else {
+                    @Suppress("DEPRECATION")
+                    windowManager.defaultDisplay.rotation
+                }
+                when (screenRotation) {
+                    Surface.ROTATION_90 -> degrees = (degrees + 90f) % 360f
+                    Surface.ROTATION_180 -> degrees = (degrees + 180f) % 360f
+                    Surface.ROTATION_270 -> degrees = (degrees + 270f) % 360f
+                }
+
+                compassEventSink?.success(mapOf(
+                    "heading" to degrees.toDouble(),
+                    "accuracy" to event.accuracy
+                ))
+            }
+
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+        }
+        compassListener = listener
+        sensorManager?.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_UI)
+    }
+
+    private fun stopCompass() {
+        compassListener?.let { sensorManager?.unregisterListener(it) }
+        compassListener = null
     }
 
     private fun reverseGeocode(lat: Double, lng: Double, result: MethodChannel.Result) {
@@ -433,6 +676,173 @@ class MainActivity : FlutterActivity() {
         }.start()
     }
 
+    // ==================== WiFi 扫描功能 ====================
+
+    private fun wifiManager(): WifiManager? =
+        applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
+
+    /// 当前连接的 WiFi 名称（SSID），未连接返回 null
+    private fun currentWifiSsid(): String? {
+        return try {
+            val wm = wifiManager() ?: return null
+            @Suppress("DEPRECATION")
+            val info = wm.connectionInfo
+            @Suppress("DEPRECATION")
+            val raw = info?.ssid ?: return null
+            val ssid = raw.trim('"')
+            if (ssid.isEmpty() || ssid == "<unknown ssid>") null else ssid
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun hasWifiScanPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.NEARBY_WIFI_DEVICES) == PackageManager.PERMISSION_GRANTED
+        } else {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        }
+    }
+
+    private fun requestWifiScanPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.NEARBY_WIFI_DEVICES, Manifest.permission.ACCESS_FINE_LOCATION),
+                1003
+            )
+        } else {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                1003
+            )
+        }
+    }
+
+    private fun startWifiScan(result: MethodChannel.Result?) {
+        val wm = wifiManager()
+        if (wm == null) {
+            result?.error("NO_WIFI", "设备不支持 WiFi", null)
+            return
+        }
+        if (!wm.isWifiEnabled) {
+            result?.error("WIFI_DISABLED", "WiFi 未开启", null)
+            return
+        }
+        if (!hasWifiScanPermission()) {
+            requestWifiScanPermission()
+            result?.error("NO_PERMISSION", "正在请求 WiFi 扫描权限，请稍后重试", null)
+            return
+        }
+        if (isWifiScanning) {
+            result?.success(true)
+            return
+        }
+
+        isWifiScanning = true
+        result?.success(true)
+
+        // 注册扫描结果广播（只注册一次）
+        if (!wifiReceiverRegistered) {
+            try {
+                registerReceiver(wifiScanReceiver, IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION))
+                wifiReceiverRegistered = true
+            } catch (e: Exception) {
+            }
+        }
+
+        // 先推送系统缓存的扫描结果，避免列表空白
+        emitWifiScanResults(wm)
+
+        try {
+            @Suppress("DEPRECATION")
+            wm.startScan()
+        } catch (e: Exception) {
+            // 部分机型限制主动扫描，使用缓存结果兜底
+        }
+
+        // 8 秒超时，避免一直处于扫描中
+        wifiScanTimeoutHandler = Handler(Looper.getMainLooper())
+        wifiScanTimeoutRunnable = Runnable { stopWifiScan(null) }
+        wifiScanTimeoutHandler?.postDelayed(wifiScanTimeoutRunnable!!, 8000)
+    }
+
+    private fun emitWifiScanResults(wm: WifiManager) {
+        val currentSsid = currentWifiSsid()
+        val results = try {
+            wm.scanResults
+        } catch (e: Exception) {
+            emptyList<android.net.wifi.ScanResult>()
+        }
+        for (item in results) {
+            val ssid = item.SSID ?: continue
+            if (ssid.isEmpty()) continue
+            val capabilities = item.capabilities ?: ""
+            val secured = capabilities.contains("WPA") ||
+                capabilities.contains("WEP") ||
+                capabilities.contains("SAE") ||
+                capabilities.contains("EAP")
+            wifiEventSink?.success(
+                mapOf(
+                    "type" to "network",
+                    "ssid" to ssid,
+                    "bssid" to (item.BSSID ?: ""),
+                    "rssi" to item.level,
+                    "secured" to secured,
+                    "isCurrent" to (ssid == currentSsid)
+                )
+            )
+        }
+    }
+
+    private fun stopWifiScan(result: MethodChannel.Result?) {
+        if (!isWifiScanning) {
+            result?.success(true)
+            return
+        }
+        isWifiScanning = false
+
+        wifiScanTimeoutRunnable?.let { wifiScanTimeoutHandler?.removeCallbacks(it) }
+        wifiScanTimeoutRunnable = null
+
+        try {
+            if (wifiReceiverRegistered) {
+                unregisterReceiver(wifiScanReceiver)
+                wifiReceiverRegistered = false
+            }
+        } catch (e: Exception) {
+        }
+
+        wifiEventSink?.success(mapOf("type" to "scanComplete"))
+        result?.success(true)
+    }
+
+    private val wifiScanReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == WifiManager.SCAN_RESULTS_AVAILABLE_ACTION) {
+                try {
+                    wifiManager()?.let { emitWifiScanResults(it) }
+                } catch (e: Exception) {
+                }
+                stopWifiScan(null)
+            }
+        }
+    }
+
+    /// Android 10+ 无法由应用直接连接 WiFi，跳系统设置由用户确认
+    private fun openWifiSettings(result: MethodChannel.Result) {
+        try {
+            val intent = Intent(Settings.ACTION_WIFI_SETTINGS).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+            result.success(true)
+        } catch (e: Exception) {
+            result.error("OPEN_FAILED", "无法打开 WiFi 设置: ${e.message}", null)
+        }
+    }
+
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 1001) {
@@ -447,6 +857,12 @@ class MainActivity : FlutterActivity() {
             // 蓝牙权限授予后重新开始扫描
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 startBluetoothScan(null)
+            }
+        }
+        if (requestCode == 1003) {
+            // WiFi 扫描权限授予后重新开始扫描
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                startWifiScan(null)
             }
         }
     }
@@ -674,8 +1090,105 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    // ==================== 语音输入 ====================
+
+    private fun startVoiceRecognition(result: MethodChannel.Result) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            result.error("NO_PERMISSION", "缺少麦克风权限", null)
+            return
+        }
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            result.error("UNAVAILABLE", "设备不支持语音识别，请先安装语音服务", null)
+            return
+        }
+        if (speechRecognizer == null) {
+            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this).also {
+                it.setRecognitionListener(voiceListener)
+            }
+        }
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "zh-CN")
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "zh-CN")
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        }
+        try {
+            speechRecognizer?.startListening(intent)
+            result.success(true)
+        } catch (e: Exception) {
+            result.error("START_FAILED", "语音识别启动失败: ${e.message}", null)
+        }
+    }
+
+    private fun stopVoiceRecognition() {
+        try {
+            speechRecognizer?.stopListening()
+        } catch (e: Exception) {
+        }
+        try {
+            speechRecognizer?.cancel()
+            speechRecognizer?.destroy()
+        } catch (e: Exception) {
+        }
+        speechRecognizer = null
+    }
+
+    private fun emitVoice(state: String, text: String? = null) {
+        val payload = mutableMapOf<String, Any>("state" to state)
+        if (text != null) payload["text"] = text
+        runOnUiThread { voiceChannel?.invokeMethod("onVoiceEvent", payload) }
+    }
+
+    private val voiceListener = object : RecognitionListener {
+        override fun onReadyForSpeech(params: Bundle?) = emitVoice("listening")
+        override fun onBeginningOfSpeech() {}
+        override fun onRmsChanged(rmsdB: Float) {}
+        override fun onBufferReceived(buffer: ByteArray?) {}
+        override fun onEndOfSpeech() = emitVoice("processing")
+        override fun onEvent(eventType: Int, params: Bundle?) {}
+
+        override fun onError(error: Int) {
+            emitVoice("error", voiceErrorMessage(error))
+        }
+
+        override fun onResults(results: Bundle?) {
+            val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+            if (text.isNullOrBlank()) {
+                emitVoice("error", "未识别到语音内容")
+            } else {
+                emitVoice("result", text)
+            }
+        }
+
+        override fun onPartialResults(partialResults: Bundle?) {
+            val text = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+            if (!text.isNullOrBlank()) emitVoice("partial", text)
+        }
+    }
+
+    private fun voiceErrorMessage(error: Int): String = when (error) {
+        SpeechRecognizer.ERROR_AUDIO -> "录音出错，请重试"
+        SpeechRecognizer.ERROR_CLIENT -> "语音识别已取消"
+        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> "缺少麦克风权限"
+        SpeechRecognizer.ERROR_NETWORK -> "网络异常，请检查连接后重试"
+        SpeechRecognizer.ERROR_NETWORK_TIMEOUT -> "网络超时，请重试"
+        SpeechRecognizer.ERROR_NO_MATCH -> "未识别到语音内容"
+        SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> "识别服务忙，请稍后重试"
+        SpeechRecognizer.ERROR_SERVER -> "语音识别服务异常"
+        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "没有检测到说话，请重试"
+        else -> "语音识别失败，请重试"
+    }
+
     override fun onDestroy() {
         stopBluetoothScan(null)
+        stopWifiScan(null)
+        stopGnssKeepAlive()
+        stopGnssMonitoring()
+        stopCompass()
+        stopVoiceRecognition()
         super.onDestroy()
     }
 }

@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/update_service.dart';
@@ -7,6 +7,9 @@ import '../../../widgets/update_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_version.dart' show appVersion;
+import '../../forum/data/forum_models.dart';
+import '../../forum/data/forum_repository.dart';
+import '../../forum/forum_scope.dart';
 
 // ========== 操作文档页 ==========
 class ManualPage extends StatelessWidget {
@@ -15,7 +18,7 @@ class ManualPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final manuals = [
-      {'title': '快速入门指南', 'icon': Icons.rocket_launch, 'content': '1. 打开APP，确保蓝牙已开启\n2. 点击"设备连接"搜索并配对遥控器\n3. 在首页点击"创建飞行任务"\n4. 在地图上圈选作业区域\n5. 确认飞行参数后启动任务\n\n首次使用建议在空旷场地进行试飞，熟悉操作流程。'},
+      {'title': '快速入门指南', 'icon': Icons.rocket_launch, 'content': '1. 打开APP，确保 WiFi 已开启\n2. 点击"设备连接"扫描并连接 HuHuaShiZhe-Drone 热点\n3. 在首页点击"创建飞行任务"\n4. 在地图上圈选作业区域\n5. 确认飞行参数后启动任务\n\n首次使用建议在空旷场地进行试飞，熟悉操作流程。'},
       {'title': '飞行参数设置说明', 'icon': Icons.settings, 'content': '飞行高度：建议1.5-3米，根据作物高度调整\n飞行速度：建议3-6米/秒，喷洒作业建议4米/秒\n行距：根据喷幅宽度设置，通常为喷幅的80%\n喷洒量：根据农药说明和作物类型设置\n\n以上参数可在AI助手中获取智能推荐。'},
       {'title': '安全操作规范', 'icon': Icons.security, 'content': '1. 作业前检查无人机电池、螺旋桨状态\n2. 远离高压线、人群、建筑物\n3. 风速超过5级禁止飞行\n4. 佩戴防护口罩和手套\n5. 作业区域设置警示标识\n6. 禁止在雨天或大雾天气作业\n7. 农药配制时远离水源\n8. 作业完成后及时清洗设备'},
       {'title': '农药使用指南', 'icon': Icons.science, 'content': '安全间隔期：\n- 水稻：不少于15天\n- 小麦：不少于20天\n- 蔬菜：不少于7-14天\n\n混用禁忌：\n- 酸性农药不能与碱性农药混用\n- 铜制剂与多数农药不能混用\n- 有机磷类与碱性农药不能混用\n\n药液配制：\n- 先加水再加药\n- 充分搅拌至完全溶解\n- 现配现用，不宜久置'},
@@ -38,7 +41,7 @@ class ManualPage extends StatelessWidget {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                   child: Text(m['content'] as String,
-                    style: const TextStyle(fontSize: 14, height: 1.7, color: AppColors.textSecondary),
+                    style:  TextStyle(fontSize: 14, height: 1.7, color: context.palette.textSecondary),
                   ),
                 ),
               ],
@@ -63,21 +66,21 @@ class FeatureIntroPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _featureCard('飞行任务', Icons.flight_takeoff, '创建植保作业任务，在地图上圈选作业区域，自动规划飞行路线，支持航点编辑和微调。'),
-            _featureCard('AI助手', Icons.auto_awesome, '基于小米MiMo大模型的智能植保助手，提供病虫害诊断、用药推荐、飞行参数优化等专业建议。'),
-            _featureCard('预设管理', Icons.bookmark, '保存常用作业参数为预设，一键调用。支持飞行高度、速度、喷洒量等参数的自定义配置。'),
-            _featureCard('天气信息', Icons.cloud, '实时显示当前位置天气（数据来源：中国气象局），包括温度、风向、风速、湿度，支持风力预警。'),
-            _featureCard('设备连接', Icons.bluetooth, '通过蓝牙连接无人机遥控器，实时查看设备状态、电量、信号强度等信息。'),
-            _featureCard('小课堂', Icons.school, '内置植保知识库，涵盖水稻、小麦、玉米等多种作物的病虫害防治技术，持续更新中。'),
-            _featureCard('作业记录', Icons.history, '查看历史作业详情，包括作业面积、飞行时长、用药量等统计信息。'),
-            _featureCard('在线更新', Icons.system_update, '自动检测GitHub最新版本，支持在线下载和安装更新。'),
+            _featureCard(context, '飞行任务', Icons.flight_takeoff, '创建植保作业任务，在地图上圈选作业区域，自动规划飞行路线，支持航点编辑和微调。'),
+            _featureCard(context, 'AI助手', Icons.auto_awesome, '基于千问AI大模型的智能植保助手，提供病虫害诊断、用药推荐、飞行参数优化等专业建议。'),
+            _featureCard(context, '预设管理', Icons.bookmark, '保存常用作业参数为预设，一键调用。支持飞行高度、速度、喷洒量等参数的自定义配置。'),
+            _featureCard(context, '天气信息', Icons.cloud, '实时显示当前位置天气（数据来源：中国气象局），包括温度、风向、风速、湿度，支持风力预警。'),
+            _featureCard(context, '设备连接', Icons.wifi, '扫描周边 WiFi 并连接无人机热点，实时查看连接状态与信号强度。'),
+            _featureCard(context, '小课堂', Icons.school, '内置植保知识库，涵盖水稻、小麦、玉米等多种作物的病虫害防治技术，持续更新中。'),
+            _featureCard(context, '作业记录', Icons.history, '查看历史作业详情，包括作业面积、飞行时长、用药量等统计信息。'),
+            _featureCard(context, '在线更新', Icons.system_update, '自动检测自有服务器最新版本，支持在线下载和安装更新。'),
           ],
         ),
       ),
     );
   }
 
-  Widget _featureCard(String title, IconData icon, String desc) {
+  Widget _featureCard(BuildContext context, String title, IconData icon, String desc) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -100,7 +103,7 @@ class FeatureIntroPage extends StatelessWidget {
                 children: [
                   Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
                   const SizedBox(height: 4),
-                  Text(desc, style: const TextStyle(color: AppColors.textSecondary, fontSize: 14, height: 1.5)),
+                  Text(desc, style:  TextStyle(color: context.palette.textSecondary, fontSize: 14, height: 1.5)),
                 ],
               ),
             ),
@@ -122,28 +125,28 @@ class OpenSourceLicensePage extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          _licenseItem('Flutter', 'BSD 3-Clause', 'Google'),
-          _licenseItem('flutter_map', 'BSD 3-Clause', 'fleaflet'),
-          _licenseItem('latlong2', 'MIT', 'johnpryan'),
-          _licenseItem('go_router', 'BSD 3-Clause', 'Flutter'),
-          _licenseItem('flutter_riverpod', 'MIT', 'Remi Rousselet'),
-          _licenseItem('dio', 'MIT', 'cfug'),
-          _licenseItem('path_provider', 'BSD 3-Clause', 'Flutter'),
-          _licenseItem('proj4dart', 'MIT', 'maRci002'),
-          _licenseItem('intl', 'BSD 3-Clause', 'Dart'),
-          _licenseItem('小米MiMo大模型', '商用许可', '小米集团'),
-          _licenseItem('中国天气网', '公共服务', '中国气象局'),
+          _licenseItem(context, 'Flutter', 'BSD 3-Clause', 'Google'),
+          _licenseItem(context, 'flutter_map', 'BSD 3-Clause', 'fleaflet'),
+          _licenseItem(context, 'latlong2', 'MIT', 'johnpryan'),
+          _licenseItem(context, 'go_router', 'BSD 3-Clause', 'Flutter'),
+          _licenseItem(context, 'flutter_riverpod', 'MIT', 'Remi Rousselet'),
+          _licenseItem(context, 'dio', 'MIT', 'cfug'),
+          _licenseItem(context, 'path_provider', 'BSD 3-Clause', 'Flutter'),
+          _licenseItem(context, 'proj4dart', 'MIT', 'maRci002'),
+          _licenseItem(context, 'intl', 'BSD 3-Clause', 'Dart'),
+          _licenseItem(context, '千问AI大模型', '商用许可', '千问AI平台'),
+          _licenseItem(context, '中国天气网', '公共服务', '中国气象局'),
         ],
       ),
     );
   }
 
-  Widget _licenseItem(String name, String license, String author) {
+  Widget _licenseItem(BuildContext context, String name, String license, String author) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         title: Text(name, style: const TextStyle(fontWeight: FontWeight.w500)),
-        subtitle: Text(author, style: const TextStyle(fontSize: 13, color: AppColors.textHint)),
+        subtitle: Text(author, style:  TextStyle(fontSize: 13, color: context.palette.textHint)),
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
@@ -172,7 +175,7 @@ class LegalDetailPage extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Text(
           content,
-          style: const TextStyle(fontSize: 15, height: 1.8, color: AppColors.textSecondary),
+          style:  TextStyle(fontSize: 15, height: 1.8, color: context.palette.textSecondary),
         ),
       ),
     );
@@ -191,11 +194,11 @@ class NotificationPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.notifications_none, size: 80, color: AppColors.textDisabled.withValues(alpha: 0.5)),
+            Icon(Icons.notifications_none, size: 80, color: context.palette.textDisabled.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
-            const Text('暂无通知', style: TextStyle(fontSize: 18, color: AppColors.textHint)),
+             Text('暂无通知', style: TextStyle(fontSize: 18, color: context.palette.textHint)),
             const SizedBox(height: 8),
-            const Text('作业完成、天气预警等通知将显示在这里', style: TextStyle(fontSize: 14, color: AppColors.textDisabled)),
+             Text('作业完成、天气预警等通知将显示在这里', style: TextStyle(fontSize: 14, color: context.palette.textDisabled)),
           ],
         ),
       ),
@@ -215,11 +218,11 @@ class MissionHistoryPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.history, size: 80, color: AppColors.textDisabled.withValues(alpha: 0.5)),
+            Icon(Icons.history, size: 80, color: context.palette.textDisabled.withValues(alpha: 0.5)),
             const SizedBox(height: 16),
-            const Text('暂无作业记录', style: TextStyle(fontSize: 18, color: AppColors.textHint)),
+             Text('暂无作业记录', style: TextStyle(fontSize: 18, color: context.palette.textHint)),
             const SizedBox(height: 8),
-            const Text('完成飞行任务后，作业记录将显示在这里', style: TextStyle(fontSize: 14, color: AppColors.textDisabled)),
+             Text('完成飞行任务后，作业记录将显示在这里', style: TextStyle(fontSize: 14, color: context.palette.textDisabled)),
           ],
         ),
       ),
@@ -277,7 +280,7 @@ class _AccountPageState extends State<AccountPage> {
               ),
             ),
             const SizedBox(height: 24),
-            const Card(
+             Card(
               child: Padding(
                 padding: EdgeInsets.all(16),
                 child: Column(
@@ -287,7 +290,7 @@ class _AccountPageState extends State<AccountPage> {
                     SizedBox(height: 8),
                     Text(
                       '当前版本所有数据存储在本地设备中。卸载APP将导致所有数据丢失，包括预设、作业记录、设备配对信息等。后续版本将支持云端备份功能。',
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 14, height: 1.6),
+                      style: TextStyle(color: context.palette.textSecondary, fontSize: 14, height: 1.6),
                     ),
                   ],
                 ),
@@ -319,48 +322,206 @@ class _AccountPageState extends State<AccountPage> {
   }
 }
 
-class FeedbackPage extends StatelessWidget {
-  const FeedbackPage({super.key});
+class FeedbackPage extends StatefulWidget {
+  const FeedbackPage({super.key, this.repository});
+
+  /// 外部注入的论坛数据源，为空时取 ForumScope 或默认实现
+  final ForumRepository? repository;
+
+  @override
+  State<FeedbackPage> createState() => _FeedbackPageState();
+}
+
+class _FeedbackPageState extends State<FeedbackPage> {
+  /// 与论坛「管理区 - 意见反馈」共用同一个版块
+  static const String _section = '意见反馈';
+
+  final _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  ForumRepository get _repository =>
+      widget.repository ?? ForumScope.of(context);
+
+  void _submit() {
+    final text = _ctrl.text.trim();
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('请填写反馈内容')));
+      return;
+    }
+    final summary = text.length > 20 ? '${text.substring(0, 20)}…' : text;
+    _repository.publish(
+      section: _section,
+      title: '意见反馈：$summary',
+      content: text,
+    );
+    _ctrl.clear();
+    FocusScope.of(context).unfocus();
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('已提交，可在论坛「管理区 - 意见反馈」查看'),
+          action: SnackBarAction(
+            label: '去查看',
+            onPressed: () =>
+                context.push('/forum/section', extra: _section),
+          ),
+        ),
+      );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final repository = _repository;
     return Scaffold(
-      appBar: AppBar(title: const Text('反馈')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            TextField(
-              maxLines: 6,
-              decoration: const InputDecoration(
-                hintText: '请描述您遇到的问题或建议...',
-                alignLabelWithHint: true,
+      appBar: AppBar(title: Text('反馈')),
+      body: AnimatedBuilder(
+        animation: repository,
+        builder: (context, _) {
+          final records = repository.myPosts
+              .where((post) => post.section == _section)
+              .toList();
+          return ListView(
+            padding: EdgeInsets.all(16),
+            children: [
+              TextField(
+                controller: _ctrl,
+                maxLines: 6,
+                decoration: InputDecoration(
+                  hintText: '请描述您遇到的问题或建议...',
+                  alignLabelWithHint: true,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.attach_file),
-              label: const Text('上传截图（可选）'),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
+              SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: () {},
+                icon: Icon(Icons.attach_file),
+                label: Text('上传截图（可选）'),
+                style: OutlinedButton.styleFrom(
+                  padding: EdgeInsets.symmetric(vertical: 14),
+                ),
               ),
-            ),
-            const Spacer(),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('感谢您的反馈！')),
-                  );
-                  Navigator.pop(context);
-                },
-                child: const Text('提交反馈'),
+              SizedBox(height: 8),
+              Text(
+                '提交后会同步到论坛「管理区 - 意见反馈」，管理员回复后可在下方查看。',
+                style: TextStyle(fontSize: 12, color: context.palette.textHint),
               ),
-            ),
-            const SizedBox(height: 16),
-          ],
+              SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _submit,
+                  child: Text('提交反馈'),
+                ),
+              ),
+              SizedBox(height: 24),
+              Text(
+                '我的反馈记录 ${records.length} 条',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: context.palette.textPrimary,
+                ),
+              ),
+              SizedBox(height: 8),
+              if (records.isEmpty)
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(
+                    child: Text(
+                      '还没有提交过反馈',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: context.palette.textHint,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                for (final post in records)
+                  _recordTile(repository, post),
+              SizedBox(height: 16),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _recordTile(ForumRepository repository, ForumPost post) {
+    final replyCount = repository.commentsOf(post.id).length;
+    final String status;
+    if (post.pendingReview) {
+      status = '待复审';
+    } else if (replyCount > 0) {
+      status = '已回复 $replyCount';
+    } else {
+      status = '待回复';
+    }
+    final replied = replyCount > 0;
+    return Card(
+      margin: EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => context.push('/forum/post', extra: post),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(14, 12, 14, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      post.content,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 1.45,
+                        color: context.palette.textPrimary,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: (replied ? AppColors.primary : AppColors.accent)
+                          .withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      status,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: replied ? AppColors.primary : AppColors.accent,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 6),
+              Text(
+                forumTimeText(post.createdAt),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: context.palette.textHint,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -394,10 +555,10 @@ class AboutPage extends ConsumerWidget {
                   const SizedBox(height: 16),
                   const Text('护花使者', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 4),
-                  const Text('v$appVersion', style: TextStyle(color: AppColors.textHint, fontSize: 14)),
+                   Text('v$appVersion', style: TextStyle(color: context.palette.textHint, fontSize: 14)),
                   const SizedBox(height: 4),
-                  const Text('智能植保无人机操控平台',
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+                   Text('智能植保无人机操控平台',
+                      style: TextStyle(color: context.palette.textSecondary, fontSize: 14)),
                 ],
               ),
             ),
@@ -420,17 +581,17 @@ class AboutPage extends ConsumerWidget {
             ),
             const Divider(),
             const SizedBox(height: 16),
-            const Padding(
+             Padding(
               padding: EdgeInsets.symmetric(horizontal: 24),
               child: Text(
                 '本应用地图数据来源于国内互联网地图服务，版权归相应服务提供方所有，仅用于非商业教学演示用途。',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textHint, fontSize: 12, height: 1.5),
+                style: TextStyle(color: context.palette.textHint, fontSize: 12, height: 1.5),
               ),
             ),
             const SizedBox(height: 8),
-            const Text('Copyright 2025 护花使者团队',
-                style: TextStyle(color: AppColors.textHint, fontSize: 12)),
+             Text('Copyright 2025 护花使者团队',
+                style: TextStyle(color: context.palette.textHint, fontSize: 12)),
             const SizedBox(height: 40),
           ],
         ),
@@ -445,7 +606,7 @@ class HelpPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final faqs = [
-      {'q': '如何连接遥控器？', 'a': '打开遥控器电源，确保蓝牙可见。在APP中点击"设备连接"，选择发现的遥控器设备进行配对。'},
+      {'q': '如何连接无人机？', 'a': '给无人机上电后会建立 HuHuaShiZhe-Drone WiFi 热点。在APP中点击"设备连接"，选择该热点后按系统提示连接，返回APP即可看到已连接状态。'},
       {'q': '如何创建飞行任务？', 'a': '在首页点击"创建飞行任务"，在地图上圈选作业区域，AI将自动为您推荐最佳飞行参数。'},
       {'q': '作业区域面积太小怎么办？', 'a': '无人机的作业区域不能小于0.5亩。请扩大圈选范围或选择更大的作业区域。'},
       {'q': '离线可以使用吗？', 'a': '地图圈选、预设管理、作业记录等核心功能支持离线使用。天气数据和AI助手需要网络连接。'},
@@ -465,7 +626,7 @@ class HelpPage extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
                       child: Text(faq['a']!,
-                          style: const TextStyle(color: AppColors.textSecondary, fontSize: 14, height: 1.6)),
+                          style:  TextStyle(color: context.palette.textSecondary, fontSize: 14, height: 1.6)),
                     ),
                   ],
                 ),
@@ -520,7 +681,7 @@ class LegalPage extends StatelessWidget {
                   '我们非常重视您的隐私保护。\n\n'
                   '一、信息收集\n'
                   '1. 位置信息：用于获取当地天气和地图定位\n'
-                  '2. 蓝牙信息：用于连接无人机遥控器\n'
+                  '2. WiFi 信息：用于扫描并连接无人机热点\n'
                   '3. 设备信息：APP版本、设备型号等基础信息\n\n'
                   '二、信息使用\n'
                   '1. 位置信息仅用于天气显示和地图服务\n'
@@ -531,7 +692,7 @@ class LegalPage extends StatelessWidget {
                   '2. 我们不会向第三方分享您的个人信息\n\n'
                   '四、权限说明\n'
                   '1. 位置权限：用于GPS定位和天气获取\n'
-                  '2. 蓝牙权限：用于设备连接\n'
+                  '2. WiFi 与定位权限：用于扫描周边 WiFi 网络\n'
                   '3. 存储权限：用于APK更新下载和本地数据存储',
             }),
           ),
@@ -606,7 +767,7 @@ void _showStatusDialog(BuildContext context, IconData icon, String title, String
               const SizedBox(height: 6),
               Text(message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                style:  TextStyle(fontSize: 13, color: context.palette.textSecondary),
               ),
             ],
           ),
@@ -634,12 +795,12 @@ class VersionInfoPage extends ConsumerWidget {
             _buildCheckUpdateButton(context, ref),
             // 后台下载进度条（选择"后台更新"后显示在这里）
             if (updateState.status == UpdateStatus.downloading)
-              _buildBackgroundDownloadCard(updateState),
+              _buildBackgroundDownloadCard(context, updateState),
             if (updateState.status == UpdateStatus.downloaded)
-              _buildBackgroundDownloadCard(updateState),
+              _buildBackgroundDownloadCard(context, updateState),
             if (updateState.status == UpdateStatus.error &&
                 updateState.background)
-              _buildBackgroundDownloadCard(updateState),
+              _buildBackgroundDownloadCard(context, updateState),
             const SizedBox(height: 24),
             const Text('更新日志', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
@@ -652,7 +813,7 @@ class VersionInfoPage extends ConsumerWidget {
   }
 
   /// 后台更新下载状态卡片（进度 / 完成 / 失败）
-  Widget _buildBackgroundDownloadCard(UpdateState state) {
+  Widget _buildBackgroundDownloadCard(BuildContext context, UpdateState state) {
     final info = state.updateInfo;
     final downloading = state.status == UpdateStatus.downloading;
     final failed = state.status == UpdateStatus.error;
@@ -661,7 +822,7 @@ class VersionInfoPage extends ConsumerWidget {
       margin: const EdgeInsets.only(top: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.palette.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: failed
@@ -712,7 +873,7 @@ class VersionInfoPage extends ConsumerWidget {
               child: LinearProgressIndicator(
                 value: state.progress,
                 minHeight: 6,
-                backgroundColor: AppColors.surfaceVariant,
+                backgroundColor: context.palette.surfaceVariant,
                 valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
               ),
             ),
@@ -721,7 +882,7 @@ class VersionInfoPage extends ConsumerWidget {
             const SizedBox(height: 8),
             Text(
               state.errorMessage,
-              style: const TextStyle(fontSize: 12, color: AppColors.textHint),
+              style:  TextStyle(fontSize: 12, color: context.palette.textHint),
             ),
           ],
         ],
@@ -782,6 +943,222 @@ class VersionInfoPage extends ConsumerWidget {
 
   List<Widget> _buildUpdateHistory() {
     final histories = [
+      {
+        'version': 'v3.7.1',
+        'date': '2026-11-21',
+        'content': [
+          '田哨农场手机端优化：窄屏适配、作物/操作按钮网格排版、触摸目标加大',
+          '限制农场页面缩放，去掉点按高亮，修复水滴动画类名冲突',
+          '首页宫格新增田哨农场直达入口',
+        ],
+      },
+      {
+        'version': 'v3.7.0',
+        'date': '2026-11-21',
+        'content': [
+          '新增田哨预警：寒潮/病虫害提醒、田块登记与云端田哨同步',
+          '新增田哨农场游戏，首页「田哨预警」可进入',
+          '预警卡/田块卡支持一键预约飞防，自动预填作物、亩数、地点',
+          '田哨页补齐深色模式配色',
+          '修复论坛评论发送需要重复点击的问题，发送中显示加载状态',
+        ],
+      },
+      {
+        'version': 'v3.6.0',
+        'date': '2026-11-21',
+        'content': [
+          '底部导航「服务」改为「社区」，论坛入口调整到社区页内',
+          '飞防预约新增接单前确认、5 秒倒计时、12 小时后取消收费规则',
+          '新增飞手资料页、接单状态保留与其他作物自定义',
+          '服务模块页面补齐深色模式配色',
+        ],
+      },
+      {
+        'version': 'v3.5.0',
+        'date': '2026-11-21',
+        'content': [
+          '新增「服务」页：小课堂、预约飞防、论坛入口集中展示',
+          '新增无人机飞防预约：农户端按亩计价、飞手端接单工作台',
+          '论坛点赞状态按用户记录：未点赞白空心、点赞后琥珀橙',
+          '反馈与论坛「管理区 - 意见反馈」互通，可查看回复',
+          '服务模块页面的深色模式适配将在后续版本继续完善',
+        ],
+      },
+      {
+        'version': 'v3.4.5',
+        'date': '2026-11-21',
+        'content': [
+          '修复设置页「深色模式」开关不生效的问题',
+          '新增「跟随系统」开关：开启时主题跟随系统，关闭后可手动切换深色/浅色',
+          '深色模式下卡片、文字、对话框、闪屏全面适配，不再出现白卡片或黑字看不清',
+          '遥控器与 GPS 测速页保持设计上的固定深色，不受主题切换影响',
+        ],
+      },
+      {
+        'version': 'v3.4.4',
+        'date': '2026-11-20',
+        'content': [
+          '遥控器微调面板新增「旋转（航向）」微调，可修正缓慢自转，每步 0.5°/s，范围 ±10°/s',
+          '飞控固件同步支持航向微调，参数永久保存，重启后仍生效',
+          '微调面板改为前后/左右/旋转三列布局，横屏与小屏均完整显示',
+          '设置页「清除无人机微调数据」同步清零旋转微调',
+        ],
+      },
+      {
+        'version': 'v3.4.3',
+        'date': '2026-11-20',
+        'content': [
+          '修复遥控器「微调」面板在横屏/小屏下被裁切的问题，改为全高可滚动布局，加减按钮加大更好点按',
+          '恢复老年关怀模式：全局字号放大，长按板块即可朗读全软件文字',
+          '论坛新增 AI 内容初审（违规驳回/待人工复审）、评论表情包、消息铃铛未读角标',
+          '修复论坛点赞数越点越少的问题',
+          '应用更新只走自有服务器，不再检查或下载 GitHub Release',
+        ],
+      },
+      {
+        'version': 'v3.4.2',
+        'date': '2026-11-20',
+        'content': [
+          '遥控器新增「微调」面板：支持前后、左右微调，微调数据永久保存在无人机',
+          '遥控器新增陀螺仪校准按钮，静止时一键归零陀螺零偏',
+          '设置页新增「清除无人机微调数据」，一键恢复出厂微调',
+          '模型热更新改由自有阿里云服务器分发，下载更快更稳定',
+          '修复飞控定时器驱动冲突导致的启动异常',
+        ],
+      },
+      {
+        'version': 'v3.3.1',
+        'date': '2026-11-19',
+        'content': [
+          '更新检查与安装包下载切换到自有阿里云服务器，不再依赖 GitHub',
+          '论坛发帖与评论支持系统语音输入，自动申请麦克风权限',
+          '论坛新增帖子详情页：查看评论、收藏帖子与消息分类',
+          '论坛新增返回按钮与下拉刷新，切换标签页时保持浏览位置',
+        ],
+      },
+      {
+        'version': 'v3.3.0',
+        'date': '2026-11-19',
+        'content': [
+          '论坛发帖与评论支持系统语音输入，自动申请麦克风权限',
+          '论坛新增帖子详情页：查看评论、收藏帖子与消息分类',
+          '论坛新增返回按钮与下拉刷新，切换标签页时保持浏览位置',
+        ],
+      },
+      {
+        'version': 'v3.1.1',
+        'date': '2026-11-19',
+        'content': [
+          'AI 助手服务由小米 MiMo 切换为千问AI平台，修复余额不足导致 AI 无法回复的问题',
+          '默认模型调整为 qwen3.8-flash 并关闭思考模式，回复更快、调用成本更低',
+          '关于页 AI 助手说明与第三方许可信息同步更新',
+        ],
+      },
+      {
+        'version': 'v3.1.0',
+        'date': '2026-11-19',
+        'content': [
+          '新增白菜病虫害四分类识别模型：菜青虫、霜霉病、白菜螟、健康',
+          '模型支持 448×448 输入并内置在 App 中，断网也能在模型测试页选择使用',
+        ],
+      },
+      {
+        'version': 'v3.0.0',
+        'date': '2026-11-18',
+        'content': [
+          '全新论坛模块：分区浏览、发帖、评论回复与消息通知，底部导航新增“论坛”入口',
+          '新增北斗/GPS 卫星地图与搜星罗盘：实时卫星方位、仰角、信噪比，支持卫星影像与精度圈',
+          '新增离线语音播报：飞机连接、病虫害识别、作业告警与 AI 回复均可朗读，可在设置中开关',
+          '全局深色科技风与横屏体验优化，修复搜星页返回后变竖屏的问题',
+          '轮协成员在线状态：已验证成员显示“在线/离线”，从未使用过的成员显示“未验证”',
+          '遥控器底部按钮新增语音反馈：解锁/上锁、急停、喷洒与力度切换均可播报',
+          '新增“起飞”按钮，起飞后自动播报当前高度、气温、北斗卫星状态与遥测状态',
+          '底部状态框缩短，中间新增飞行高度、气温、湿度与北斗卫星实时遥测条',
+        ],
+      },
+      {
+        'version': 'v2.11.2',
+        'date': '2026-11-18',
+        'content': [
+          '搜星页保留深色科技风底色，不再跟随系统浅色模式变白',
+          '修复从搜星页返回遥控器后被系统转成竖屏的问题，返回后保持横屏',
+        ],
+      },
+      {
+        'version': 'v2.11.1',
+        'date': '2026-11-18',
+        'content': [
+          '修正连接播报：仅在手机真正连接无人机 WiFi 时播报“飞机连接成功”',
+          '北斗/GPS 搜星页接入手机 GNSS 实时数据：逐星方位、仰角、信噪比与搜到/使用数量实时刷新',
+          '卫星罗盘改为默认视图，并跟随手机朝向旋转，始终指北',
+          '“北斗卫星 / GPS”切换后，罗盘卫星与左右数量同步切换',
+          '搜星页新增返回按钮、搜星动画，并统一为 App 的森林绿/琥珀橙科技风格',
+        ],
+      },
+      {
+        'version': 'v2.11.0',
+        'date': '2026-11-18',
+        'content': [
+          '新增北斗/GPS 卫星地图与罗盘页：卫星影像地图、当前位置与精度圈、方位刻度与卫星数显示',
+          '快速遥控页左上角新增“北斗/GPS”入口，返回后自动恢复横屏',
+          '新增本地离线语音播报：飞机连接、病虫害识别、作业告警与 AI 回复均可朗读',
+          '设置页新增“语音播报 / 朗读AI回复”开关，断网时自动回退手机本地语音引擎',
+        ],
+      },
+      {
+        'version': 'v2.10.0',
+        'date': '2026-11-18',
+        'content': [
+          '轮协成员新增在线状态：已验证成员显示“在线/离线”，从未使用过的成员显示“未验证”',
+          '成员验证由服务端自动记录：输入姓名验证成功后立即生效，无需管理员手动标记',
+          'App 前台每 2 分钟自动上报在线心跳，在线状态实时同步给所有成员',
+        ],
+      },
+      {
+        'version': 'v2.9.9',
+        'date': '2026-11-17',
+        'content': [
+          '轮协日历中已过日期统一显示为浅灰色',
+          '自己的历史协管记录灰度稍深一点，便于和其他已过日期区分',
+          '成员列表新增“未验证”标识，管理员可点验证图标标记；标记后标识消失并随轮协表同步',
+        ],
+      },
+      {
+        'version': 'v2.9.8',
+        'date': '2026-11-17',
+        'content': [
+          '轮协管理恢复“对调轮协”：点击日期后，在弹窗里选择要对调的日期',
+          '当前日期之前的轮协记录全部只读，不能单日修改、顺延覆盖或删除成员',
+        ],
+      },
+      {
+        'version': 'v2.9.7',
+        'date': '2026-11-17',
+        'content': [
+          '恢复“轮协管理”功能：数据管理页入口、轮协表、编辑、消息与本地提醒',
+          '恢复轮协密钥门禁、成员身份、静默同步与协管变更通知',
+          '补齐 flutter_local_notifications / timezone / flutter_secure_storage 依赖与原生通知权限',
+        ],
+      },
+      {
+        'version': 'v2.9.6',
+        'date': '2026-11-17',
+        'content': [
+          '修复覆盖安装时系统提示“无法降级安装”的问题（构建号提升至 100）',
+          '版本号统一为 2.9.6，后续构建号在此基础上递增',
+        ],
+      },
+      {
+        'version': 'v2.9.5',
+        'date': '2026-11-17',
+        'content': [
+          '首页“连接设备”由蓝牙扫描改为 WiFi 扫描，自动识别并置顶无人机热点 HuHuaShiZhe-Drone',
+          '连接状态与任务监控改为显示 WiFi 名称与信号强度，下拉即可刷新',
+          '支持一键跳转系统 WiFi 设置，返回后自动检测并刷新连接状态',
+          '适配 Android 13+ 附近 WiFi 权限，扫描结果实时刷新',
+          '修复模型标签测试中番茄健康索引错误',
+        ],
+      },
       {
         'version': 'v2.8.0',
         'date': '2026-11-15',
@@ -1457,9 +1834,9 @@ class VersionInfoPage extends ConsumerWidget {
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: context.palette.surface,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.surfaceVariant),
+            border: Border.all(color: context.palette.surfaceVariant),
           ),
           child: Column(
             children: [
@@ -1479,8 +1856,8 @@ class VersionInfoPage extends ConsumerWidget {
                         child: Text(item['version'], style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13)),
                       ),
                       const SizedBox(width: 12),
-                      Expanded(child: Text(item['date'], style: const TextStyle(color: AppColors.textHint, fontSize: 13))),
-                      Icon(expanded ? Icons.expand_less : Icons.expand_more, color: AppColors.textHint, size: 20),
+                      Expanded(child: Text(item['date'], style:  TextStyle(color: context.palette.textHint, fontSize: 13))),
+                      Icon(expanded ? Icons.expand_less : Icons.expand_more, color: context.palette.textHint, size: 20),
                     ],
                   ),
                 ),

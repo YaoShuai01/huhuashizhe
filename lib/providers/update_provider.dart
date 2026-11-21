@@ -113,7 +113,7 @@ class UpdateNotifier extends StateNotifier<UpdateState> {
     } else {
       state = state.copyWith(
         status: UpdateStatus.error,
-        errorMessage: '下载失败：所有下载通道均不可用，请稍后重试或切换网络',
+        errorMessage: '下载失败：服务器暂不可用，请稍后重试或切换网络',
       );
     }
   }

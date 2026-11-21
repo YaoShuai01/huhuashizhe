@@ -4,10 +4,10 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/weather_provider.dart';
 import '../../../providers/device_provider.dart';
-import '../../../services/bluetooth_service.dart';
+import '../../../services/wifi_service.dart';
 import '../../../services/weather_service.dart';
+import '../../cloud_farming/services/cloud_farm_controller.dart';
 import '../../mission/pages/map_select_page.dart';
-import '../../mine/widgets/device_scan_page.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -33,6 +33,7 @@ class HomePage extends ConsumerWidget {
       body: RefreshIndicator(
         onRefresh: () async {
           await ref.read(weatherProvider.notifier).refresh();
+          await ref.read(wifiServiceProvider).refreshStatus();
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
@@ -46,9 +47,11 @@ class HomePage extends ConsumerWidget {
               const SizedBox(height: 16),
               _buildQuickActions(context),
               const SizedBox(height: 16),
-              _buildRecentMissions(),
+              const _CloudFarmEntryCard(),
               const SizedBox(height: 16),
-              _buildStatsOverview(),
+              _buildRecentMissions(context),
+              const SizedBox(height: 16),
+              _buildStatsOverview(context),
             ],
           ),
         ),
@@ -158,7 +161,7 @@ class HomePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildDeviceCard(BuildContext context, DeviceStatus? status) {
+  Widget _buildDeviceCard(BuildContext context, WifiStatus? status) {
     final isConnected = status?.isConnected ?? false;
 
     return Card(
@@ -181,8 +184,8 @@ class HomePage extends ConsumerWidget {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
-                  isConnected ? Icons.bluetooth_connected : Icons.bluetooth_disabled,
-                  color: isConnected ? AppColors.primary : AppColors.textHint,
+                  isConnected ? Icons.wifi : Icons.wifi_off,
+                  color: isConnected ? AppColors.primary : context.palette.textHint,
                   size: 22,
                 ),
               ),
@@ -194,9 +197,9 @@ class HomePage extends ConsumerWidget {
                     Row(
                       children: [
                         Text(
-                          isConnected ? '已连接: ${status!.deviceName}' : '未连接设备',
+                          isConnected ? '已连接: ${status!.displayName}' : '未连接设备',
                           style: TextStyle(
-                            color: isConnected ? AppColors.primary : AppColors.textHint,
+                            color: isConnected ? AppColors.primary : context.palette.textHint,
                             fontSize: 16,
                             fontWeight: FontWeight.w500,
                           ),
@@ -216,9 +219,9 @@ class HomePage extends ConsumerWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      isConnected ? '电量 ${status!.batteryLevel}% · 信号 ${status.signalStrength}%' : '请点击连接设备',
+                      isConnected ? 'WiFi 热点 · 信号 ${status!.signalDisplay}' : '请点击连接无人机 WiFi',
                       style: TextStyle(
-                        color: isConnected ? AppColors.textSecondary : AppColors.textDisabled,
+                        color: isConnected ? context.palette.textSecondary : context.palette.textDisabled,
                         fontSize: 12,
                       ),
                     ),
@@ -252,6 +255,7 @@ class HomePage extends ConsumerWidget {
       childAspectRatio: 1.8,
       children: [
         _buildActionCard(
+          context,
           icon: Icons.flight_takeoff,
           title: '创建飞行任务',
           subtitle: '油菜植保作业规划',
@@ -261,6 +265,7 @@ class HomePage extends ConsumerWidget {
           },
         ),
         _buildActionCard(
+          context,
           icon: Icons.auto_awesome,
           title: 'AI助手',
           subtitle: '油菜病虫害智能诊断',
@@ -268,6 +273,7 @@ class HomePage extends ConsumerWidget {
           onTap: () => context.push('/ai-chat'),
         ),
         _buildActionCard(
+          context,
           icon: Icons.speed,
           title: '快速预设',
           subtitle: '油菜一键适配参数',
@@ -275,6 +281,7 @@ class HomePage extends ConsumerWidget {
           onTap: () => context.push('/presets'),
         ),
         _buildActionCard(
+          context,
           icon: Icons.history,
           title: '作业记录',
           subtitle: '油菜植保历史作业',
@@ -282,6 +289,7 @@ class HomePage extends ConsumerWidget {
           onTap: () => context.push('/mission/history'),
         ),
         _buildActionCard(
+          context,
           icon: Icons.gamepad,
           title: '快速遥控',
           subtitle: 'WiFi虚拟遥控器操控',
@@ -289,17 +297,35 @@ class HomePage extends ConsumerWidget {
           onTap: () => context.push('/remote-control'),
         ),
         _buildActionCard(
+          context,
           icon: Icons.center_focus_strong,
           title: '模型测试',
           subtitle: '摄像头实时作物问题识别',
           color: const Color(0xFF00897B),
           onTap: () => context.push('/model-test'),
         ),
+        _buildActionCard(
+          context,
+          icon: Icons.add_alert,
+          title: '田哨预警',
+          subtitle: '云端田哨 · 寒潮打药提醒',
+          color: const Color(0xFFC62828),
+          onTap: () => context.push('/sentinel'),
+        ),
+        _buildActionCard(
+          context,
+          icon: Icons.agriculture,
+          title: '田哨农场',
+          subtitle: '云端种田小游戏 · 一键直达',
+          color: const Color(0xFF2E7D32),
+          onTap: () => context.push('/sentinel/farm'),
+        ),
       ],
     );
   }
 
-  Widget _buildActionCard({
+  Widget _buildActionCard(
+    BuildContext context, {
     required IconData icon,
     required String title,
     required String subtitle,
@@ -307,7 +333,7 @@ class HomePage extends ConsumerWidget {
     required VoidCallback onTap,
   }) {
     return Material(
-      color: AppColors.surface,
+      color: context.palette.surface,
       borderRadius: BorderRadius.circular(12),
       elevation: 1,
       child: InkWell(
@@ -334,12 +360,12 @@ class HomePage extends ConsumerWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                      style:  TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: context.palette.textPrimary),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       subtitle,
-                      style: const TextStyle(fontSize: 11, color: AppColors.textHint),
+                      style:  TextStyle(fontSize: 11, color: context.palette.textHint),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -353,13 +379,13 @@ class HomePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildRecentMissions() {
+  Widget _buildRecentMissions(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
+         Padding(
           padding: EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-          child: Text('最近作业', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+          child: Text('最近作业', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: context.palette.textPrimary)),
         ),
         const SizedBox(height: 8),
         SizedBox(
@@ -372,16 +398,16 @@ class HomePage extends ConsumerWidget {
                 width: 160,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppColors.surface,
+                  color: context.palette.surface,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppColors.surfaceVariant),
+                  border: Border.all(color: context.palette.surfaceVariant),
                 ),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    Icon(Icons.inbox_outlined, size: 40, color: AppColors.textDisabled),
+                  children:  [
+                    Icon(Icons.inbox_outlined, size: 40, color: context.palette.textDisabled),
                     SizedBox(height: 8),
-                    Text('暂无作业记录', style: TextStyle(fontSize: 13, color: AppColors.textHint)),
+                    Text('暂无作业记录', style: TextStyle(fontSize: 13, color: context.palette.textHint)),
                   ],
                 ),
               ),
@@ -392,11 +418,11 @@ class HomePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatsOverview() {
+  Widget _buildStatsOverview(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.palette.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
@@ -407,19 +433,19 @@ class HomePage extends ConsumerWidget {
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              Text('作业统计', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-              Icon(Icons.chevron_right, color: AppColors.textHint),
+            children:  [
+              Text('作业统计', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: context.palette.textPrimary)),
+              Icon(Icons.chevron_right, color: context.palette.textHint),
             ],
           ),
           const SizedBox(height: 16),
           Row(
             children: [
-              _buildStatItem(icon: Icons.map_outlined, label: '总作业面积', value: '0 亩'),
-              _buildDivider(),
-              _buildStatItem(icon: Icons.timer_outlined, label: '总飞行时长', value: '0 小时'),
-              _buildDivider(),
-              _buildStatItem(icon: Icons.task_alt_outlined, label: '任务次数', value: '0 次'),
+              _buildStatItem(context, icon: Icons.map_outlined, label: '总作业面积', value: '0 亩'),
+              _buildDivider(context),
+              _buildStatItem(context, icon: Icons.timer_outlined, label: '总飞行时长', value: '0 小时'),
+              _buildDivider(context),
+              _buildStatItem(context, icon: Icons.task_alt_outlined, label: '任务次数', value: '0 次'),
             ],
           ),
         ],
@@ -427,21 +453,154 @@ class HomePage extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatItem({required IconData icon, required String label, required String value}) {
+  Widget _buildStatItem(BuildContext context, {required IconData icon, required String label, required String value}) {
     return Expanded(
       child: Column(
         children: [
           Icon(icon, color: AppColors.primary, size: 24),
           const SizedBox(height: 8),
-          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+          Text(value, style:  TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: context.palette.textPrimary)),
           const SizedBox(height: 4),
-          Text(label, style: const TextStyle(fontSize: 12, color: AppColors.textHint)),
+          Text(label, style:  TextStyle(fontSize: 12, color: context.palette.textHint)),
         ],
       ),
     );
   }
 
-  Widget _buildDivider() {
-    return Container(height: 40, width: 1, color: AppColors.surfaceVariant);
+  Widget _buildDivider(BuildContext context) {
+    return Container(height: 40, width: 1, color: context.palette.surfaceVariant);
+  }
+}
+
+/// 首页云种植入口（跟随系统深浅色）
+class _CloudFarmEntryCard extends ConsumerWidget {
+  const _CloudFarmEntryCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.watch(cloudFarmProvider);
+    final alertCount = controller.alerts.length;
+    final primary = Theme.of(context).colorScheme.primary;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(16),
+      child: Ink(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: isDark
+                ? [const Color(0xFF1F3A24), const Color(0xFF2B5133)]
+                : [const Color(0xFFE8F5E9), const Color(0xFFD7EEDB)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+              color: primary.withValues(alpha: isDark ? 0.35 : 0.22)),
+        ),
+        child: InkWell(
+          onTap: () => context.push('/cloud-farm'),
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: primary.withValues(alpha: isDark ? 0.28 : 0.15),
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: Icon(Icons.eco, color: primary, size: 26),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            '云种植',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: primary.withValues(
+                                  alpha: isDark ? 0.22 : 0.12),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              'AI 农事',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                                color: primary,
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
+                          Icon(Icons.chevron_right, color: primary, size: 20),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '${controller.plots.length} 块田 · '
+                        '${controller.totalArea.toStringAsFixed(1)} 亩 · '
+                        '$alertCount 项待办',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.62),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 5,
+                        runSpacing: 4,
+                        children: [
+                          _miniTag(context, 'GPS 圈地'),
+                          _miniTag(context, '1:1 建模'),
+                          _miniTag(context, '墒情推断'),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _miniTag(BuildContext context, String text) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: onSurface.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 9,
+          color: onSurface.withValues(alpha: 0.55),
+        ),
+      ),
+    );
   }
 }

@@ -121,9 +121,9 @@ class _PresetTuningPageState extends ConsumerState<PresetTuningPage> {
               ),
             ),
             const SizedBox(height: 8),
-            const Padding(
+             Padding(
               padding: EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-              child: Text('拖动滑块微调参数', style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
+              child: Text('拖动滑块微调参数', style: TextStyle(color: context.palette.textSecondary, fontSize: 14)),
             ),
             const SizedBox(height: 8),
             _buildSliderCard('飞行高度', _flightHeight, 1.0, 10.0, 'm', (v) { setState(() => _flightHeight = v); _markChanged(v); }),

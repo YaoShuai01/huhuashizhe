@@ -1,0 +1,1189 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>田哨农场 · 云端田哨小游戏</title>
+<style>
+  :root{
+    --green:#2E7D32; --green-dark:#1B5E20; --green-light:#E8F5E9;
+    --orange:#FF8F00; --red:#C62828; --blue:#1565C0; --purple:#6A1B9A;
+    --soil:#8D6E63; --soil-dark:#6D4C41; --sky1:#87CEEB; --sky2:#E0F7FA;
+    --card:#FFFFFF; --text:#263238; --hint:#90A4AE;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;font-family:"Microsoft YaHei","PingFang SC",sans-serif;}
+  body{background:#C8E6C9;background:linear-gradient(180deg,#a5d6a7 0%,#c8e6c9 100%);min-height:100vh;padding:16px;color:var(--text);}
+  .wrap{max-width:960px;margin:0 auto;}
+
+  .topbar{background:var(--card);border-radius:14px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;box-shadow:0 2px 10px rgba(0,0,0,.08);margin-bottom:14px;}
+  .topbar h1{font-size:20px;color:var(--green-dark);display:flex;align-items:center;gap:8px;}
+  .topbar .sub{font-size:12px;color:var(--hint);margin-top:2px;}
+  .stats{display:flex;gap:10px;flex-wrap:wrap;}
+  .stat{background:var(--green-light);border-radius:10px;padding:8px 14px;text-align:center;}
+  .stat b{font-size:18px;color:var(--green-dark);display:block;}
+  .stat span{font-size:11px;color:var(--hint);}
+  .weather-chip{border-radius:10px;padding:8px 14px;font-size:13px;font-weight:bold;color:#fff;background:var(--green);}
+
+  .farm{position:relative;border-radius:16px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.12);margin-bottom:14px;}
+  .sky{height:110px;background:#87CEEB;background:linear-gradient(180deg,var(--sky1),var(--sky2));position:relative;}
+  .sun{position:absolute;top:16px;right:26px;width:52px;height:52px;border-radius:50%;background:radial-gradient(circle,#FFF176,#FFD54F);box-shadow:0 0 30px rgba(255,213,79,.8);transition:all 1s;}
+  .cloud{position:absolute;background:#fff;border-radius:30px;opacity:.9;animation:drift 30s linear infinite;}
+  .cloud::before,.cloud::after{content:'';position:absolute;background:#fff;border-radius:50%;}
+  .cloud.c1{width:70px;height:24px;top:26px;left:8%;}
+  .cloud.c1::before{width:34px;height:34px;top:-14px;left:12px;}
+  .cloud.c1::after{width:26px;height:26px;top:-10px;left:38px;}
+  .cloud.c2{width:54px;height:18px;top:60px;left:55%;animation-duration:40s;}
+  .cloud.c2::before{width:26px;height:26px;top:-11px;left:9px;}
+  .cloud.c2::after{width:20px;height:20px;top:-8px;left:28px;}
+  @keyframes drift{0%{transform:translateX(-100px);}100%{transform:translateX(1000px);}}
+  .farm.frozen .sky{background:linear-gradient(180deg,#90CAF9,#CFD8DC);}
+  .farm.frozen .sun{background:radial-gradient(circle,#E1F5FE,#B3E5FC);box-shadow:0 0 20px rgba(179,229,252,.6);}
+  .snowflake{position:absolute;top:-20px;color:#fff;animation:snowfall linear infinite;text-shadow:0 0 4px rgba(255,255,255,.8);z-index:10;}
+  @keyframes snowfall{0%{transform:translateY(0) rotate(0);}100%{transform:translateY(130px) rotate(360deg);}}
+
+  .field{background:#C5E1A5;background:linear-gradient(180deg,#DCEDC8,#C5E1A5);padding:18px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px;}
+  .plot{position:relative;background:var(--soil);border-radius:14px;height:150px;cursor:pointer;box-shadow:inset 0 -6px 0 var(--soil-dark),0 3px 8px rgba(0,0,0,.15);overflow:hidden;transition:transform .15s;}
+  .plot:hover{transform:translateY(-3px);}
+  .plot::before{content:'';position:absolute;top:0;left:0;right:0;height:10px;background:#A1887F;border-radius:14px 14px 0 0;}
+  .plot .furrow{position:absolute;left:10%;right:10%;height:4px;background:rgba(0,0,0,.12);border-radius:2px;}
+  .plot .empty-hint{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:rgba(255,255,255,.75);font-size:13px;gap:6px;}
+  .plot .empty-hint .plus{font-size:30px;font-weight:bold;}
+  .crop-stage{position:absolute;inset:0;display:flex;align-items:flex-end;justify-content:center;padding-bottom:14px;}
+  .plot-tag{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.45);color:#fff;font-size:11px;padding:2px 8px;border-radius:8px;z-index:5;}
+  .plot-progress{position:absolute;bottom:6px;left:8px;right:8px;height:6px;background:rgba(0,0,0,.3);border-radius:3px;z-index:5;overflow:hidden;}
+  .plot-progress i{display:block;height:100%;background:#43A047;background:linear-gradient(90deg,#66BB6A,#43A047);border-radius:3px;transition:width .5s;}
+  .badge-alert{position:absolute;top:8px;right:8px;z-index:6;font-size:22px;animation:blink 1s infinite;filter:drop-shadow(0 0 6px rgba(198,40,40,.7));}
+  @keyframes blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+
+  .shivering .crop-stage{animation:shiver .35s infinite;}
+  .shivering{background:linear-gradient(180deg,#B3E5FC 0%,var(--soil) 30%) !important;}
+  .shivering::after{content:'❄';position:absolute;top:30%;left:50%;transform:translateX(-50%);font-size:22px;color:#E1F5FE;z-index:4;animation:blink 1.2s infinite;}
+  @keyframes shiver{0%,100%{transform:translateX(0) rotate(0);}25%{transform:translateX(-3px) rotate(-2deg);}75%{transform:translateX(3px) rotate(2deg);}}
+
+  .mold-spot{position:absolute;width:18px;height:18px;border-radius:50%;background:radial-gradient(circle,#A5D6A7,#7CB342 60%,transparent 70%);z-index:3;animation:blink 2s infinite;}
+
+  .bug{position:absolute;z-index:20;width:34px;height:34px;transition:left 2.2s cubic-bezier(.4,.1,.6,.9),top 2.2s cubic-bezier(.4,.1,.6,.9);pointer-events:none;}
+  .bug svg{animation:flyWiggle .35s infinite;}
+  @keyframes flyWiggle{0%,100%{transform:rotate(-12deg) translateY(0);}50%{transform:rotate(12deg) translateY(-4px);}}
+  .bug.dying{transition:all 1.2s;opacity:0;transform:translateY(40px) rotate(160deg);}
+  .bug-overlay{position:absolute;inset:0;z-index:20;pointer-events:none;}
+
+  .spray-drop{position:absolute;width:12px;height:12px;border-radius:50%;background:rgba(179,229,252,.85);z-index:15;animation:sprayFade 1.4s forwards;}
+  @keyframes sprayFade{0%{transform:scale(.4);opacity:1;}100%{transform:scale(2.4) translateY(-24px);opacity:0;}}
+
+  .toolbar{background:var(--card);border-radius:14px;padding:14px 18px;margin-bottom:14px;box-shadow:0 2px 10px rgba(0,0,0,.08);}
+  .toolbar h3{font-size:14px;color:var(--green-dark);margin-bottom:10px;display:flex;align-items:center;gap:6px;}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  .crop-pick{display:flex;gap:8px;flex-wrap:wrap;}
+  .crop-pick button{border:2px solid #E0E0E0;background:#FAFAFA;border-radius:10px;padding:8px 14px;cursor:pointer;font-size:14px;display:flex;align-items:center;gap:6px;transition:all .15s;white-space:nowrap;flex:0 0 auto;}
+  .crop-pick button.active{border-color:var(--green);background:var(--green-light);color:var(--green-dark);font-weight:bold;}
+  .btn{border:none;border-radius:10px;padding:9px 16px;font-size:14px;cursor:pointer;color:#fff;font-weight:bold;box-shadow:0 2px 6px rgba(0,0,0,.15);}
+  .btn:hover{filter:brightness(1.1);}
+  .btn.pest{background:#C62828;}
+  .btn.cold{background:#1565C0;}
+  .btn.sunny{background:#F57F17;}
+  .btn.spray{background:#2E7D32;}
+  .btn.harvest-all{background:#6A1B9A;}
+
+  .alerts{display:flex;flex-direction:column;gap:10px;margin-bottom:14px;}
+  .alert-card{background:var(--card);border-left:5px solid var(--red);border-radius:12px;padding:14px 16px;box-shadow:0 2px 10px rgba(0,0,0,.08);animation:slideIn .3s;}
+  .alert-card.cold{border-left-color:var(--blue);}
+  .alert-card.ok{border-left-color:var(--green);}
+  .alert-card.diagnose{border-left-color:var(--purple);}
+  .alert-card.diagnose h4{color:var(--purple);}
+  .alert-card.risk{border-left-color:var(--orange);}
+  .alert-card.risk h4{color:var(--orange);}
+  .alert-card.info{border-left-color:#5E35B1;}
+  .alert-card.info h4{color:#5E35B1;}
+  @keyframes slideIn{from{opacity:0;transform:translateX(-16px);}to{opacity:1;transform:translateX(0);}}
+  .alert-card h4{font-size:15px;margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+  .alert-card h4{color:var(--red);}
+  .alert-card.cold h4{color:var(--blue);}
+  .alert-card.ok h4{color:var(--green-dark);}
+  .alert-card p{font-size:13px;color:#546E7A;line-height:1.6;}
+  .alert-card .advice{margin-top:8px;background:#FFF8E1;border-radius:8px;padding:10px 12px;font-size:13px;color:#795548;line-height:1.6;}
+  .alert-card .advice b{color:var(--orange);}
+  .alert-card .actions{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;}
+
+  .logbox{background:var(--card);border-radius:14px;padding:14px 18px;box-shadow:0 2px 10px rgba(0,0,0,.08);}
+  .logbox h3{font-size:14px;color:var(--green-dark);margin-bottom:8px;}
+  .logbox ul{list-style:none;max-height:150px;overflow-y:auto;}
+  .logbox li{font-size:12px;color:#546E7A;padding:4px 0;border-bottom:1px dashed #ECEFF1;}
+  .logbox li b{color:var(--green-dark);}
+
+  .float-coin{position:fixed;font-size:18px;font-weight:bold;color:#F9A825;z-index:99;animation:floatUp 1.2s forwards;pointer-events:none;text-shadow:0 1px 3px rgba(0,0,0,.2);}
+  @keyframes floatUp{0%{opacity:1;transform:translateY(0);}100%{opacity:0;transform:translateY(-50px);}}
+
+  /* ===== AI 识别确认流程 ===== */
+  .symptom-box{margin-top:8px;background:#EDE7F6;border-left:4px solid var(--purple);border-radius:8px;padding:10px 12px;font-size:13px;color:#4527A0;line-height:1.7;}
+  .symptom-box b{color:var(--purple);}
+  .cand-row{display:flex;align-items:center;gap:10px;margin-top:8px;}
+  .cand-row .cname{width:96px;font-size:13px;font-weight:bold;color:var(--text);}
+  .conf-track{flex:1;height:10px;background:#ECEFF1;border-radius:5px;overflow:hidden;}
+  .conf-track i{display:block;height:100%;border-radius:5px;}
+  .cand-row .cpct{width:44px;font-size:12px;color:var(--hint);text-align:right;}
+  .cand-actions{margin-top:12px;display:flex;flex-wrap:wrap;gap:8px;}
+  .chipbtn{border:2px solid #E0E0E0;background:#FAFAFA;border-radius:10px;padding:8px 13px;font-size:13px;cursor:pointer;transition:all .15s;}
+  /* 手机端触摸优化：去点按高亮/消除双击缩放延迟/防误选文字 */
+  *{-webkit-tap-highlight-color:transparent;}
+  body{touch-action:manipulation;-webkit-user-select:none;user-select:none;}
+  input,textarea{-webkit-user-select:text;user-select:text;}
+  .chipbtn:hover{border-color:var(--purple);background:#F3E5F5;color:var(--purple);}
+  .chipbtn.primary{border-color:var(--purple);background:#F3E5F5;color:var(--purple);font-weight:bold;}
+  .option-row{display:flex;gap:10px;align-items:flex-start;margin-top:8px;background:#FAFAFA;border:1px solid #EEE;border-radius:8px;padding:8px 10px;}
+  .opt-tag{flex-shrink:0;font-size:11px;font-weight:bold;color:#fff;border-radius:6px;padding:2px 8px;margin-top:1px;}
+  .opt-tag.bio{background:#2E7D32;}
+  .opt-tag.chem{background:#EF6C00;}
+  .opt-tag.other{background:#546E7A;}
+  .option-row b{font-size:13px;color:var(--text);}
+  .option-row .dose{font-size:12px;color:var(--orange);font-weight:bold;}
+  .option-row .note{font-size:11px;color:var(--hint);margin-top:2px;}
+
+  /* ===== 植保预约 ===== */
+  .booking-list{background:var(--card);border-radius:14px;padding:14px 18px;box-shadow:0 2px 10px rgba(0,0,0,.08);margin-bottom:14px;}
+  .booking-list h3{font-size:14px;color:var(--green-dark);margin-bottom:8px;}
+  .order-card{border:1px solid #E8F5E9;background:#FAFFF9;border-radius:10px;padding:10px 12px;margin-bottom:8px;}
+  .order-top{display:flex;justify-content:space-between;align-items:center;}
+  .order-top b{font-size:13px;color:var(--text);}
+  .status-chip{font-size:11px;color:#fff;border-radius:8px;padding:2px 8px;font-weight:bold;}
+  .order-meta{font-size:12px;color:var(--hint);margin-top:4px;line-height:1.5;}
+  .order-steps{display:flex;gap:4px;margin-top:8px;align-items:center;}
+  .ostep{flex:1;height:5px;border-radius:3px;background:#ECEFF1;}
+  .ostep.done{background:var(--green);}
+  .order-actions{margin-top:8px;display:flex;gap:8px;align-items:center;}
+  /* 弹窗（全兼容写法：不用 inset/sticky/gap，老内核也能正常渲染按钮） */
+  .modal-mask{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.45);display:none;z-index:50;overflow:auto;}
+  .modal-mask.show{display:block;}
+  /* 老内核 fixed 层丢帧补丁：弹窗强制独立合成层，避免内容画不出来（可点击但看不见） */
+  .modal{background:#fff;border-radius:14px;width:92%;max-width:420px;margin:30px auto;padding:16px 18px;box-shadow:0 10px 40px rgba(0,0,0,.25);-webkit-transform:translateZ(0);transform:translateZ(0);}
+  /* 弹窗内按钮禁用 transition 与阴影：它们会诱发老内核图层丢失 */
+  .modal .btn{box-shadow:none;transition:none;-webkit-transition:none;}
+  .modal h3{color:var(--green-dark);font-size:15px;margin-bottom:2px;}
+  .modal .msub{font-size:11px;color:var(--hint);margin-bottom:4px;}
+  .modal label{display:block;font-size:11px;color:var(--hint);margin:7px 0 3px;}
+  .modal input,.modal select{width:100%;border:1.5px solid #E0E0E0;border-radius:8px;padding:7px 10px;font-size:13px;outline:none;box-sizing:border-box;}
+  .modal input:focus,.modal select:focus{border-color:var(--green);}
+  .modal .estimate{margin-top:9px;background:#FFF8E1;border-radius:8px;padding:8px 11px;font-size:12px;color:#795548;}
+  .modal .estimate b{color:var(--orange);font-size:14px;}
+  .modal .warn{margin-top:7px;font-size:12px;color:var(--red);display:none;}
+  .modal .m-actions{margin-top:14px;text-align:center;}
+  .modal .m-actions .btn{display:inline-block;width:46%;margin:0 2%;padding:12px 0;font-size:15px;}
+  .bk-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;}
+  @media (max-width:560px){
+    .bk-grid{grid-template-columns:1fr;}
+    body{padding:12px;}
+    .topbar{padding:12px 14px;}
+    .topbar h1{font-size:17px;}
+    .stat{padding:6px 10px;}
+    .stat b{font-size:15px;}
+    .toolbar{padding:12px 14px;}
+    .toolbar h3{font-size:12px;line-height:1.5;}
+    /* 手机排版：作物 3 列网格，操作按钮 2 列等宽，整齐不散排 */
+    .toolbar .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:stretch;}
+    .toolbar .row>.crop-pick{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+    .toolbar .row>span{display:none;}
+    .crop-pick button{justify-content:center;width:100%;}
+    .toolbar .row>.btn{width:100%;justify-content:center;margin:0;}
+    .btn{padding:9px 12px;font-size:13px;min-height:40px;}
+    .chipbtn{min-height:38px;}
+    .field{padding:12px;gap:10px;}
+    .plot{height:118px;}
+  }
+
+  /* ===== 哨兵值守状态条 ===== */
+  .sentinel-bar{display:flex;align-items:center;flex-wrap:wrap;margin:0 0 12px;padding:10px 14px;background:#263238;border-radius:12px;color:#ECEFF1;font-size:13px;}
+  .s-tag{font-weight:bold;font-size:14px;margin-right:10px;color:#80CBC4;}
+  .s-chip{display:inline-block;margin:2px 8px 2px 0;padding:3px 10px;border-radius:10px;background:#37474F;}
+  .s-chip.on{background:#E65100;color:#FFF3E0;}
+  .s-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#66BB6A;margin-right:5px;}
+  .s-chip.on .s-dot{background:#FFB74D;animation:blink 1s infinite;}
+  .s-num{font-weight:bold;color:#FFB74D;}
+  .badge-suspect{position:absolute;top:8px;right:8px;z-index:6;font-size:22px;animation:blink 1.2s infinite;filter:drop-shadow(0 0 6px rgba(230,81,0,.75));}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div>
+      <h1>🌾 田哨农场 <span style="font-size:12px;background:var(--green-light);color:var(--green-dark);padding:2px 8px;border-radius:8px;">云端田哨 · 小游戏</span></h1>
+      <div class="sub">实地种植同步云游戏 · 虫害/寒潮哨兵预警 · AI 联动打药建议</div>
+    </div>
+    <div class="stats">
+      <div class="stat"><b id="coin">0</b><span>金币</span></div>
+      <div class="stat"><b id="plotCount">0/6</b><span>已种田块</span></div>
+      <div class="weather-chip" id="weatherChip">☀️ 晴 · 适宜作业</div>
+    </div>
+  </div>
+
+  <div class="alerts" id="alerts">
+    <div class="alert-card ok">
+      <h4>✅ 哨兵值守中</h4>
+      <p>天气哨 + 农事哨已上线。哨兵发现可疑特征时只会给出<b>风险提示</b>（可能发生此类危害），建议您实地查看并反馈是否有此情况，确认后才推出防治方案——AI 辅助研判，最终以您的实地反馈为准。</p>
+    </div>
+  </div>
+
+  <div class="sentinel-bar">
+    <span class="s-tag">🛰 田哨值守</span>
+    <span class="s-chip" id="sWeather"><i class="s-dot"></i>天气哨 · 值守中</span>
+    <span class="s-chip" id="sFarm"><i class="s-dot"></i>农事哨 · 值守中</span>
+    <span>待处理预警：<span class="s-num" id="sPending">0</span> 条</span>
+    <button class="btn" id="patrolBtn" style="margin-left:auto;padding:10px 16px;font-size:13px;" onclick="togglePatrol()">▶ 开启自动巡查</button>
+  </div>
+
+  <div class="farm" id="farm">
+    <div class="sky">
+      <div class="sun" id="sun"></div>
+      <div class="cloud c1"></div>
+      <div class="cloud c2"></div>
+      <div class="bug-overlay" id="bugOverlay"></div>
+    </div>
+    <div class="field" id="field"></div>
+  </div>
+
+  <div class="toolbar">
+    <h3>🌱 种植与演练（点击空田播种 · 点击成熟作物收获 · 点击未成熟作物可提前收获）</h3>
+    <div class="row">
+      <div class="crop-pick" id="cropPick">
+        <button class="active" data-crop="cabbage">🥬 白菜</button>
+        <button data-crop="rape">🌼 油菜</button>
+        <button data-crop="rice">🌾 水稻</button>
+        <button data-crop="wheat">🌾‍🟫 小麦</button>
+        <button data-crop="corn">🌽 玉米</button>
+        <button data-crop="cotton">🤍 棉花</button>
+        <button data-crop="citrus">🍊 柑橘</button>
+        <button data-crop="lotus">🍀 莲藕</button>
+        <button data-crop="peanut">🥜 花生</button>
+        <button data-crop="__custom" style="border:1.5px dashed #66BB6A;color:#2E7D32;">🌿 自定义</button>
+      </div>
+      <span style="width:1px;height:26px;background:#E0E0E0;"></span>
+      <button class="btn pest" onclick="eventPest()">🐛 模拟虫害爆发</button>
+      <button class="btn" style="background:#5E35B1" onclick="aiAnalyze()">🤖 大模型虫害分析</button>
+      <button class="btn cold" onclick="eventCold()">❄️ 模拟寒潮来袭</button>
+      <button class="btn sunny" onclick="eventSunny()">☀️ 放晴恢复</button>
+      <button class="btn spray" onclick="sprayAll()">🚿 全田喷药</button>
+      <button class="btn harvest-all" onclick="harvestAll()">🧺 收获全部成熟</button>
+      <button class="btn" style="background:#5D4037" onclick="goBooking(defaultBookingPlot())">📋 新建植保预约</button>
+    </div>
+  </div>
+
+  <div class="modal-mask" id="bkModal">
+    <div class="modal" id="bkModalBox">
+    <div id="bkForm">
+      <h3>📋 新建植保预约</h3>
+      <div class="msub">来自田哨联动：作物/地块自动带入 · 寒潮时今日时段会被拦截</div>
+      <label>作物</label><input id="bkCrop" readonly style="background:#F5F5F5;">
+      <label>作业面积（亩）</label><input id="bkArea" type="number" step="0.5" min="0.5" oninput="updateEstimate()">
+      <label>地块位置</label><input id="bkLoc">
+      <label>作业时段</label>
+      <select id="bkSlot">
+        <option value="todayAM">今天上午</option>
+        <option value="todayPM">今天下午</option>
+        <option value="tomAM">明天上午</option>
+        <option value="tomPM">明天下午</option>
+      </select>
+      <label>备注</label><input id="bkNote">
+      <div class="estimate" id="bkEstimate"></div>
+      <div class="warn" id="bkWarn"></div>
+      <div style="text-align:center;margin-bottom:12px;">
+        <span style="color:#2E7D32;text-decoration:underline;cursor:pointer;font-weight:bold;font-size:14px;" onclick="submitBooking()">✅ 点这里提交预约</span>
+      </div>
+      <div class="m-actions">
+        <button class="btn" style="width:100%;margin:0;background:#90A4AE" onclick="closeModal()">取消</button>
+      </div>
+    </div>
+    <div id="bkSuccess" style="display:none;text-align:center;">
+      <div style="font-size:44px;margin:8px 0;">✅</div>
+      <h3 id="bkSuccessTitle" style="color:#2E7D32;">预约提交成功</h3>
+      <div id="bkSuccessBody" style="font-size:13px;color:#455A64;line-height:2;margin:10px 0;"></div>
+      <div style="margin-top:10px;">
+        <span style="color:#2E7D32;text-decoration:underline;cursor:pointer;font-weight:bold;font-size:14px;margin-right:20px;" onclick="viewNewOrder()">📋 查看下方预约单</span>
+        <span style="color:#607D8B;text-decoration:underline;cursor:pointer;font-weight:bold;font-size:14px;" onclick="closeModal()">完成</span>
+      </div>
+      <div style="font-size:11px;color:#90A4AE;margin-top:10px;">本确认页不会自动消失 · 预约单常驻下方列表，机手接单后进入作业→留档流程</div>
+    </div>
+  </div>
+  </div><!-- /bkModal -->
+
+  <div class="modal-mask" id="cuModal">
+    <div class="modal">
+      <h3>🌿 自定义植物</h3>
+      <div class="msub">云端大模型将为它建立虫害风险档案，生长超 30% 后可随时做 AI 虫害分析</div>
+      <label>植物名称</label><input id="cuName" placeholder="例如：番茄 / 草莓 / 蓝莓树">
+      <label>生长周期（秒，10~180）</label><input id="cuGrow" type="number" min="10" max="180" value="30">
+      <label>图标</label>
+      <select id="cuEmoji">
+        <option value="🌿">🌿 通用绿植</option>
+        <option value="🍅">🍅 番茄类</option>
+        <option value="🍓">🍓 草莓类</option>
+        <option value="🥕">🥕 根茎类</option>
+        <option value="🍇">🍇 藤果类</option>
+        <option value="🌸">🌸 花卉类</option>
+      </select>
+      <div class="warn" id="cuWarn"></div>
+      <div style="text-align:center;margin-bottom:12px;">
+        <span style="color:#2E7D32;text-decoration:underline;cursor:pointer;font-weight:bold;font-size:14px;" onclick="confirmCustomCrop()">✅ 确认添加自定义植物</span>
+      </div>
+      <div class="m-actions">
+        <button class="btn" style="width:100%;margin:0;background:#90A4AE" onclick="closeCuModal()">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-mask" id="ehModal">
+    <div class="modal">
+      <h3>⚡ 提前收获确认</h3>
+      <div class="msub">成熟收获可得全额 8 金币；提前收获按进度折算，且受最短时效与收益递减约束</div>
+      <div id="ehBody"></div>
+      <div class="m-actions">
+        <button class="btn" id="ehBtn" style="flex:1;background:#5D4037" onclick="confirmEarlyHarvest()">确认提前收获</button>
+        <button class="btn" style="flex:1;background:#90A4AE" onclick="closeEhModal()">继续种植等成熟</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="bkBanner" style="display:none;background:#C8E6C9;border:2px solid #2E7D32;border-radius:12px;padding:14px 16px;margin-bottom:14px;">
+    <div style="display:table;width:100%;"><span id="bkBannerTitle" style="font-size:15px;font-weight:bold;color:#1B5E20;">✅ 预约提交成功</span>
+    <span style="float:right;cursor:pointer;color:#66BB6A;font-weight:bold;" onclick="closeBkBanner()">✕ 收起</span></div>
+    <div id="bkBannerBody" style="font-size:13px;color:#33691E;line-height:1.9;margin-top:6px;"></div>
+    <div style="font-size:11px;color:#558B2F;margin-top:6px;">本横幅不会自动消失 · 预约单就在下方列表，可点「模拟机手接单」继续演示流程</div>
+  </div>
+  <div class="booking-list">
+    <h3>📋 植保预约单（农户下单 → 机手接单 → 作业 → 留档）</h3>
+    <div id="orderList"></div>
+  </div>
+
+  <div class="logbox">
+    <h3>📓 哨兵日志（可溯源）</h3>
+    <ul id="log"></ul>
+  </div>
+</div>
+
+<script>
+/* ===== 作物定义（湖北常见作物，与 App 田哨模块规则一致） ===== */
+const CROPS = {
+  cabbage:{name:'白菜', growSec:24, pest:['caterpillar','mold']},
+  rape:{name:'油菜', growSec:32, pest:['moth','mold']},        // 湖北油菜产量全国第一
+  rice:{name:'水稻', growSec:40, pest:['moth','mold']},        // 湖北第一大粮食作物
+  wheat:{name:'小麦', growSec:28, pest:['aphid','scab']},
+  corn:{name:'玉米', growSec:30, pest:['moth','aphid']},
+  cotton:{name:'棉花', growSec:36, pest:['bollworm','aphid']}, // 江汉平原主产
+  citrus:{name:'柑橘', growSec:44, pest:['mite','caterpillar']}, // 宜昌/恩施主产
+  lotus:{name:'莲藕', growSec:34, pest:['caterpillar','mold']},  // 湖北特产（洪湖莲藕）
+  peanut:{name:'花生', growSec:26, pest:['caterpillar','mold']}
+};
+const PESTS = {
+  caterpillar:{name:'菜青虫危害', emoji:'🐛',
+    symptom:'叶片被啃出孔洞或缺刻，叶背可见绿色肉虫蠕动，虫粪呈黑色颗粒状散落在叶面',
+    options:[
+      {tag:'生物防治', cls:'bio', name:'苏云金杆菌（Bt）', dose:'800~1000 倍液喷雾', note:'对人畜安全，采收前 3 天仍可用药'},
+      {tag:'化学防治', cls:'chem', name:'4.5% 氯氰菊酯乳油', dose:'1500 倍液，傍晚施药', note:'速效，安全间隔期 7 天'},
+      {tag:'物理辅助', cls:'other', name:'黄板 / 防虫网', dose:'每亩 30 块诱杀成虫', note:'配合用药降低复发'}],
+    bug:'caterpillar'},
+  moth:{name:'螟虫危害', emoji:'🦋',
+    symptom:'心叶枯萎卷曲、出现枯心或断鞘，茎秆上有蛀孔，孔外可见虫粪排出',
+    options:[
+      {tag:'化学防治', cls:'chem', name:'20% 氯虫苯甲酰胺悬浮剂', dose:'3000 倍液，重点喷心叶与叶背', note:'持效期长，高发期可提前预防'},
+      {tag:'生物防治', cls:'bio', name:'甘蓝夜蛾核型多角体病毒', dose:'1000 倍液喷雾', note:'生物制剂，适合绿色种植'},
+      {tag:'农业防治', cls:'other', name:'性诱捕器', dose:'每亩 3~5 套', note:'监测虫情 + 诱杀成虫'}],
+    bug:'moth'},
+  mold:{name:'霜霉病发作', emoji:'🦠',
+    symptom:'叶面出现多角形黄褐色病斑，叶背有灰白色霉层，湿度大时病斑连片扩散',
+    options:[
+      {tag:'化学防治', cls:'chem', name:'75% 百菌清可湿性粉剂', dose:'600 倍液，间隔 7 天连喷 2 次', note:'雨后补喷，整株喷施包括叶背'},
+      {tag:'化学防治', cls:'chem', name:'72% 霜脲·锰锌', dose:'800 倍液', note:'发病中期效果更好'},
+      {tag:'农艺措施', cls:'other', name:'降湿控密', dose:'摘除老病叶、改善通风', note:'配合打药防止反复'}],
+    bug:null},
+  aphid:{name:'蚜虫危害', emoji:'🐜',
+    symptom:'嫩叶背面密布黄绿色小虫，叶片卷曲发黄，叶面有黏腻蜜露并招引蚂蚁',
+    options:[
+      {tag:'化学防治', cls:'chem', name:'10% 吡虫啉可湿性粉剂', dose:'2000 倍液，重点喷叶背', note:'速效，注意保护蜜蜂'},
+      {tag:'物理辅助', cls:'other', name:'黄色粘虫板', dose:'每亩 30~40 块', note:'诱杀有翅蚜，降低迁飞'},
+      {tag:'生物防治', cls:'bio', name:'释放七星瓢虫', dose:'每亩 200~300 头', note:'以虫治虫，适合生态园'}],
+    bug:'aphid'},
+  bollworm:{name:'棉铃虫危害', emoji:'🐛',
+    symptom:'幼虫蛀食棉蕾与青铃，蛀孔外有虫粪排出，蕾铃大量脱落',
+    options:[
+      {tag:'化学防治', cls:'chem', name:'5.7% 甲维盐水分散粒剂', dose:'3000 倍液，卵孵化高峰期施药', note:'对高龄幼虫效果下降，宜早治'},
+      {tag:'生物防治', cls:'bio', name:'苏云金杆菌（Bt）', dose:'1000 倍液喷雾', note:'低龄幼虫期效果好'},
+      {tag:'农业防治', cls:'other', name:'性诱捕器 + 杨树枝把', dose:'每亩 3~5 套', note:'诱杀成虫、监测虫情'}],
+    bug:'caterpillar'},
+  mite:{name:'红蜘蛛危害', emoji:'🕷️',
+    symptom:'叶面出现密集黄白色失绿小点，叶背可见红色微小虫体与细密丝网，严重时叶片干枯脱落',
+    options:[
+      {tag:'化学防治', cls:'chem', name:'1.8% 阿维菌素乳油', dose:'3000 倍液，重点喷叶背', note:'7~10 天一次，连喷 2 次'},
+      {tag:'矿物防治', cls:'chem', name:'99% 矿物油乳油', dose:'200 倍液', note:'物理窒息杀卵，对天敌友好'},
+      {tag:'农艺措施', cls:'other', name:'增湿冲洗叶背', dose:'干旱期定期喷水增湿', note:'红蜘蛛喜干燥，增湿可压制种群'}],
+    bug:'mite'},
+  scab:{name:'赤霉病发作', emoji:'🦠',
+    symptom:'麦穗出现粉红色霉层，籽粒干瘪发红，湿度大时沿穗蔓延迅速',
+    options:[
+      {tag:'化学防治', cls:'chem', name:'43% 戊唑醇悬浮剂', dose:'3000 倍液，齐穗扬花期施药', note:'关键在抽穗后 5 天内打药'},
+      {tag:'化学防治', cls:'chem', name:'50% 多菌灵可湿性粉剂', dose:'800 倍液，扬花10%时喷穗', note:'雨前抢施，雨后补喷'},
+      {tag:'农艺措施', cls:'other', name:'清沟排渍降湿', dose:'降低田间湿度', note:'配合药剂防止反复感染'}],
+    bug:null}
+};
+
+let coin = 0, selectedCrop = 'cabbage', coldActive = false;
+const plots = [];
+const field = document.getElementById('field');
+
+for(let i=0;i<9;i++){
+  const el = document.createElement('div');
+  el.className = 'plot';
+  el.innerHTML = '<div class="furrow" style="top:34px"></div><div class="furrow" style="top:70px"></div><div class="furrow" style="top:106px"></div>'
+    + '<div class="empty-hint"><div class="plus">＋</div>点击播种</div>'
+    + '<div class="plot-tag"></div><div class="plot-progress" style="display:none"><i></i></div>';
+  el.onclick = ()=>plotClick(i);
+  field.appendChild(el);
+  plots.push({id:i, crop:null, plantedAt:0, progress:0, pest:null, suspect:null, el});
+}
+
+/* ===== 作物 SVG（分生长阶段） ===== */
+function cropSVG(cropKey, progress){
+  let inner = '';
+  if(cropKey==='cabbage'){
+    inner = progress<0.5
+      ? '<ellipse cx="30" cy="42" rx="14" ry="10" fill="#66BB6A"/><path d="M30 32 Q22 20 30 12 Q38 20 30 32" fill="#81C784"/>'
+      : '<ellipse cx="30" cy="44" rx="22" ry="16" fill="#43A047"/><ellipse cx="30" cy="40" rx="16" ry="12" fill="#66BB6A"/><ellipse cx="30" cy="37" rx="9" ry="8" fill="#A5D6A7"/><path d="M30 24 Q24 12 30 4 Q36 12 30 24" fill="#81C784"/>';
+  }else if(cropKey==='rape'){
+    inner = progress<0.5
+      ? '<path d="M30 52 V30" stroke="#689F38" stroke-width="3"/><ellipse cx="30" cy="30" rx="8" ry="5" fill="#66BB6A"/>'
+      : '<path d="M30 54 V26" stroke="#689F38" stroke-width="3.5"/><ellipse cx="22" cy="44" rx="8" ry="5" fill="#66BB6A" transform="rotate(-25 22 44)"/><ellipse cx="38" cy="44" rx="8" ry="5" fill="#66BB6A" transform="rotate(25 38 44)"/><circle cx="30" cy="16" r="6" fill="#FDD835"/><circle cx="20" cy="24" r="5" fill="#FDD835"/><circle cx="40" cy="24" r="5" fill="#FDD835"/><circle cx="30" cy="26" r="4" fill="#FBC02D"/>';
+  }else if(cropKey==='wheat'){
+    inner = progress<0.5
+      ? '<path d="M24 52 V34" stroke="#7CB342" stroke-width="3"/><path d="M36 52 V34" stroke="#7CB342" stroke-width="3"/><ellipse cx="24" cy="32" rx="4" ry="8" fill="#8BC34A"/><ellipse cx="36" cy="32" rx="4" ry="8" fill="#8BC34A"/>'
+      : '<path d="M22 54 V24" stroke="#C0A868" stroke-width="3"/><path d="M30 54 V20" stroke="#C0A868" stroke-width="3"/><path d="M38 54 V24" stroke="#C0A868" stroke-width="3"/><ellipse cx="22" cy="18" rx="5" ry="10" fill="#E6C979"/><ellipse cx="30" cy="14" rx="5" ry="10" fill="#F0D68A"/><ellipse cx="38" cy="18" rx="5" ry="10" fill="#E6C979"/>';
+  }else if(cropKey==='cotton'){
+    inner = progress<0.5
+      ? '<path d="M30 52 V36" stroke="#5D4037" stroke-width="3"/><ellipse cx="24" cy="42" rx="7" ry="4" fill="#66BB6A" transform="rotate(-25 24 42)"/><ellipse cx="36" cy="42" rx="7" ry="4" fill="#66BB6A" transform="rotate(25 36 42)"/>'
+      : '<path d="M30 54 V30" stroke="#6D4C41" stroke-width="3.5"/><ellipse cx="23" cy="44" rx="8" ry="5" fill="#66BB6A" transform="rotate(-25 23 44)"/><ellipse cx="37" cy="44" rx="8" ry="5" fill="#66BB6A" transform="rotate(25 37 44)"/><circle cx="22" cy="26" r="6" fill="#ECEFF1"/><circle cx="27" cy="22" r="6" fill="#FAFAFA"/><circle cx="17" cy="21" r="5" fill="#ECEFF1"/><circle cx="38" cy="30" r="5" fill="#FAFAFA"/><circle cx="42" cy="26" r="4" fill="#ECEFF1"/>';
+  }else if(cropKey==='corn'){
+    inner = progress<0.5
+      ? '<path d="M30 52 V34" stroke="#689F38" stroke-width="3.5"/><path d="M30 44 Q20 40 16 34" stroke="#7CB342" stroke-width="3" fill="none"/><path d="M30 44 Q40 40 44 34" stroke="#7CB342" stroke-width="3" fill="none"/>'
+      : '<path d="M30 54 V16" stroke="#5B8C3E" stroke-width="4"/><path d="M30 46 Q18 42 12 32" stroke="#7CB342" stroke-width="3.5" fill="none"/><path d="M30 46 Q42 42 48 32" stroke="#7CB342" stroke-width="3.5" fill="none"/><path d="M30 34 Q24 30 18 24" stroke="#8BC34A" stroke-width="3" fill="none"/><ellipse cx="35" cy="24" rx="6" ry="10" fill="#FDD835"/><path d="M35 14 Q31 10 29 6" stroke="#A5D6A7" stroke-width="2" fill="none"/>';
+  }else if(cropKey==='citrus'){
+    inner = progress<0.5
+      ? '<path d="M30 52 V40" stroke="#795548" stroke-width="3"/><ellipse cx="30" cy="36" rx="10" ry="7" fill="#66BB6A"/>'
+      : '<path d="M30 54 V36" stroke="#795548" stroke-width="4"/><circle cx="30" cy="28" r="16" fill="#43A047"/><circle cx="22" cy="24" r="5" fill="#E53935"/><circle cx="36" cy="20" r="5" fill="#FB8C00"/><circle cx="38" cy="32" r="5" fill="#E53935"/><circle cx="26" cy="34" r="4" fill="#FB8C00"/><circle cx="30" cy="24" r="4" fill="#FDD835"/>';
+  }else if(cropKey==='lotus'){
+    inner = progress<0.5
+      ? '<ellipse cx="24" cy="48" rx="9" ry="3.5" fill="#66BB6A"/><ellipse cx="38" cy="50" rx="8" ry="3" fill="#81C784"/>'
+      : '<ellipse cx="24" cy="44" rx="14" ry="6" fill="#43A047"/><ellipse cx="42" cy="48" rx="11" ry="5" fill="#66BB6A"/><circle cx="24" cy="44" r="3" fill="#A5D6A7"/><path d="M36 42 Q34 28 36 20" stroke="#5B8C3E" stroke-width="2.5" fill="none"/><ellipse cx="36" cy="16" rx="5" ry="7" fill="#F48FB1"/><ellipse cx="32" cy="18" rx="3" ry="5" fill="#F8BBD0"/>';
+  }else if(cropKey==='peanut'){
+    inner = progress<0.5
+      ? '<ellipse cx="22" cy="46" rx="8" ry="4" fill="#66BB6A"/><ellipse cx="38" cy="46" rx="8" ry="4" fill="#81C784"/><path d="M30 50 V44" stroke="#689F38" stroke-width="2.5"/>'
+      : '<ellipse cx="20" cy="40" rx="10" ry="5" fill="#66BB6A"/><ellipse cx="40" cy="40" rx="10" ry="5" fill="#81C784"/><ellipse cx="30" cy="34" rx="9" ry="5" fill="#A5D6A7"/><circle cx="24" cy="28" r="3" fill="#FDD835"/><circle cx="36" cy="30" r="3" fill="#FDD835"/><ellipse cx="24" cy="52" rx="4" ry="2.5" fill="#D7CCC8"/><ellipse cx="34" cy="53" rx="4" ry="2.5" fill="#D7CCC8"/>';
+  }else{
+    inner = progress<0.5
+      ? '<path d="M26 52 Q28 38 30 28" stroke="#7CB342" stroke-width="3" fill="none"/><path d="M34 52 Q32 38 30 28" stroke="#7CB342" stroke-width="3" fill="none"/>'
+      : '<path d="M24 54 Q26 36 30 20" stroke="#7CB342" stroke-width="3.5" fill="none"/><path d="M36 54 Q34 36 30 20" stroke="#7CB342" stroke-width="3.5" fill="none"/><ellipse cx="30" cy="14" rx="9" ry="12" fill="#C0CA33"/><g fill="#FFD54F"><circle cx="26" cy="8" r="2.4"/><circle cx="34" cy="8" r="2.4"/><circle cx="24" cy="14" r="2.4"/><circle cx="36" cy="14" r="2.4"/><circle cx="26" cy="20" r="2.4"/><circle cx="34" cy="20" r="2.4"/></g>';
+  }
+  const scale = 0.35 + progress*0.75;
+  return '<svg width="76" height="76" viewBox="0 0 60 60" style="transform:scale('+scale+');transform-origin:bottom center;filter:drop-shadow(0 2px 3px rgba(0,0,0,.25));">'+inner+'</svg>';
+}
+
+/* ===== 小虫 SVG ===== */
+function bugSVG(kind){
+  if(kind==='caterpillar'){
+    return '<svg width="34" height="34" viewBox="0 0 40 40"><g fill="#7CB342"><circle cx="10" cy="28" r="5"/><circle cx="18" cy="26" r="6"/><circle cx="27" cy="25" r="6"/></g><circle cx="33" cy="22" r="5.5" fill="#9CCC65"/><circle cx="35" cy="20" r="1.4" fill="#263238"/><path d="M35 17 Q37 13 39 12" stroke="#33691E" stroke-width="1.5" fill="none"/><path d="M4 24 Q2 20 4 16" stroke="#33691E" stroke-width="1.5" fill="none"/></svg>';
+  }
+  if(kind==='aphid'){
+    return '<svg width="34" height="34" viewBox="0 0 40 40"><ellipse cx="16" cy="24" rx="6" ry="5" fill="#9CCC65"/><ellipse cx="26" cy="22" rx="6" ry="5" fill="#AED581"/><ellipse cx="33" cy="20" rx="4.5" ry="4" fill="#9CCC65"/><circle cx="35" cy="18" r="1.2" fill="#33691E"/><path d="M12 20 Q10 15 8 13 M20 18 Q18 13 16 11" stroke="#558B2F" stroke-width="1.5" fill="none"/></svg>';
+  }
+  if(kind==='mite'){
+    return '<svg width="34" height="34" viewBox="0 0 40 40"><ellipse cx="20" cy="22" rx="9" ry="7" fill="#E53935"/><ellipse cx="24" cy="19" rx="4" ry="3.5" fill="#FF8A80"/><circle cx="26" cy="14" r="3" fill="#C62828"/><path d="M12 18 L4 12 M14 24 L5 26 M28 18 L36 12 M26 24 L35 26 M13 15 L7 8 M30 15 L35 8" stroke="#B71C1C" stroke-width="1.6" stroke-linecap="round"/></svg>';
+  }
+  return '<svg width="34" height="34" viewBox="0 0 40 40"><ellipse cx="16" cy="18" rx="9" ry="5" fill="#A1887F" transform="rotate(-30 16 18)"/><ellipse cx="24" cy="18" rx="9" ry="5" fill="#8D6E63" transform="rotate(30 24 18)"/><ellipse cx="20" cy="24" rx="4" ry="8" fill="#6D4C41"/><circle cx="20" cy="14" r="4" fill="#5D4037"/><path d="M17 11 Q15 7 13 6 M23 11 Q25 7 27 6" stroke="#3E2723" stroke-width="1.5" fill="none"/></svg>';
+}
+
+/* ===== 渲染 ===== */
+function renderPlot(p){
+  const el = p.el;
+  el.querySelectorAll('.crop-stage,.mold-spot,.badge-alert,.badge-suspect').forEach(n=>n.remove());
+  if(!p.crop){
+    el.querySelector('.empty-hint').style.display='flex';
+    el.querySelector('.plot-tag').textContent='';
+    el.querySelector('.plot-progress').style.display='none';
+    return;
+  }
+  el.querySelector('.empty-hint').style.display='none';
+  const c = CROPS[p.crop];
+  const mature = p.progress>=1;
+  el.querySelector('.plot-tag').textContent = c.name+' · '+(mature?'可收获':(Math.round(p.progress*100)+'%'));
+  const bar = el.querySelector('.plot-progress');
+  bar.style.display='block';
+  bar.firstElementChild.style.width = Math.min(100,p.progress*100)+'%';
+
+  const stage = document.createElement('div');
+  stage.className='crop-stage';
+  stage.innerHTML = cropSVG(p.crop, p.progress);
+  el.appendChild(stage);
+
+  if(p.pest){
+    if(PESTS[p.pest].bug===null){
+      for(let k=0;k<3;k++){
+        const s=document.createElement('div');
+        s.className='mold-spot';
+        s.style.left=(20+Math.random()*55)+'%';
+        s.style.top=(25+Math.random()*45)+'%';
+        el.appendChild(s);
+      }
+    }
+    const badge=document.createElement('div');
+    badge.className='badge-alert';
+    badge.textContent='🚨';
+    el.appendChild(badge);
+  } else if(p.suspect){
+    /* 哨兵风险提示阶段：田块上挂闪烁⚠️，提示"这块田正在被哨兵预警" */
+    const badge=document.createElement('div');
+    badge.className='badge-suspect';
+    badge.textContent='⚠️';
+    badge.title='哨兵风险提示待确认';
+    el.appendChild(badge);
+  }
+  updateSentinelBar();
+}
+
+setInterval(()=>{
+  const now = Date.now();
+  let changed=false;
+  plots.forEach(p=>{
+    if(p.crop && p.progress<1){
+      p.progress = Math.min(1,(now-p.plantedAt)/(CROPS[p.crop].growSec*1000));
+      renderPlot(p); changed=true;
+      if(p.progress>=1) log('✅ <b>'+CROPS[p.crop].name+'</b> '+(p.id+1)+' 号田已成熟，点击收获！');
+    }
+  });
+  if(changed) updateStats();
+},700);
+
+function updateStats(){
+  document.getElementById('coin').textContent=coin;
+  document.getElementById('plotCount').textContent=plots.filter(p=>p.crop).length+'/'+plots.length;
+  updateSentinelBar();
+}
+
+/* ===== 哨兵值守状态条（田哨联动可视化） ===== */
+function updateSentinelBar(){
+  if(!document.getElementById('sPending')) return;
+  const pending = plots.filter(p=>p.pest||p.suspect).length;
+  document.getElementById('sPending').textContent=pending;
+  const f=document.getElementById('sFarm');
+  if(pending>0){f.classList.add('on');f.innerHTML='<i class="s-dot"></i>农事哨 · '+pending+' 块田待确认/处置';}
+  else{f.classList.remove('on');f.innerHTML='<i class="s-dot"></i>农事哨 · 值守中';}
+  const w=document.getElementById('sWeather');
+  if(typeof coldActive!=='undefined' && coldActive){w.classList.add('on');w.innerHTML='<i class="s-dot"></i>天气哨 · 寒潮预警中';}
+  else{w.classList.remove('on');w.innerHTML='<i class="s-dot"></i>天气哨 · 值守中';}
+}
+
+/* ===== 哨兵自动巡查（主动发现，而非只能手动模拟） ===== */
+let patrolTimer=null;
+function togglePatrol(){
+  const btn=document.getElementById('patrolBtn');
+  if(patrolTimer){
+    clearInterval(patrolTimer); patrolTimer=null;
+    btn.textContent='▶ 开启自动巡查'; btn.style.background='';
+    log('🛰 哨兵自动巡查已关闭');
+    return;
+  }
+  patrolTimer=setInterval(()=>{
+    const targets=plots.filter(p=>p.crop&&p.progress>0.3&&!p.pest&&!p.suspect);
+    if(typeof coldActive!=='undefined' && coldActive){ log('🛰 哨兵巡查：寒潮期间仅天气哨持续监控，地面侦察暂停'); return; }
+    if(!targets.length){ log('🛰 哨兵巡查完成：暂无可侦察田块'); return; }
+    if(Math.random()<0.45){ log('🛰 哨兵巡查 '+targets.map(p=>p.id+1).join('/')+' 号田：未发现可疑特征'); return; }
+    log('🛰 哨兵自动巡查：扫描 '+targets.map(p=>p.id+1).join('/')+' 号田…');
+    eventPest();
+  },9000);
+  btn.textContent='⏸ 停止自动巡查'; btn.style.background='#E65100';
+  log('🛰 <b>哨兵自动巡查已开启</b>：每 9 秒巡田一次，检出可疑特征即推送风险提示（非定论），等您实地反馈');
+}
+
+/* ===== 交互 ===== */
+function plotClick(i){
+  const p=plots[i];
+  if(!p.crop){
+    p.crop=selectedCrop; p.plantedAt=Date.now(); p.progress=0; p.pest=null;
+    renderPlot(p); updateStats();
+    log('🌱 播种 <b>'+CROPS[selectedCrop].name+'</b> 至 '+(i+1)+' 号田，生长进度已同步云种植游戏');
+    return;
+  }
+  if(p.progress>=1 && !p.pest){
+    coin+=8; p.crop=null; p.progress=0; p.pest=null; p.suspect=null;
+    renderPlot(p); updateStats();
+    floatText('+8 🪙', p.el);
+    log('🧺 收获 '+(i+1)+' 号田，<b>+8 金币</b>');
+    return;
+  }
+  if(p.pest){
+    log('⚠️ '+(i+1)+' 号田 '+CROPS[p.crop].name+' 正在受灾，先喷药治理！');
+    return;
+  }
+  if(p.suspect){
+    log('⚠️ '+(i+1)+' 号田存在待确认的预警，请先处理哨兵提示');
+    return;
+  }
+  openEarlyHarvest(i);
+}
+
+/* ===== 提前收获（含防刷规则） =====
+   最短时效：必须种满该作物生长周期的 40% 才允许提前收获；
+   收益折算：按当前进度 × 收益系数（成熟全额 8 金币，提前只给折算）；
+   递减规则：每提前收获一次，收益系数 -20%（下限 10%），连续刷币无利可图 */
+const EARLY = {minRatio:0.4, base:0.5, decay:0.2, floor:0.1};
+let earlyCount = 0, ehPlotId = -1;
+
+function currentPayRatio(){
+  return Math.max(EARLY.floor, EARLY.base - earlyCount*EARLY.decay);
+}
+function earlyGain(p){
+  return Math.floor(p.progress * 8 * currentPayRatio());
+}
+function openEarlyHarvest(i){
+  const p = plots[i];
+  if(!p.crop || p.pest || p.progress>=1) return;
+  ehPlotId = i;
+  const c = CROPS[p.crop];
+  const minSec = Math.round(c.growSec * EARLY.minRatio);
+  const grownSec = Math.floor((Date.now()-p.plantedAt)/1000);
+  const remain = Math.max(0, minSec - grownSec);
+  const ratio = currentPayRatio();
+  const gain = earlyGain(p);
+  const locked = remain>0 || gain<=0;
+  document.getElementById('ehBody').innerHTML =
+    '<div style="font-size:13px;line-height:1.9">'
+    +'当前作物：<b>'+c.name+'</b> · 生长进度 <b>'+Math.round(p.progress*100)+'%</b><br>'
+    +'⏱ <b>最短时效</b>：需种满 <b>'+minSec+' 秒</b>才能提前收获（防恶意刷币门槛），已种 <b>'+grownSec+' 秒</b>'
+    +(remain>0 ? '<br><span style="color:var(--red);font-weight:bold">❌ 未达最短时效，还需等待 '+remain+' 秒</span>'
+               : '<br><span style="color:var(--green-dark)">✅ 已达最短时效，可以提前收获</span>')
+    +'<br>💰 本次可得：<b>'+gain+' 金币</b>（进度 '+Math.round(p.progress*100)+'% × 收益系数 '+Math.round(ratio*100)+'%）'
+    +'<br>📉 <b>防刷规则</b>：每提前收获一次，收益系数递减 20%（下限 10%'+(earlyCount>0?'，当前已提前收获 '+earlyCount+' 次':'')+'）；'
+    +'等成熟收获始终得<b>全额 8 金币</b>，恶意刷币无利可图</div>';
+  const btn = document.getElementById('ehBtn');
+  btn.disabled = locked;
+  btn.style.opacity = locked ? '.5' : '1';
+  btn.textContent = remain>0 ? '未达最短时效（等 '+remain+' 秒）'
+                  : gain<=0 ? '收益为 0，不建议收获'
+                  : '确认提前收获 · +'+gain+' 金币';
+  document.getElementById('ehModal').classList.add('show');
+}
+function confirmEarlyHarvest(){
+  const p = plots[ehPlotId];
+  if(!p || !p.crop || p.pest || p.progress>=1){ closeEhModal(); return; }
+  const c = CROPS[p.crop];
+  const minSec = Math.round(c.growSec * EARLY.minRatio);
+  if((Date.now()-p.plantedAt)/1000 < minSec){ closeEhModal(); return; }
+  const gain = earlyGain(p);
+  if(gain<=0){ closeEhModal(); return; }
+  coin += gain;
+  earlyCount++;
+  p.crop=null; p.progress=0; p.pest=null; p.suspect=null;
+  renderPlot(p); updateStats();
+  floatText('+'+gain+' 🪙', p.el);
+  closeEhModal();
+  log('⚡ 提前收获 '+(ehPlotId+1)+' 号田 '+c.name+'，<b>+'+gain+' 金币</b>（收益系数降至 '+Math.round(currentPayRatio()*100)+'%，成熟收获可得全额 8）');
+}
+function closeEhModal(){ document.getElementById('ehModal').classList.remove('show'); }
+
+function floatText(txt, target){
+  const r=target.getBoundingClientRect();
+  const f=document.createElement('div');
+  f.className='float-coin'; f.textContent=txt;
+  f.style.left=(r.left+r.width/2-20)+'px'; f.style.top=(r.top+30)+'px';
+  document.body.appendChild(f);
+  setTimeout(()=>f.remove(),1300);
+}
+
+/* ===== 事件：虫害（风险提示 → 实地查看 → 询问确认 → 解决方案） ===== */
+function eventPest(){
+  const grown = plots.filter(p=>p.crop && p.progress>0.3 && !p.pest && !p.suspect);
+  if(!grown.length){ log('ℹ️ 没有可侦察的作物（需生长超 30%）'); return; }
+  const target = grown[Math.floor(Math.random()*grown.length)];
+  runPestScan(target, '端侧识别模型');
+}
+
+/* 大模型虫害分析：优先分析自定义植物，推送"分析中"后出研判卡 */
+function aiAnalyze(){
+  const grown = plots.filter(p=>p.crop && p.progress>0.3 && !p.pest && !p.suspect);
+  if(!grown.length){ log('ℹ️ 没有可分析的作物（需生长超 30%）；自定义植物请先在种子栏添加并播种'); return; }
+  const customs = grown.filter(p=>String(p.crop).indexOf('custom')===0);
+  const target = (customs.length ? customs : grown)[0];
+  const c = CROPS[target.crop];
+  const isCustom = String(target.crop).indexOf('custom')===0;
+  pushAlert('info','🤖 大模型分析中：'+(isCustom?'自定义植物「'+c.name+'」':c.name)+' '+(target.id+1)+' 号田',
+    '已上传该田块图传截图与生长档案，云端大模型正在结合植物学特征库比对虫害症状，预计 2 秒后给出风险研判（非定论）。',
+    null, null, null);
+  log('🤖 大模型虫害分析启动：'+(isCustom?'自定义植物「'+c.name+'」':c.name)+' '+(target.id+1)+' 号田，推理中…');
+  setTimeout(function(){ runPestScan(target, '云端大模型'); }, 1600);
+}
+
+function runPestScan(target, modelName){
+  if(!target.crop || target.pest || target.suspect){ return; }
+  const trueKey = CROPS[target.crop].pest[Math.floor(Math.random()*CROPS[target.crop].pest.length)];
+  const others = Object.keys(PESTS).filter(k=>k!==trueKey);
+  /* 候选可能性评估：首要+次要+第三候选+其他情况，四项合计恒等于 100% */
+  const c1 = 55 + Math.floor(Math.random()*21);        // 首要候选 55~75%
+  let left = 100 - c1;
+  const c2max = Math.min(20, left-12);
+  const c2 = 8 + Math.floor(Math.random()*(c2max-7));  // 次要候选 8~20%
+  left -= c2;
+  const c3max = Math.min(10, left-8);
+  const c3 = 3 + Math.floor(Math.random()*(c3max-2));  // 第三候选 3~10%
+  left -= c3;
+  const cOther = left;                                  // 其他情况兜底，保证合计 100%
+  target.suspect = {trueKey, candidates:[
+    {key:trueKey, conf:c1},{key:others[0], conf:c2},{key:others[1], conf:c3},{key:'other', conf:cOther}
+  ]};
+
+  const primary = PESTS[trueKey];
+  const candHTML = target.suspect.candidates.map((c,i)=>{
+    const isOther = c.key==='other';
+    const pe = isOther ? {emoji:'❓', name:'其他情况（待复检判定）'} : PESTS[c.key];
+    const color = isOther ? '#90A4AE'
+      : (i===0 ? '#EF6C00' : '#78909C');
+    return '<div class="cand-row"><span class="cname">'+pe.emoji+' '+pe.name+'</span>'
+      +'<div class="conf-track"><i style="width:'+c.conf+'%;background:'+color+'"></i></div>'
+      +'<span class="cpct">'+c.conf+'%</span></div>';
+  }).join('');
+  /* 确认区直接放在风险评估下方，看完即可点，无需二次跳转 */
+  const confirmRow = '<div style="margin-top:12px;padding-top:10px;border-top:1px dashed #CFD8DC;font-size:12px;color:var(--hint)">❓ <b>请确认：'+(target.id+1)+' 号田是否发现上述情况？</b>（请先实地查看，看完可直接点）</div>'
+    +'<div class="cand-actions">'
+    + target.suspect.candidates.map(c=> c.key==='other'
+        ? '<button class="chipbtn" onclick="requestRecheck('+target.id+', this)">有异常，但不属上述类别（📸 复检判定）</button>'
+        : '<button class="chipbtn" onclick="confirmPest('+target.id+',\''+c.key+'\', this)">有，是'+PESTS[c.key].name+'</button>'
+      ).join('')
+    +'<button class="chipbtn primary" onclick="denyPest('+target.id+', this)">没有此情况</button>'
+    +'<button class="chipbtn" onclick="postponeCheck('+target.id+', this)">暂不方便，稍后查看</button></div>';
+  const extra = '<div class="symptom-box"><b>🔍 模型观察到的特征：</b>'+primary.symptom
+    +'<div style="margin-top:6px;font-size:12px;color:#7E57C2">（以上为模型研判，<b>不代表已发生</b>，请以实地查看为准）</div></div>'
+    +'<div style="margin-top:10px;font-size:12px;color:var(--hint)">风险研判（各项可能性合计 100%）：</div>'+candHTML
+    + confirmRow;
+
+  const isCustom = String(target.crop).indexOf('custom')===0;
+  pushAlert('risk','⚠️ '+(modelName||'模型')+'风险提示（非定论）：'+(isCustom?'自定义植物「'+CROPS[target.crop].name+'」':CROPS[target.crop].name)+' '+(target.id+1)+' 号田<b>可能</b>发生「'+primary.name+'」',
+    (isCustom?'云端大模型基于自定义植物的生长档案比对症状库':'端侧识别模型在图传画面中检出可疑特征')+'，首要风险可能性 '+c1+'%。建议您<b>实地查看田块</b>后，直接在下方确认反馈，哨兵将按您的反馈决定是否进入防治流程。',
+    null, null, extra);
+  log('⚠️ '+(modelName||'模型')+'风险提示：'+(target.id+1)+' 号田<b>可能</b>发生 '+primary.name+'，已列出候选与确认按钮，等待农户实地查看后反馈');
+}
+
+/* 点完任一按钮后锁定本卡全部按钮，防止重复提交 */
+function lockCard(btn){
+  if(!btn) return;
+  const card = btn.closest ? btn.closest('.alert-card') : null;
+  if(card){ card.querySelectorAll('button').forEach(b=>{ b.disabled=true; b.style.opacity=.5; }); }
+}
+
+/* 供 App Web 版父页面轮询：当前待处置田块数（风险提示待确认 + 已确认虫害） */
+function sentinelPendingCount(){
+  return plots.filter(p=>p.suspect||p.pest).length;
+}
+
+/* 询问卡：是否有此情况（有 → 顺带确认是哪一类） */
+function askFarmer(plotId, fromRecheck){
+  const p = plots[plotId];
+  if(!p || !p.suspect) return;
+  const btns = p.suspect.candidates.map(c=>
+    c.key==='other'
+      ? '<button class="chipbtn" onclick="requestRecheck('+plotId+', this)">有异常，但不属上述类别（❓ 其他情况 · 📸 复检判定）</button>'
+      : '<button class="chipbtn" onclick="confirmPest('+plotId+',\''+c.key+'\', this)">有，是'+PESTS[c.key].name+'</button>'
+  ).join('');
+  const extra = '<div class="cand-actions">'+btns
+    +'<button class="chipbtn primary" onclick="denyPest('+plotId+', this)">没有此情况</button>'
+    +'<button class="chipbtn" onclick="requestRecheck('+plotId+', this)">不确定 · 📸 拍照复检</button></div>';
+  pushAlert('diagnose','❓ 请确认：'+(plotId+1)+' 号田是否发现上述情况？',
+    '请结合刚才的特征描述与田间实际情况回答，哨兵将按您的反馈决定是否进入防治流程。'+(fromRecheck?'（复检后已更新研判）':''),
+    null, null, extra);
+  log('❓ 哨兵询问：'+(plotId+1)+' 号田是否存在疑似危害，等待农户反馈');
+}
+
+function postponeCheck(plotId, btn){
+  lockCard(btn);
+  log('⏳ '+(plotId+1)+' 号田反馈已挂起，哨兵将持续监控，风险升高时会再次提醒');
+  pushAlert('ok','⏳ 已记录：稍后查看','哨兵会对 '+(plotId+1)+' 号田保持监控，若风险持续升高将再次提醒您查看。','查看后可在预警卡反馈情况。', null, null);
+}
+
+/* 农户反馈：确实有 → 确认类别 → 推出解决方案 */
+function confirmPest(plotId, pestKey, btn){
+  const p = plots[plotId];
+  if(!p || !p.crop) return;
+  lockCard(btn);
+  const pe = PESTS[pestKey];
+  p.pest = pestKey;
+  p.suspect = null;
+  renderPlot(p);
+  if(pe.bug) flyBugs(p, pe.bug);
+
+  const optsHTML = pe.options.map(o=>
+    '<div class="option-row"><span class="opt-tag '+o.cls+'">'+o.tag+'</span>'
+    +'<div><b>'+o.name+'</b> <span class="dose">'+o.dose+'</span><div class="note">'+o.note+'</div></div></div>'
+  ).join('');
+  const extra = '<div style="margin-top:10px;font-size:12px;color:var(--hint)">已按您的反馈推出解决方案（多种方式任选其一）：</div>'+optsHTML
+    +'<div class="actions"><button class="btn spray" onclick="sprayPlot(plots['+p.id+'])">🚿 立即喷药（'+(p.id+1)+'号田）</button>'
+    +'<button class="btn harvest-all" style="background:#1565C0" onclick="goBooking('+p.id+')">📋 去植保预约</button></div>';
+
+  pushAlert('pest','🚨 已确认：'+CROPS[p.crop].name+' '+(p.id+1)+' 号田 <b style="color:#C62828">'+pe.name+'</b>',
+    '根据您的实地反馈，进入防治流程。', null, null, extra, 2);
+  log('🚨 农户确认 <b>'+pe.name+'</b>，'+(p.id+1)+' 号田进入防治，小虫已飞入田间');
+}
+
+/* 农户反馈：没有 → 解除预警 */
+function denyPest(plotId, btn){
+  const p = plots[plotId];
+  if(!p || !p.suspect) return;
+  lockCard(btn);
+  p.suspect = null;
+  pushAlert('ok','✅ 预警已解除',
+    '感谢反馈：'+(plotId+1)+' 号田经实地查看无此情况，哨兵已解除预警。本次反馈将作为负样本记录，用于持续校准识别模型。',
+    null, null, null);
+  log('✅ 农户反馈 '+(plotId+1)+' 号田无异常，预警解除并记录反馈');
+}
+
+/* 拍照复检 → 更新研判后重新询问 */
+function requestRecheck(plotId, btn){
+  const p = plots[plotId];
+  if(!p || !p.suspect) return;
+  lockCard(btn);
+  log('📸 '+(plotId+1)+' 号田照片已上传，云端大模型复检中（演示 3 秒返回）');
+  setTimeout(()=>{
+    if(!p.suspect) return;
+    const k = p.suspect.trueKey;
+    pushAlert('ok','🔬 复检完成：云端模型更新研判',
+      '复检提取了更清晰的特征后重新打分，最新倾向为「'+PESTS[k].name+'」。请继续确认田间实际情况。',
+      PESTS[k].symptom, null, null);
+    log('🔬 复检完成：倾向 <b>'+PESTS[k].name+'</b>，已重新发起询问');
+    setTimeout(()=>askFarmer(plotId, true), 400);
+  },3000);
+}
+
+function flyBugs(plot, kind){
+  const overlay=document.getElementById('bugOverlay');
+  const pr=plot.el.getBoundingClientRect(), fr=field.getBoundingClientRect();
+  const tx=pr.left-fr.left+pr.width/2-17, ty=pr.top-fr.top+pr.height/2-17;
+  for(let k=0;k<3;k++){
+    const b=document.createElement('div');
+    b.className='bug'; b.dataset.plot=plot.id;
+    b.innerHTML=bugSVG(kind);
+    b.style.left=(-60+k*30)+'px'; b.style.top=(20+Math.random()*60)+'px';
+    overlay.appendChild(b);
+    setTimeout(()=>{
+      b.style.left=(tx+(Math.random()*40-20))+'px';
+      b.style.top=(ty+(Math.random()*30-15))+'px';
+    },60+k*120);
+  }
+}
+
+/* ===== 事件：寒潮（菜瑟瑟发抖） ===== */
+function eventCold(){
+  coldActive=true;
+  document.getElementById('farm').classList.add('frozen');
+  plots.forEach(p=>{ if(p.crop) p.el.classList.add('shivering'); });
+  const sky=document.querySelector('.sky');
+  for(let k=0;k<18;k++){
+    const s=document.createElement('div');
+    s.className='snowflake'; s.textContent='❄';
+    s.style.left=(Math.random()*100)+'%';
+    s.style.animationDuration=(2.5+Math.random()*2.5)+'s';
+    s.style.animationDelay=(Math.random()*2)+'s';
+    s.style.fontSize=(10+Math.random()*10)+'px';
+    sky.appendChild(s);
+  }
+  const chip=document.getElementById('weatherChip');
+  chip.textContent='❄️ 寒潮 · 暂停作业'; chip.style.background='var(--blue)';
+  pushAlert('cold','❄️ 天气哨：寒潮来袭（最低气温 ≤ 5°C）',
+    '未来 24h 降温 8~10°C，所有作物进入冷应激状态（田块已实时“瑟瑟发抖”），植保作业窗口关闭。',
+    '防护建议：白菜/油菜 喷施磷酸二氢钾 + 覆盖无纺布膜；水稻深水护苗（水层 5~7cm）。寒潮过后 48h 补一次叶面肥复壮。',null);
+  log('❄️ <b>寒潮预警</b>：全田作物冷应激，作业窗口关闭');
+}
+
+function eventSunny(){
+  coldActive=false;
+  document.getElementById('farm').classList.remove('frozen');
+  document.querySelectorAll('.shivering').forEach(n=>n.classList.remove('shivering'));
+  document.querySelectorAll('.snowflake').forEach(n=>n.remove());
+  const chip=document.getElementById('weatherChip');
+  chip.textContent='☀️ 晴 · 适宜作业'; chip.style.background='var(--green)';
+  pushAlert('ok','✅ 天气哨：气温回暖，作业窗口重新开启','当前 12°C · 风速 2.3 m/s · 降雨概率 10%，适宜喷施作业。','温馨提示：受灾作物放晴后尽快喷药，避免病情扩散。',null);
+  log('☀️ 放晴恢复，作物解除冷应激');
+}
+
+/* ===== 喷药 ===== */
+function sprayPlot(p){
+  if(!p.pest) return;
+  const pest=PESTS[p.pest];
+  for(let k=0;k<8;k++){
+    const s=document.createElement('div');
+    s.className='spray-drop';
+    s.style.left=(15+Math.random()*70)+'%';
+    s.style.top=(20+Math.random()*50)+'%';
+    s.style.animationDelay=(k*0.1)+'s';
+    p.el.appendChild(s);
+    setTimeout(()=>s.remove(),1600);
+  }
+  document.querySelectorAll('.bug[data-plot="'+p.id+'"]').forEach(b=>b.classList.add('dying'));
+  setTimeout(()=>document.querySelectorAll('.bug[data-plot="'+p.id+'"]').forEach(b=>b.remove()),1400);
+  const wasPest=p.pest;
+  p.pest=null;
+  coin+=3;
+  setTimeout(()=>{renderPlot(p);updateStats();},1500);
+  log('🚿 '+(p.id+1)+' 号田已喷药治理 <b>'+PESTS[wasPest].name+'</b>，+3 金币');
+}
+function sprayAll(){
+  const sick=plots.filter(p=>p.pest);
+  if(!sick.length){log('ℹ️ 全田健康，无需喷药');return;}
+  sick.forEach((p,i)=>setTimeout(()=>sprayPlot(p),i*400));
+  updateStats();
+}
+
+/* ===== 收获全部 ===== */
+function harvestAll(){
+  const ripe=plots.filter(p=>p.crop&&p.progress>=1&&!p.pest);
+  if(!ripe.length){log('ℹ️ 暂无可收获的成熟作物');return;}
+  const gain=ripe.length*8;
+  coin+=gain;
+  ripe.forEach(p=>{p.crop=null;p.progress=0;p.pest=null;renderPlot(p);floatText('+8 🪙', p.el);});
+  updateStats();
+  log('🧺 一次性收获 '+ripe.length+' 块田，<b>+'+gain+' 金币</b>');
+}
+
+/* ===== 预警面板 / 日志 ===== */
+function pushAlert(type,title,desc,advice,plot,extraHTML,atBottom){
+  const box=document.getElementById('alerts');
+  const card=document.createElement('div');
+  card.className='alert-card '+(type==='pest'?'':type);
+  let html='<h4>'+title+'</h4>';
+  if(desc) html+='<p>'+desc+'</p>';
+  if(advice) html+='<div class="advice"><b>💊 哨兵建议：</b>'+advice+'</div>';
+  if(extraHTML) html+=extraHTML;
+  card.innerHTML=html;
+  /* 插入位置：atBottom===2 → 紧跟第一张卡之后（如"已确认→解决方案"卡应排在风险卡下方、大模型分析卡上方）；
+     atBottom===true → 追加到列表末尾；其余 → 插入顶部第一时间可见 */
+  if(atBottom===2){
+    box.insertBefore(card, box.firstElementChild && box.firstElementChild.nextElementSibling
+      ? box.firstElementChild.nextElementSibling : null);
+  }
+  else if(atBottom){ box.appendChild(card); }
+  else{
+    box.insertBefore(card, box.firstElementChild ? box.firstElementChild : null);
+    while(box.children.length>5) box.lastElementChild.remove();
+  }
+  updateSentinelBar();
+}
+
+/* ===== 植保预约（与田哨联动） ===== */
+const orders = [];
+let bookingPlotId = -1;
+const STATUS = [
+  {t:'待接单', c:'#FF8F00'},
+  {t:'已接单', c:'#1565C0'},
+  {t:'作业中', c:'#6A1B9A'},
+  {t:'已完成', c:'#2E7D32'}
+];
+const STATUS_BTN = ['模拟机手接单','开始作业','完成作业 · 留档'];
+const SLOT_TEXT = {todayAM:'今天上午', todayPM:'今天下午', tomAM:'明天上午', tomPM:'明天下午'};
+
+function defaultBookingPlot(){
+  const p = plots.find(x=>x.crop) || plots[0];
+  return p.id;
+}
+function goBooking(plotId, scroll){
+  const p = plots[plotId] || plots[defaultBookingPlot()];
+  bookingPlotId = p.id;
+  document.getElementById('bkCrop').value = p.crop ? CROPS[p.crop].name : '白菜';
+  document.getElementById('bkArea').value = Math.max(1, Math.round((p.progress||0.5)*10));
+  document.getElementById('bkLoc').value = '丹阳村 · '+(p.id+1)+' 号田';
+  document.getElementById('bkNote').value = p.pest
+    ? PESTS[p.pest].name+'（来自田哨预警）'
+    : '田哨 '+(p.id+1)+' 号田'+(p.crop?' '+CROPS[p.crop].name:'')+'生长提醒';
+  document.getElementById('bkWarn').style.display = 'none';
+  /* 每次打开弹窗都回到填单面板（防止上次的成功确认页残留） */
+  document.getElementById('bkForm').style.display='block';
+  document.getElementById('bkSuccess').style.display='none';
+  updateEstimate();
+  if(scroll!==false){
+    document.getElementById('bkModal').classList.add('show');
+    /* 老内核丢帧补丁：打开后强制整层重绘一次，防止按钮"浮现一下就消失" */
+    try{
+      const mb = document.getElementById('bkModalBox');
+      mb.style.display = 'none';
+      void mb.offsetHeight; /* 触发强制回流 */
+      mb.style.display = 'block';
+    }catch(e){}
+  }
+}
+function updateEstimate(){
+  const a = parseFloat(document.getElementById('bkArea').value)||0;
+  document.getElementById('bkEstimate').innerHTML =
+    '预估费用：<b>¥'+(a*8).toFixed(0)+'</b>（'+a.toFixed(1)+' 亩 × 8 元/亩，与 App 预约估价规则一致）';
+}
+function closeModal(){
+  document.getElementById('bkModal').classList.remove('show');
+  /* 关闭时恢复表单面板，下次打开回到填单状态 */
+  document.getElementById('bkForm').style.display='block';
+  document.getElementById('bkSuccess').style.display='none';
+}
+/* 三位序号补零（兼容老内核：不用 padStart） */
+function pad3(n){ return (n<10?'00':n<100?'0':'')+n; }
+function submitBooking(){
+  try{
+    const area = parseFloat(document.getElementById('bkArea').value)||0;
+    const warn = document.getElementById('bkWarn');
+    if(area<=0){ warn.textContent='请输入有效的作业面积'; warn.style.display='block'; return; }
+    const slot = document.getElementById('bkSlot').value;
+    if(coldActive && slot.indexOf('today')===0){
+      warn.textContent='❄️ 寒潮预警中，今日作业窗口已关闭，请选择明天时段（与 App 天气窗口校验一致）';
+      warn.style.display='block'; return;
+    }
+    const o = {
+      id:'BK'+pad3(orders.length+1),
+      crop:document.getElementById('bkCrop').value,
+      area:area,
+      loc:document.getElementById('bkLoc').value||'未填写',
+      slotName:SLOT_TEXT[slot]||slot,
+      status:0,
+      note:document.getElementById('bkNote').value
+    };
+    orders.unshift(o);
+    renderOrders();
+    /* 成功反馈放在主页面横幅（不依赖弹窗重绘，老内核也稳定可见）+ 弹窗内确认页（新内核双保险） */
+    document.getElementById('bkBannerTitle').textContent = '✅ 预约单 '+o.id+' 提交成功';
+    document.getElementById('bkBannerBody').innerHTML =
+      '<b>'+o.crop+' '+o.area+' 亩 · '+o.slotName+'</b> · 地块：'+o.loc
+      +' · 估价：<b style="color:#E65100">¥'+(area*8).toFixed(0)+'</b>'
+      +(o.note?' · 备注：'+o.note:'')
+      +'<br>订单已进入下方预约单列表，状态：<b>待接单</b>';
+    document.getElementById('bkBanner').style.display = 'block';
+    document.getElementById('bkForm').style.display='none';
+    const box = document.getElementById('bkSuccess');
+    document.getElementById('bkSuccessTitle').textContent='预约单 '+o.id+' 提交成功';
+    document.getElementById('bkSuccessBody').innerHTML =
+      '<b>'+o.crop+' '+o.area+' 亩 · '+o.slotName+'</b><br>'
+      +'地块：'+o.loc+'<br>'
+      +'估价：<b style="color:#E65100">¥'+(area*8).toFixed(0)+'</b>（'+o.area+' 亩 × 8 元/亩）'
+      +(o.note?'<br>备注：'+o.note:'')
+      +'<br><span style="color:#2E7D32">已进入下方预约单列表，状态：待接单</span>';
+    box.style.display='block';
+    /* 弹窗内确认页停留 1.2 秒后自动收起，主页面横幅接力展示（两种内核都看得见） */
+    setTimeout(function(){ closeModal(); showBkBanner(); }, 1200);
+    pushAlert('ok','✅ 预约单 '+o.id+' 提交成功',
+      o.crop+' '+o.area+' 亩 · '+o.slotName+' · 估价 ¥'+(area*8).toFixed(0)+'，已在下方预约单列表待接单。机手接单后进入作业→留档流程。',
+      null, null, null);
+    log('📋 已提交植保预约 <b>'+o.id+'</b>：'+o.crop+' '+area+' 亩 · '+o.slotName+' · 估价 ¥'+(area*8).toFixed(0));
+    newOrderCardId = o.id;
+  }catch(err){
+    /* 异常可见化：任何提交错误直接显示在表单上，避免静默失败 */
+    const warn = document.getElementById('bkWarn');
+    warn.textContent = '提交异常：'+err.message;
+    warn.style.display = 'block';
+  }
+}
+/* 「查看下方预约单」：关闭弹窗 → 滚动定位到新订单卡并高亮 2.5 秒 */
+let newOrderCardId = null;
+/* 主页面成功横幅：不自动消失，兼容老内核（不用弹窗重绘） */
+function showBkBanner(){
+  const b = document.getElementById('bkBanner');
+  if(!b || b.style.display==='block') { if(b){ b.scrollIntoView({block:'center'}); } return; }
+  b.style.display = 'block';
+  try{ b.scrollIntoView({block:'center'}); }catch(e){}
+}
+function closeBkBanner(){
+  document.getElementById('bkBanner').style.display = 'none';
+}
+function viewNewOrder(){
+  closeModal();
+  const card = document.querySelector('#orderList .order-card');
+  if(card){
+    card.scrollIntoView({behavior:'smooth', block:'center'});
+    card.style.transition = 'background .3s';
+    card.style.background = '#FFF9C4';
+    setTimeout(()=>{ card.style.background = ''; }, 2500);
+  }
+}
+function advanceOrder(id){
+  const o = orders.find(x=>x.id===id);
+  if(!o || o.status>=3) return;
+  o.status++;
+  renderOrders();
+  const names = ['机手已接单（江陵飞防队 · 王机手）','作业开始：无人机已起飞作业','作业完成，留档已上传（实际面积/药剂/用量可溯源）'];
+  log('🚁 '+o.id+'：'+names[o.status-1]);
+}
+function renderOrders(){
+  const box = document.getElementById('orderList');
+  if(!orders.length){
+    box.innerHTML = '<div style="font-size:12px;color:var(--hint)">暂无预约单——通过预警卡「去植保预约」或工具栏「新建植保预约」创建，天气预警时今日时段会被拦截</div>';
+    return;
+  }
+  box.innerHTML = orders.map(o=>{
+    const st = STATUS[o.status];
+    const steps = [0,1,2,3].map(i=>'<div class="ostep'+(i<=o.status?' done':'')+'"></div>').join('<span style="width:6px"></span>');
+    const act = o.status<3
+      ? '<button class="btn spray" style="padding:6px 12px;font-size:12px" onclick="advanceOrder(\''+o.id+'\')">'+STATUS_BTN[o.status]+'</button>'
+      : '<span style="font-size:12px;color:var(--green-dark)">✅ 留档可溯源</span>';
+    return '<div class="order-card"><div class="order-top"><b>'+o.id+' · '+o.crop+' '+o.area+' 亩</b>'
+      +'<span class="status-chip" style="background:'+st.c+'">'+st.t+'</span></div>'
+      +'<div class="order-meta">'+o.loc+' · '+o.slotName+(o.note?' · '+o.note:'')+'</div>'
+      +'<div class="order-steps">'+steps+'</div>'
+      +'<div class="order-actions">'+act+'</div></div>';
+  }).join('');
+}
+renderOrders();
+goBooking(defaultBookingPlot(), false); /* 页面加载即预填一张预约单，表单常驻可见 */
+
+function log(msg){
+  const ul=document.getElementById('log');
+  const li=document.createElement('li');
+  const t=new Date().toTimeString().slice(0,8);
+  li.innerHTML='['+t+'] '+msg;
+  ul.insertBefore(li, ul.firstElementChild);
+  while(ul.children.length>30) ul.lastElementChild.remove();
+}
+
+/* ===== 作物选择 ===== */
+document.getElementById('cropPick').addEventListener('click',e=>{
+  const btn=e.target.closest('button');
+  if(!btn) return;
+  if(btn.dataset.crop==='__custom'){ openCustomModal(); return; }
+  selectedCrop=btn.dataset.crop;
+  document.querySelectorAll('#cropPick button').forEach(b=>b.classList.toggle('active',b===btn));
+});
+
+/* ===== 自定义植物 + 云端大模型风险档案 ===== */
+let customCount = 0;
+function openCustomModal(){
+  document.getElementById('cuName').value='';
+  document.getElementById('cuGrow').value=30;
+  document.getElementById('cuWarn').style.display='none';
+  document.getElementById('cuModal').classList.add('show');
+}
+function closeCuModal(){ document.getElementById('cuModal').classList.remove('show'); }
+function confirmCustomCrop(){
+  const warn=document.getElementById('cuWarn');
+  const name=(document.getElementById('cuName').value||'').trim();
+  if(!name){ warn.textContent='请先给植物起个名字'; warn.style.display='block'; return; }
+  let grow=parseInt(document.getElementById('cuGrow').value,10);
+  if(isNaN(grow)) grow=30;
+  grow=Math.max(10,Math.min(180,grow));
+  const emoji=document.getElementById('cuEmoji').value;
+  const keys=Object.keys(PESTS);
+  const pool=[]; /* 大模型档案：为自定义植物随机匹配两类重点风险（模拟云端推理） */
+  while(pool.length<2){ const k=keys[Math.floor(Math.random()*keys.length)]; if(pool.indexOf(k)<0) pool.push(k); }
+  const key='custom'+(++customCount);
+  CROPS[key]={name:name, emoji:emoji, growSec:grow, pest:pool};
+  const btn=document.createElement('button');
+  btn.dataset.crop=key; btn.textContent=emoji+' '+name; btn.className='active';
+  document.getElementById('cropPick').appendChild(btn);
+  document.querySelectorAll('#cropPick button').forEach(b=>b.classList.toggle('active',b===btn));
+  selectedCrop=key;
+  closeCuModal();
+  log('🌿 自定义植物「<b>'+name+'</b>」已加入种子栏并选中，云端大模型已生成虫害风险档案（重点盯防：'+PESTS[pool[0]].name+' / '+PESTS[pool[1]].name+'），点击空田即可播种');
+}
+
+/* 初始：预置三块田演示 */
+setTimeout(()=>{
+  plots[0].crop='cabbage'; plots[0].plantedAt=Date.now()-12000; plots[0].progress=0.5;
+  plots[1].crop='rape'; plots[1].plantedAt=Date.now()-18000; plots[1].progress=0.55;
+  plots[2].crop='citrus'; plots[2].plantedAt=Date.now()-20000; plots[2].progress=0.45;
+  plots.forEach(renderPlot); updateStats();
+  log('🌾 欢迎来到田哨农场！9 种湖北常见作物可选（水稻/油菜/小麦/棉花/玉米/柑橘/莲藕/花生/白菜），已预置白菜、油菜、柑橘各一块田');
+},300);
+</script>
+</body>
+</html>

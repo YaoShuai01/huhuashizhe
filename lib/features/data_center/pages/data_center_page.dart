@@ -47,19 +47,22 @@ class DataCenterPage extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             // 模块分类
-            _buildSectionTitle('基础数据'),
+            _buildSectionTitle(context, '基础数据'),
             const SizedBox(height: 8),
-            _buildModuleGrid(context, DataModules.allModules.sublist(0, 3)),
+            _buildModuleGrid(context, [
+              ...DataModules.allModules.sublist(0, 3),
+              DataModules.scheduleModule,
+            ]),
             const SizedBox(height: 20),
-            _buildSectionTitle('监测数据'),
+            _buildSectionTitle(context, '监测数据'),
             const SizedBox(height: 8),
             _buildModuleGrid(context, DataModules.allModules.sublist(3, 5)),
             const SizedBox(height: 20),
-            _buildSectionTitle('作业数据'),
+            _buildSectionTitle(context, '作业数据'),
             const SizedBox(height: 8),
             _buildModuleGrid(context, DataModules.allModules.sublist(5, 8)),
             const SizedBox(height: 20),
-            _buildSectionTitle('配置与记录'),
+            _buildSectionTitle(context, '配置与记录'),
             const SizedBox(height: 8),
             _buildModuleGrid(context, DataModules.allModules.sublist(8, 11)),
             const SizedBox(height: 24),
@@ -69,15 +72,15 @@ class DataCenterPage extends StatelessWidget {
     );
   }
 
-  Widget _buildSectionTitle(String title) {
+  Widget _buildSectionTitle(BuildContext context, String title) {
     return Padding(
       padding: const EdgeInsets.only(left: 4),
       child: Text(
         title,
-        style: const TextStyle(
+        style:  TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w600,
-          color: AppColors.textSecondary,
+          color: context.palette.textSecondary,
         ),
       ),
     );
@@ -113,6 +116,10 @@ class DataCenterPage extends StatelessWidget {
             context.push('/growth-records');
             return;
           }
+          if (module.moduleKey == 'schedule') {
+            context.push('/schedule');
+            return;
+          }
           Navigator.of(context, rootNavigator: true).push(
             MaterialPageRoute(
               builder: (_) => DataListPage(config: module),
@@ -136,7 +143,7 @@ class DataCenterPage extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 module.moduleName,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                style:  TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: context.palette.textPrimary),
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

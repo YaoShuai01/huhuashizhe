@@ -3,12 +3,17 @@ import 'package:flutter/material.dart';
 import '../../features/home/pages/home_page.dart';
 import '../../features/presets/pages/presets_page.dart';
 import '../../features/classroom/pages/classroom_page.dart';
+import '../../features/services/pages/services_page.dart';
+import '../../features/services/pages/booking_page.dart';
+import '../../features/services/pages/booking_role_page.dart';
+import '../../features/services/pages/pilot_profile_page.dart';
+import '../../features/services/pages/pilot_workbench_page.dart';
 import '../../features/mine/pages/mine_page.dart';
 import '../../features/presets/widgets/preset_form_page.dart';
 import '../../features/presets/widgets/preset_tuning_page.dart';
 import '../../features/classroom/widgets/course_detail_page.dart';
 import '../../features/mission/pages/map_select_page.dart';
-import '../../features/mine/widgets/device_scan_page.dart';
+import '../../features/mine/widgets/wifi_scan_page.dart';
 import '../../features/mine/pages/mine_sub_pages.dart';
 import '../../features/settings/pages/settings_page.dart';
 import '../../features/ai_chat/pages/ai_chat_page.dart';
@@ -18,9 +23,28 @@ import '../../features/data_center/data_module_config.dart';
 import '../../features/remote_control/pages/remote_control_page.dart';
 import '../../features/model_test/pages/model_test_page.dart';
 import '../../features/model_test/pages/growth_records_page.dart';
+import '../../features/speedometer/pages/gps_speedometer_page.dart';
+import '../../features/schedule/pages/schedule_gate_page.dart';
+import '../../features/schedule/pages/schedule_page.dart';
+import '../../features/schedule/pages/schedule_edit_page.dart';
+import '../../features/schedule/pages/schedule_messages_page.dart';
+import '../../features/forum/data/forum_models.dart';
+import '../../features/forum/pages/forum_page.dart';
+import '../../features/forum/pages/forum_section_page.dart';
+import '../../features/forum/pages/forum_compose_page.dart';
+import '../../features/forum/pages/forum_my_posts_page.dart';
+import '../../features/forum/pages/forum_messages_page.dart';
+import '../../features/forum/pages/forum_favorites_page.dart';
+import '../../features/forum/pages/forum_post_detail_page.dart';
+import '../../features/sentinel/pages/sentinel_page.dart';
+import '../../features/sentinel/pages/farm_game_page.dart';
+import '../../features/cloud_farming/pages/cloud_farm_page.dart';
+import '../../features/cloud_farming/pages/cloud_plot_create_page.dart';
+import '../../features/cloud_farming/pages/cloud_planting_wizard_page.dart';
+import '../../features/cloud_farming/pages/cloud_plot_detail_page.dart';
+import '../../features/cloud_farming/pages/cloud_remote_page.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
-final _shellNavigatorKey = GlobalKey<NavigatorState>();
 
 /// 获取根导航器key（供更新弹窗等全局弹窗使用）
 GlobalKey<NavigatorState> get rootNavigatorKey => _rootNavigatorKey;
@@ -29,35 +53,50 @@ final appRouter = GoRouter(
   navigatorKey: _rootNavigatorKey,
   initialLocation: '/home',
   routes: [
-    ShellRoute(
-      navigatorKey: _shellNavigatorKey,
-      builder: (context, state, child) {
-        return AppShell(child: child);
+    StatefulShellRoute.indexedStack(
+      builder: (context, state, navigationShell) {
+        return AppShell(navigationShell: navigationShell);
       },
-      routes: [
-        GoRoute(
-          path: '/home',
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: HomePage(),
-          ),
+      branches: [
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/home',
+              pageBuilder: (context, state) => const NoTransitionPage(
+                child: HomePage(),
+              ),
+            ),
+          ],
         ),
-        GoRoute(
-          path: '/data-center',
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: DataCenterPage(),
-          ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/data-center',
+              pageBuilder: (context, state) => const NoTransitionPage(
+                child: DataCenterPage(),
+              ),
+            ),
+          ],
         ),
-        GoRoute(
-          path: '/classroom',
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: ClassroomPage(),
-          ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/services',
+              pageBuilder: (context, state) => const NoTransitionPage(
+                child: ServicesPage(),
+              ),
+            ),
+          ],
         ),
-        GoRoute(
-          path: '/mine',
-          pageBuilder: (context, state) => const NoTransitionPage(
-            child: MinePage(),
-          ),
+        StatefulShellBranch(
+          routes: [
+            GoRoute(
+              path: '/mine',
+              pageBuilder: (context, state) => const NoTransitionPage(
+                child: MinePage(),
+              ),
+            ),
+          ],
         ),
       ],
     ),
@@ -86,6 +125,38 @@ final appRouter = GoRouter(
       },
     ),
     GoRoute(
+      path: '/services/classroom',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const ClassroomPage(),
+    ),
+    GoRoute(
+      path: '/services/booking',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const BookingRolePage(),
+    ),
+    GoRoute(
+      path: '/services/booking/farmer',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final q = state.uri.queryParameters;
+        return BookingPage(
+          initialCrop: q['crop'],
+          initialArea: q['area'],
+          initialLocation: q['location'],
+        );
+      },
+    ),
+    GoRoute(
+      path: '/services/booking/pilot',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const PilotWorkbenchPage(),
+    ),
+    GoRoute(
+      path: '/services/booking/pilot/profile',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const PilotProfilePage(),
+    ),
+    GoRoute(
       path: '/classroom/course',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
@@ -107,6 +178,49 @@ final appRouter = GoRouter(
       },
     ),
     GoRoute(
+      path: '/speedometer',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const GpsSpeedometerPage(),
+    ),
+    GoRoute(
+      path: '/forum',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const ForumPage(),
+    ),
+    GoRoute(
+      path: '/forum/section',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) =>
+          ForumSectionPage(section: state.extra as String),
+    ),
+    GoRoute(
+      path: '/forum/compose',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) =>
+          ForumComposePage(initialSection: state.extra as String?),
+    ),
+    GoRoute(
+      path: '/forum/my-posts',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const ForumMyPostsPage(),
+    ),
+    GoRoute(
+      path: '/forum/messages',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const ForumMessagesPage(),
+    ),
+    GoRoute(
+      path: '/forum/post',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) =>
+          ForumPostDetailPage(post: state.extra as ForumPost),
+    ),
+    GoRoute(
+      path: '/forum/favorites',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const ForumFavoritesPage(),
+    ),
+    GoRoute(
       path: '/mine/account',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const AccountPage(),
@@ -114,7 +228,7 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/mine/device',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => const DeviceScanPage(),
+      builder: (context, state) => const WifiScanPage(),
     ),
     GoRoute(
       path: '/mine/settings',
@@ -207,47 +321,86 @@ final appRouter = GoRouter(
         return DataListPage(config: config);
       },
     ),
+    GoRoute(
+      path: '/schedule',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const ScheduleGatePage(),
+    ),
+    GoRoute(
+      path: '/schedule/home',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const SchedulePage(),
+    ),
+    GoRoute(
+      path: '/schedule/edit',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const ScheduleEditPage(),
+    ),
+    GoRoute(
+      path: '/schedule/messages',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const ScheduleMessagesPage(),
+    ),
+    GoRoute(
+      path: '/sentinel',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const SentinelPage(),
+    ),
+    GoRoute(
+      path: '/sentinel/farm',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const FarmGamePage(),
+    ),
+    GoRoute(
+      path: '/cloud-farm',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const CloudFarmPage(),
+    ),
+    GoRoute(
+      path: '/cloud-farm/create',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const CloudPlotCreatePage(),
+    ),
+    GoRoute(
+      path: '/cloud-farm/plant',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        return CloudPlantingWizardPage(
+          initialPlotId: extra?['plotId'] as String?,
+        );
+      },
+    ),
+    GoRoute(
+      path: '/cloud-farm/plot/:id',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) =>
+          CloudPlotDetailPage(plotId: state.pathParameters['id']!),
+    ),
+    GoRoute(
+      path: '/cloud-farm/remote/:id',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) =>
+          CloudRemotePage(plotId: state.pathParameters['id']!),
+    ),
   ],
 );
 
 class AppShell extends StatelessWidget {
-  final Widget child;
+  final StatefulNavigationShell navigationShell;
 
-  const AppShell({super.key, required this.child});
-
-  int _currentIndex(BuildContext context) {
-    final location = GoRouterState.of(context).uri.toString();
-    if (location.startsWith('/data-center')) return 1;
-    if (location.startsWith('/classroom')) return 2;
-    if (location.startsWith('/mine')) return 3;
-    return 0;
-  }
-
-  void _onTap(BuildContext context, int index) {
-    switch (index) {
-      case 0:
-        context.go('/home');
-        break;
-      case 1:
-        context.go('/data-center');
-        break;
-      case 2:
-        context.go('/classroom');
-        break;
-      case 3:
-        context.go('/mine');
-        break;
-    }
-  }
+  const AppShell({super.key, required this.navigationShell});
 
   @override
   Widget build(BuildContext context) {
-    final index = _currentIndex(context);
     return Scaffold(
-      body: child,
+      body: navigationShell,
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: index,
-        onTap: (i) => _onTap(context, i),
+        currentIndex: navigationShell.currentIndex,
+        onTap: (index) => navigationShell.goBranch(
+          index,
+          initialLocation: index == navigationShell.currentIndex,
+        ),
         items: const [
           BottomNavigationBarItem(
             icon: Icon(Icons.home_outlined),
@@ -260,9 +413,9 @@ class AppShell extends StatelessWidget {
             label: '数据管理',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.school_outlined),
-            activeIcon: Icon(Icons.school),
-            label: '小课堂',
+            icon: Icon(Icons.miscellaneous_services_outlined),
+            activeIcon: Icon(Icons.miscellaneous_services),
+            label: '社区',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),

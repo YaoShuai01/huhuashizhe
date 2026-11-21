@@ -7,10 +7,11 @@ plugins {
 
 android {
     namespace = "com.huhuashizhe.huhuashizhe"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 35
     ndkVersion = "27.0.12077973"
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
@@ -44,6 +45,8 @@ flutter {
 }
 
 dependencies {
+    // flutter_local_notifications 定时通知需要 Java 8+ API desugaring
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     // tflite_flutter 0.11.0 的 GpuDelegateV2 引用 GPU API 类但插件未携带，需显式补充
     implementation("org.tensorflow:tensorflow-lite-gpu-api:2.11.0")
 }

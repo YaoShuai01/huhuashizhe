@@ -68,7 +68,7 @@ class _GrowthRecordDetailPageState extends State<GrowthRecordDetailPage> {
             ),
             const SizedBox(height: 8),
             Text('时间：${record.timeText}（不可修改）',
-                style: const TextStyle(fontSize: 12, color: AppColors.textHint)),
+                style:  TextStyle(fontSize: 12, color: context.palette.textHint)),
           ],
         ),
         actions: [
@@ -175,7 +175,7 @@ class _GrowthRecordDetailPageState extends State<GrowthRecordDetailPage> {
           // 元信息
           Text(
             '${record.locationName} · ${record.timeText}',
-            style: const TextStyle(fontSize: 12, color: AppColors.textHint),
+            style:  TextStyle(fontSize: 12, color: context.palette.textHint),
           ),
           const SizedBox(height: 12),
           // 问题卡片（预警描述 + 采集图片）
@@ -183,8 +183,8 @@ class _GrowthRecordDetailPageState extends State<GrowthRecordDetailPage> {
             Container(
               padding: const EdgeInsets.symmetric(vertical: 32),
               alignment: Alignment.center,
-              child: const Text('本条记录没有采集到问题图像',
-                  style: TextStyle(fontSize: 13, color: AppColors.textHint)),
+              child:  Text('本条记录没有采集到问题图像',
+                  style: TextStyle(fontSize: 13, color: context.palette.textHint)),
             )
           else
             ...record.problems.map(_buildProblemCard),
@@ -201,9 +201,9 @@ class _GrowthRecordDetailPageState extends State<GrowthRecordDetailPage> {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.palette.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.surfaceVariant),
+        border: Border.all(color: context.palette.surfaceVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -216,10 +216,10 @@ class _GrowthRecordDetailPageState extends State<GrowthRecordDetailPage> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(problem.zhName,
-                      style: const TextStyle(
+                      style:  TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary)),
+                          color: context.palette.textPrimary)),
                 ),
               ],
             ),
@@ -227,13 +227,13 @@ class _GrowthRecordDetailPageState extends State<GrowthRecordDetailPage> {
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
             child: Text(problem.desc,
-                style: const TextStyle(
-                    fontSize: 13, color: AppColors.textSecondary, height: 1.4)),
+                style:  TextStyle(
+                    fontSize: 13, color: context.palette.textSecondary, height: 1.4)),
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
             child: Text('共 ${problem.imagePaths.length} 张采集图',
-                style: const TextStyle(fontSize: 12, color: AppColors.textHint)),
+                style:  TextStyle(fontSize: 12, color: context.palette.textHint)),
           ),
           // 缩略图网格（相册式交互）
           Padding(
@@ -270,7 +270,7 @@ class _GrowthRecordDetailPageState extends State<GrowthRecordDetailPage> {
           bytes != null
               ? Image.memory(bytes, fit: BoxFit.cover)
               : Container(
-                  color: AppColors.surfaceVariant,
+                  color: context.palette.surfaceVariant,
                   child: const Center(
                     child: SizedBox(
                       width: 18,
@@ -349,18 +349,18 @@ class _GrowthRecordDetailPageState extends State<GrowthRecordDetailPage> {
             decoration: BoxDecoration(
               color: AppColors.primary.withValues(alpha: 0.08),
               borderRadius:
-                  const BorderRadius.vertical(top: Radius.circular(13)),
+ const BorderRadius.vertical(top: Radius.circular(13)),
             ),
             child: Row(
               children: [
                 const Icon(Icons.auto_awesome, color: AppColors.primary, size: 20),
                 const SizedBox(width: 8),
-                const Expanded(
+                 Expanded(
                   child: Text('AI处理建议',
                       style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary)),
+                          color: context.palette.textPrimary)),
                 ),
                 if (record.aiPending && record.chat.isEmpty)
                   const Row(
@@ -387,8 +387,8 @@ class _GrowthRecordDetailPageState extends State<GrowthRecordDetailPage> {
                 record.chat.isNotEmpty
                     ? '${AiChatService.stripMarkdown(record.aiSuggestion ?? '')}\n\n（已有${record.chat.length}条追问对话，点击下方按钮查看完整对话）'
                     : AiChatService.stripMarkdown(record.aiSuggestion ?? ''),
-                style: const TextStyle(
-                    fontSize: 14, color: AppColors.textPrimary, height: 1.6),
+                style:  TextStyle(
+                    fontSize: 14, color: context.palette.textPrimary, height: 1.6),
               ),
             ),
           Padding(
@@ -508,7 +508,7 @@ class _AiSuggestionDialogState extends State<_AiSuggestionDialog> {
       history.add({
         'role': c['role']?.toString() ?? 'user',
         'content':
-            AiChatService.stripMarkdown(c['content']?.toString() ?? ''),
+ AiChatService.stripMarkdown(c['content']?.toString() ?? ''),
       });
     }
     if (_streaming && _streamBuffer.isNotEmpty) {
@@ -553,12 +553,12 @@ class _AiSuggestionDialogState extends State<_AiSuggestionDialog> {
                   ? Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
-                        children: const [
+                        children:  [
                           CircularProgressIndicator(),
                           SizedBox(height: 10),
                           Text('正在生成AI处理建议...',
                               style: TextStyle(
-                                  fontSize: 13, color: AppColors.textHint)),
+                                  fontSize: 13, color: context.palette.textHint)),
                         ],
                       ),
                     )
@@ -596,7 +596,7 @@ class _AiSuggestionDialogState extends State<_AiSuggestionDialog> {
                         hintText: '针对这条建议继续追问...',
                         isDense: true,
                         contentPadding:
-                            EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+ EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       ),
                       onSubmitted: (_) => _send(),
                     ),
@@ -625,7 +625,7 @@ class _AiSuggestionDialogState extends State<_AiSuggestionDialog> {
           maxWidth: MediaQuery.of(context).size.width * 0.62,
         ),
         decoration: BoxDecoration(
-          color: isAi ? AppColors.surfaceVariant : AppColors.primary,
+          color: isAi ? context.palette.surfaceVariant : AppColors.primary,
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(12),
             topRight: const Radius.circular(12),
@@ -638,7 +638,7 @@ class _AiSuggestionDialogState extends State<_AiSuggestionDialog> {
           style: TextStyle(
             fontSize: 13.5,
             height: 1.5,
-            color: isAi ? AppColors.textPrimary : Colors.white,
+            color: isAi ? context.palette.textPrimary : Colors.white,
           ),
         ),
       ),
