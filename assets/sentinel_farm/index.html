@@ -68,7 +68,7 @@
   .bug.dying{transition:all 1.2s;opacity:0;transform:translateY(40px) rotate(160deg);}
   .bug-overlay{position:absolute;inset:0;z-index:20;pointer-events:none;}
 
-  .spray{position:absolute;width:12px;height:12px;border-radius:50%;background:rgba(179,229,252,.85);z-index:15;animation:sprayFade 1.4s forwards;}
+  .spray-drop{position:absolute;width:12px;height:12px;border-radius:50%;background:rgba(179,229,252,.85);z-index:15;animation:sprayFade 1.4s forwards;}
   @keyframes sprayFade{0%{transform:scale(.4);opacity:1;}100%{transform:scale(2.4) translateY(-24px);opacity:0;}}
 
   .toolbar{background:var(--card);border-radius:14px;padding:14px 18px;margin-bottom:14px;box-shadow:0 2px 10px rgba(0,0,0,.08);}
@@ -173,9 +173,16 @@
     .stat{padding:6px 10px;}
     .stat b{font-size:15px;}
     .toolbar{padding:12px 14px;}
+    .toolbar h3{font-size:12px;line-height:1.5;}
+    /* 手机排版：作物 3 列网格，操作按钮 2 列等宽，整齐不散排 */
+    .toolbar .row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:stretch;}
+    .toolbar .row>.crop-pick{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+    .toolbar .row>span{display:none;}
+    .crop-pick button{justify-content:center;width:100%;}
+    .toolbar .row>.btn{width:100%;justify-content:center;margin:0;}
+    .btn{padding:9px 12px;font-size:13px;}
     .field{padding:12px;gap:10px;}
     .plot{height:118px;}
-    .btn{padding:8px 13px;font-size:13px;}
   }
 
   /* ===== 哨兵值守状态条 ===== */
@@ -899,7 +906,7 @@ function sprayPlot(p){
   const pest=PESTS[p.pest];
   for(let k=0;k<8;k++){
     const s=document.createElement('div');
-    s.className='spray';
+    s.className='spray-drop';
     s.style.left=(15+Math.random()*70)+'%';
     s.style.top=(20+Math.random()*50)+'%';
     s.style.animationDelay=(k*0.1)+'s';
