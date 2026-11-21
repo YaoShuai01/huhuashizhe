@@ -15,27 +15,14 @@ class BookingRolePage extends StatelessWidget {
       body: LayoutBuilder(
         builder: (context, constraints) {
           final compact = constraints.maxHeight < 560;
-          final header = Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '请选择你的身份',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                '农户可预约飞手上门喷洒农药，飞手可查看并承接附近订单。',
-                style: TextStyle(
-                  fontSize: 13,
-                  height: 1.5,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
+          const header = Text(
+            '请选择你的身份',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary,
+            ),
           );
 
           final farmerCard = _roleCard(
@@ -69,7 +56,7 @@ class BookingRolePage extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
               children: [
                 header,
-                const SizedBox(height: 16),
+                const SizedBox(height: 64),
                 SizedBox(height: 260, child: cards),
               ],
             );
@@ -81,7 +68,7 @@ class BookingRolePage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 header,
-                const SizedBox(height: 16),
+                const SizedBox(height: 64),
                 SizedBox(
                   height: (constraints.maxHeight * 0.48).clamp(280.0, 400.0),
                   child: cards,
