@@ -156,6 +156,8 @@
   .modal-mask.show{display:block;}
   /* 老内核 fixed 层丢帧补丁：弹窗强制独立合成层，避免内容画不出来（可点击但看不见） */
   .modal{background:#fff;border-radius:14px;width:92%;max-width:420px;margin:30px auto;padding:16px 18px;box-shadow:0 10px 40px rgba(0,0,0,.25);-webkit-transform:translateZ(0);transform:translateZ(0);}
+  #ehModal.show{display:flex;}
+  #ehModal.show .modal{margin:auto;}
   /* 弹窗内按钮禁用 transition 与阴影：它们会诱发老内核图层丢失 */
   .modal .btn{box-shadow:none;transition:none;-webkit-transition:none;}
   .modal h3{color:var(--green-dark);font-size:15px;margin-bottom:2px;}
