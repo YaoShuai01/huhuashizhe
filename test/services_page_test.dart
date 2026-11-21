@@ -26,7 +26,7 @@ void main() {
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
 
-    expect(find.text('服务'), findsOneWidget);
+    expect(find.text('社区'), findsOneWidget);
     expect(find.text('常用服务'), findsOneWidget);
     expect(find.text('小课堂'), findsOneWidget);
 

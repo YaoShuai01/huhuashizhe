@@ -353,7 +353,7 @@ class AppShell extends StatelessWidget {
           BottomNavigationBarItem(
             icon: Icon(Icons.miscellaneous_services_outlined),
             activeIcon: Icon(Icons.miscellaneous_services),
-            label: '服务',
+            label: '社区',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),
