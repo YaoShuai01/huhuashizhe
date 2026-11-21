@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 
 import '../../../core/accessibility/elder_care_reader.dart';
 import '../../../core/theme/app_theme.dart';
@@ -14,6 +14,7 @@ class ForumPostCard extends StatelessWidget {
     this.showSection = true,
     this.favorited = false,
     this.onFavorite,
+    this.liked = false,
   });
 
   final ForumPost post;
@@ -28,6 +29,9 @@ class ForumPostCard extends StatelessWidget {
 
   /// 收藏切换回调，为空时不展示收藏入口
   final VoidCallback? onFavorite;
+
+  /// 当前用户是否已点赞
+  final bool liked;
 
   String get _avatarText {
     if (post.author.isEmpty) return '?';
@@ -163,29 +167,35 @@ class ForumPostCard extends StatelessWidget {
                   InkWell(
                     borderRadius: BorderRadius.circular(12),
                     onTap: onLike,
-                    child: Padding(
+                    child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: liked
+                            ? AppColors.accent.withValues(alpha: 0.12)
+                            : AppColors.textHint,
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            post.likes > 0
-                                ? Icons.favorite
-                                : Icons.favorite_border,
+                            liked ? Icons.favorite : Icons.favorite_border,
                             size: 15,
-                            color: post.likes > 0
+                            color: liked
                                 ? AppColors.accent
-                                : context.palette.textHint,
+                                : AppColors.textOnPrimary,
                           ),
                           const SizedBox(width: 4),
                           Text(
                             '${post.likes}',
-                            style:  TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
-                              color: context.palette.textHint,
+                              color: liked
+                                  ? AppColors.accent
+                                  : AppColors.textOnPrimary,
                             ),
                           ),
                         ],

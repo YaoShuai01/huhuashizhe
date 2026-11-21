@@ -14,6 +14,7 @@ class ForumPostList extends StatelessWidget {
     this.onTapPost,
     this.isFavorite,
     this.onFavorite,
+    this.isLiked,
     this.padding = const EdgeInsets.only(top: 8, bottom: 88),
   });
 
@@ -32,6 +33,9 @@ class ForumPostList extends StatelessWidget {
   /// 收藏切换回调
   final ValueChanged<ForumPost>? onFavorite;
 
+  /// 判断帖子是否已点赞
+  final bool Function(ForumPost post)? isLiked;
+
   final EdgeInsetsGeometry padding;
 
   @override
@@ -46,6 +50,7 @@ class ForumPostList extends StatelessWidget {
           onLike: () => onLike(post),
           onTap: onTapPost == null ? null : () => onTapPost!(post),
           favorited: isFavorite?.call(post) ?? false,
+          liked: isLiked?.call(post) ?? false,
           onFavorite:
               onFavorite == null ? null : () => onFavorite!(post),
         );

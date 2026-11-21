@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:huhuashizhe/core/theme/app_theme.dart';
 import 'package:huhuashizhe/features/forum/data/forum_models.dart';
 import 'package:huhuashizhe/features/forum/data/forum_repository.dart';
 import 'package:huhuashizhe/features/forum/forum_scope.dart';
@@ -12,6 +13,7 @@ import 'package:huhuashizhe/features/forum/pages/forum_post_detail_page.dart';
 import 'package:huhuashizhe/features/forum/services/forum_moderation_service.dart';
 import 'package:huhuashizhe/features/forum/services/forum_voice_input.dart';
 import 'package:huhuashizhe/features/forum/widgets/forum_message_bell.dart';
+import 'package:huhuashizhe/features/forum/widgets/forum_post_card.dart';
 import 'package:huhuashizhe/features/forum/pages/forum_section_page.dart';
 
 void main() {
@@ -236,6 +238,42 @@ void main() {
 
     repository.toggleLike(post);
     expect(post.likes, 5);
+  });
+
+  testWidgets('点赞图标未点赞时为白色空心，点赞后为琥珀橙实心', (tester) async {
+    final post = ForumPost(
+      id: 'like_color',
+      section: '农友留言区',
+      title: '点赞颜色',
+      content: '正文',
+      author: '测试用户',
+      createdAt: DateTime(2026, 1, 1),
+      likes: 3,
+    );
+    final repository = InMemoryForumRepository(seed: false, posts: [post]);
+
+    Widget buildCard() => MaterialApp(
+          home: Scaffold(
+            body: ForumPostCard(
+              post: post,
+              liked: repository.isLiked(post),
+              onLike: () => repository.toggleLike(post),
+            ),
+          ),
+        );
+
+    await tester.pumpWidget(buildCard());
+    expect(
+      tester.widget<Icon>(find.byIcon(Icons.favorite_border)).color,
+      AppColors.textOnPrimary,
+    );
+
+    repository.toggleLike(post);
+    await tester.pumpWidget(buildCard());
+    expect(
+      tester.widget<Icon>(find.byIcon(Icons.favorite)).color,
+      AppColors.accent,
+    );
   });
 
   testWidgets('帖子详情展示评论并可发表评论', (tester) async {
