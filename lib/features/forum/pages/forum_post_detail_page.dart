@@ -44,6 +44,20 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
   bool _sending = false;
   bool _showEmojiPanel = false;
 
+  @override
+  void initState() {
+    super.initState();
+    // 以输入框内容为准同步发送按钮状态，语音输入等直接改文本也能发送
+    _controller.addListener(_syncCanSend);
+  }
+
+  void _syncCanSend() {
+    final canSend = _controller.text.trim().isNotEmpty;
+    if (canSend != _canSend) {
+      setState(() => _canSend = canSend);
+    }
+  }
+
   /// 评论常用表情（点击插入正文）
   static const List<String> _commentEmojis = [
     '😀', '😁', '😂', '🤣', '😊', '😍', '🥰', '😎',
@@ -71,11 +85,11 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
       text: text.replaceRange(start, end, emoji),
       selection: TextSelection.collapsed(offset: start + emoji.length),
     );
-    if (!_canSend) setState(() => _canSend = true);
   }
 
   @override
   void dispose() {
+    _controller.removeListener(_syncCanSend);
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
@@ -87,12 +101,16 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
     setState(() => _sending = true);
 
     final service = widget.moderationService ?? defaultForumModerationService;
-    final result = await service.review(
-      title: '评论：${widget.post.title}',
-      content: text,
-    );
+    final ForumAuditResult result;
+    try {
+      result = await service.review(
+        title: '评论：${widget.post.title}',
+        content: text,
+      );
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
     if (!mounted) return;
-    setState(() => _sending = false);
 
     if (result.rejected) {
       await _showRejectDialog(result);
@@ -105,7 +123,6 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
     );
     _controller.clear();
     _focusNode.unfocus();
-    setState(() => _canSend = false);
     if (result.needsManualReview) {
       _toast('评论已提交，人工复审通过后展示');
     }
@@ -454,10 +471,7 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                               required maxLength}) =>
                           null,
                       onChanged: (value) {
-                        final canSend = value.trim().isNotEmpty;
-                        if (canSend != _canSend) {
-                          setState(() => _canSend = canSend);
-                        }
+                        _syncCanSend();
                       },
                       style: const TextStyle(fontSize: 13),
                       decoration: InputDecoration(
@@ -501,8 +515,24 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                   const SizedBox(width: 4),
                   IconButton.filled(
                     tooltip: '发送评论',
-                    onPressed: _canSend ? () => _send(repository) : null,
-                    icon: const Icon(Icons.send, size: 18),
+                    style: IconButton.styleFrom(
+                      disabledBackgroundColor:
+                          AppColors.primary.withValues(alpha: 0.6),
+                      disabledForegroundColor: AppColors.textOnPrimary,
+                    ),
+                    onPressed: (_canSend && !_sending)
+                        ? () => _send(repository)
+                        : null,
+                    icon: _sending
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.textOnPrimary,
+                            ),
+                          )
+                        : const Icon(Icons.send, size: 18),
                   ),
                 ],
               ),
