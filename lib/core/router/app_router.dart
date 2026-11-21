@@ -6,6 +6,7 @@ import '../../features/classroom/pages/classroom_page.dart';
 import '../../features/services/pages/services_page.dart';
 import '../../features/services/pages/booking_page.dart';
 import '../../features/services/pages/booking_role_page.dart';
+import '../../features/services/pages/pilot_profile_page.dart';
 import '../../features/services/pages/pilot_workbench_page.dart';
 import '../../features/mine/pages/mine_page.dart';
 import '../../features/presets/widgets/preset_form_page.dart';
@@ -66,16 +67,6 @@ final appRouter = GoRouter(
               path: '/data-center',
               pageBuilder: (context, state) => const NoTransitionPage(
                 child: DataCenterPage(),
-              ),
-            ),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
-              path: '/forum',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: ForumPage(),
               ),
             ),
           ],
@@ -147,6 +138,11 @@ final appRouter = GoRouter(
       builder: (context, state) => const PilotWorkbenchPage(),
     ),
     GoRoute(
+      path: '/services/booking/pilot/profile',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const PilotProfilePage(),
+    ),
+    GoRoute(
       path: '/classroom/course',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
@@ -171,6 +167,11 @@ final appRouter = GoRouter(
       path: '/speedometer',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const GpsSpeedometerPage(),
+    ),
+    GoRoute(
+      path: '/forum',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const ForumPage(),
     ),
     GoRoute(
       path: '/forum/section',
@@ -356,14 +357,9 @@ class AppShell extends StatelessWidget {
             label: '数据管理',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.forum_outlined),
-            activeIcon: Icon(Icons.forum),
-            label: '论坛',
-          ),
-          BottomNavigationBarItem(
             icon: Icon(Icons.miscellaneous_services_outlined),
             activeIcon: Icon(Icons.miscellaneous_services),
-            label: '服务',
+            label: '社区',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.person_outline),

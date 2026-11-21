@@ -944,6 +944,16 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.6.0',
+        'date': '2026-11-21',
+        'content': [
+          '底部导航「服务」改为「社区」，论坛入口调整到社区页内',
+          '飞防预约新增接单前确认、5 秒倒计时、12 小时后取消收费规则',
+          '新增飞手资料页、接单状态保留与其他作物自定义',
+          '服务模块页面补齐深色模式配色',
+        ],
+      },
+      {
         'version': 'v3.5.0',
         'date': '2026-11-21',
         'content': [

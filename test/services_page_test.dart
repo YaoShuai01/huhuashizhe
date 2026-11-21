@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:huhuashizhe/features/classroom/pages/classroom_page.dart';
 import 'package:huhuashizhe/features/services/pages/booking_page.dart';
 import 'package:huhuashizhe/features/services/pages/booking_role_page.dart';
+import 'package:huhuashizhe/features/services/pages/pilot_profile_page.dart';
 import 'package:huhuashizhe/features/services/pages/pilot_workbench_page.dart';
 import 'package:huhuashizhe/features/services/pages/services_page.dart';
 
@@ -26,7 +27,7 @@ void main() {
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
 
-    expect(find.text('服务'), findsOneWidget);
+    expect(find.text('社区'), findsOneWidget);
     expect(find.text('常用服务'), findsOneWidget);
     expect(find.text('小课堂'), findsOneWidget);
 
@@ -217,6 +218,21 @@ void main() {
     await tester.tap(find.text('接单').first);
     await tester.pumpAndSettle();
 
+    // 接单前弹出确认框，提示 12 小时后取消需支付 2% 费用
+    expect(find.text('确认接单'), findsOneWidget);
+    expect(find.textContaining('2% 的接单费用'), findsOneWidget);
+
+    // 确定按钮 5 秒倒计时内不可点击
+    expect(find.text('确定接单（5）'), findsOneWidget);
+    final disabled = tester.widget<FilledButton>(find.byType(FilledButton));
+    expect(disabled.onPressed, isNull);
+
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('确定接单'));
+    await tester.pumpAndSettle();
+
     // 订单从待接列表移入我的接单
     expect(find.text('1 单'), findsOneWidget);
     await tester.dragUntilVisible(
@@ -226,5 +242,100 @@ void main() {
     );
     expect(find.text('已接单'), findsOneWidget);
     expect(find.text('油菜 · 60 亩'), findsOneWidget);
+
+    // 退出工作台后重新进入，已接订单不会丢失
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('飞手工作台'), findsNothing);
+
+    await tester.tap(find.text('我是飞手'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('飞手工作台'), findsOneWidget);
+    expect(find.text('1 单'), findsOneWidget);
+    await tester.dragUntilVisible(
+      find.text('已接单'),
+      find.byType(ListView),
+      const Offset(0, -300),
+    );
+    expect(find.text('油菜 · 60 亩'), findsOneWidget);
+  });
+
+  testWidgets('作物类型选择其他时可自定义填写', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: BookingPage()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('作物名称'), findsNothing);
+
+    await tester.tap(find.text('其他'));
+    await tester.pumpAndSettle();
+
+    // 选择其他后出现作物名称输入框，可自定义填写
+    expect(find.text('作物名称'), findsOneWidget);
+    await tester.enterText(
+      find.widgetWithText(TextFormField, '作物名称'),
+      '甘蔗',
+    );
+    await tester.pump();
+    expect(find.text('甘蔗'), findsOneWidget);
+
+    // 切回预设作物后输入框隐藏
+    await tester.scrollUntilVisible(
+      find.text('油菜'),
+      -200,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('油菜'));
+    await tester.pumpAndSettle();
+    expect(find.text('作物名称'), findsNothing);
+  });
+
+  testWidgets('飞手工作台可进入资料页并保存资料', (tester) async {
+    final router = GoRouter(
+      initialLocation: '/services/booking/pilot',
+      routes: [
+        GoRoute(
+          path: '/services/booking/pilot',
+          builder: (context, state) => const PilotWorkbenchPage(),
+        ),
+        GoRoute(
+          path: '/services/booking/pilot/profile',
+          builder: (context, state) => const PilotProfilePage(),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('飞手资料'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('完善资料后可被更多农户找到'), findsOneWidget);
+
+    // 必填项为空时保存会被拦截
+    await tester.tap(find.text('保存资料'));
+    await tester.pumpAndSettle();
+    expect(find.text('请填写姓名'), findsOneWidget);
+
+    final fields = find.byType(TextFormField);
+    await tester.enterText(fields.at(0), '张师傅');
+    await tester.enterText(fields.at(1), '13800001111');
+    await tester.enterText(fields.at(2), '监利市新沟镇');
+    await tester.enterText(fields.at(4), '8');
+    await tester.enterText(fields.at(5), '3');
+
+    await tester.scrollUntilVisible(
+      find.text('保存资料'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('保存资料'));
+    await tester.pumpAndSettle();
+
+    // 返回工作台并展示已完善状态
+    expect(find.text('已完善：张师傅 · 监利市新沟镇'), findsOneWidget);
   });
 }
