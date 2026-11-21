@@ -217,6 +217,21 @@ void main() {
     await tester.tap(find.text('接单').first);
     await tester.pumpAndSettle();
 
+    // 接单前弹出确认框，提示 12 小时后取消需支付 2% 费用
+    expect(find.text('确认接单'), findsOneWidget);
+    expect(find.textContaining('2% 的接单费用'), findsOneWidget);
+
+    // 确定按钮 5 秒倒计时内不可点击
+    expect(find.text('确定接单（5）'), findsOneWidget);
+    final disabled = tester.widget<FilledButton>(find.byType(FilledButton));
+    expect(disabled.onPressed, isNull);
+
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('确定接单'));
+    await tester.pumpAndSettle();
+
     // 订单从待接列表移入我的接单
     expect(find.text('1 单'), findsOneWidget);
     await tester.dragUntilVisible(
