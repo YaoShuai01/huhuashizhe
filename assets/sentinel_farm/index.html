@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>田哨农场 · 云端田哨小游戏</title>
 <style>
   :root{
@@ -124,6 +124,10 @@
   .cand-row .cpct{width:44px;font-size:12px;color:var(--hint);text-align:right;}
   .cand-actions{margin-top:12px;display:flex;flex-wrap:wrap;gap:8px;}
   .chipbtn{border:2px solid #E0E0E0;background:#FAFAFA;border-radius:10px;padding:8px 13px;font-size:13px;cursor:pointer;transition:all .15s;}
+  /* 手机端触摸优化：去点按高亮/消除双击缩放延迟/防误选文字 */
+  *{-webkit-tap-highlight-color:transparent;}
+  body{touch-action:manipulation;-webkit-user-select:none;user-select:none;}
+  input,textarea{-webkit-user-select:text;user-select:text;}
   .chipbtn:hover{border-color:var(--purple);background:#F3E5F5;color:var(--purple);}
   .chipbtn.primary{border-color:var(--purple);background:#F3E5F5;color:var(--purple);font-weight:bold;}
   .option-row{display:flex;gap:10px;align-items:flex-start;margin-top:8px;background:#FAFAFA;border:1px solid #EEE;border-radius:8px;padding:8px 10px;}
@@ -180,7 +184,8 @@
     .toolbar .row>span{display:none;}
     .crop-pick button{justify-content:center;width:100%;}
     .toolbar .row>.btn{width:100%;justify-content:center;margin:0;}
-    .btn{padding:9px 12px;font-size:13px;}
+    .btn{padding:9px 12px;font-size:13px;min-height:40px;}
+    .chipbtn{min-height:38px;}
     .field{padding:12px;gap:10px;}
     .plot{height:118px;}
   }
@@ -222,7 +227,7 @@
     <span class="s-chip" id="sWeather"><i class="s-dot"></i>天气哨 · 值守中</span>
     <span class="s-chip" id="sFarm"><i class="s-dot"></i>农事哨 · 值守中</span>
     <span>待处理预警：<span class="s-num" id="sPending">0</span> 条</span>
-    <button class="btn" id="patrolBtn" style="margin-left:auto;padding:6px 14px;font-size:12px;" onclick="togglePatrol()">▶ 开启自动巡查</button>
+    <button class="btn" id="patrolBtn" style="margin-left:auto;padding:10px 16px;font-size:13px;" onclick="togglePatrol()">▶ 开启自动巡查</button>
   </div>
 
   <div class="farm" id="farm">
@@ -246,7 +251,7 @@
         <button data-crop="corn">🌽 玉米</button>
         <button data-crop="cotton">🤍 棉花</button>
         <button data-crop="citrus">🍊 柑橘</button>
-        <button data-crop="lotus">🪷 莲藕</button>
+        <button data-crop="lotus">🍀 莲藕</button>
         <button data-crop="peanut">🥜 花生</button>
         <button data-crop="__custom" style="border:1.5px dashed #66BB6A;color:#2E7D32;">🌿 自定义</button>
       </div>
