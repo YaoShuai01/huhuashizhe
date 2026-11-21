@@ -132,7 +132,14 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/services/booking/farmer',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) => const BookingPage(),
+      builder: (context, state) {
+        final q = state.uri.queryParameters;
+        return BookingPage(
+          initialCrop: q['crop'],
+          initialArea: q['area'],
+          initialLocation: q['location'],
+        );
+      },
     ),
     GoRoute(
       path: '/services/booking/pilot',

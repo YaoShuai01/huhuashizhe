@@ -6,7 +6,16 @@ import '../../../core/theme/app_theme.dart';
 
 /// 飞防预约：使用者填写作业信息，预约飞手上门喷洒农药
 class BookingPage extends StatefulWidget {
-  const BookingPage({super.key});
+  const BookingPage({
+    super.key,
+    this.initialCrop,
+    this.initialArea,
+    this.initialLocation,
+  });
+
+  final String? initialCrop;
+  final String? initialArea;
+  final String? initialLocation;
 
   @override
   State<BookingPage> createState() => _BookingPageState();
@@ -53,6 +62,22 @@ class _BookingPageState extends State<BookingPage> {
           : b.distanceKm.compareTo(a.distanceKm));
     }
     return pilots;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    final crop = widget.initialCrop?.trim();
+    if (crop != null && crop.isNotEmpty) {
+      if (_crops.contains(crop)) {
+        _crop = crop;
+      } else {
+        _crop = _otherCrop;
+        _cropCtrl.text = crop;
+      }
+    }
+    _areaCtrl.text = widget.initialArea?.trim() ?? '';
+    _addressCtrl.text = widget.initialLocation?.trim() ?? '';
   }
 
   @override
