@@ -301,6 +301,14 @@ class HomePage extends ConsumerWidget {
           color: const Color(0xFF00897B),
           onTap: () => context.push('/model-test'),
         ),
+        _buildActionCard(
+          context,
+          icon: Icons.add_alert,
+          title: '田哨预警',
+          subtitle: '云端田哨 · 寒潮打药提醒',
+          color: const Color(0xFFC62828),
+          onTap: () => context.push('/sentinel'),
+        ),
       ],
     );
   }

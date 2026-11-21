@@ -36,6 +36,8 @@ import '../../features/forum/pages/forum_my_posts_page.dart';
 import '../../features/forum/pages/forum_messages_page.dart';
 import '../../features/forum/pages/forum_favorites_page.dart';
 import '../../features/forum/pages/forum_post_detail_page.dart';
+import '../../features/sentinel/pages/sentinel_page.dart';
+import '../../features/sentinel/pages/farm_game_page.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -326,6 +328,16 @@ final appRouter = GoRouter(
       path: '/schedule/messages',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const ScheduleMessagesPage(),
+    ),
+    GoRoute(
+      path: '/sentinel',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const SentinelPage(),
+    ),
+    GoRoute(
+      path: '/sentinel/farm',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const FarmGamePage(),
     ),
   ],
 );
