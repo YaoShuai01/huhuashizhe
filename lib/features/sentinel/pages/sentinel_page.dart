@@ -52,10 +52,10 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('田哨预警'),
+        title: Text('田哨预警'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.bolt),
+            icon: Icon(Icons.bolt),
             tooltip: '演示：寒潮来袭',
             onPressed: () {
               ref.read(sentinelServiceProvider).triggerDemoColdWave();
@@ -65,30 +65,30 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showRegisterSheet,
-        icon: const Icon(Icons.grass),
-        label: const Text('登记种植'),
+        icon: Icon(Icons.grass),
+        label: Text('登记种植'),
       ),
       body: ListView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 88),
+        physics: AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(16, 12, 16, 88),
         children: [
           _buildSyncCard(plantings.length, unhandled),
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           _buildSectionHeader('哨兵预警', unhandled > 0 ? '$unhandled 条待处理' : '全部已处理'),
           if (alerts.isEmpty)
             _buildEmptyAlerts()
           else
             for (final alert in alerts) ...[
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               _buildAlertCard(alert),
             ],
-          const SizedBox(height: 16),
+          SizedBox(height: 16),
           _buildSectionHeader('我的田块 · 云端同步', '${plantings.length} 块田'),
           if (plantings.isEmpty)
             _buildEmptyPlantings()
           else
             for (final planting in plantings) ...[
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               _buildPlantingCard(planting),
             ],
         ],
@@ -100,9 +100,9 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
     return GestureDetector(
       onTap: () => context.push('/sentinel/farm'),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: EdgeInsets.all(16),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             colors: [Color(0xFF2E7D32), Color(0xFF66BB6A)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -112,7 +112,7 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
             BoxShadow(
               color: AppColors.primary.withValues(alpha: 0.3),
               blurRadius: 12,
-              offset: const Offset(0, 4),
+              offset: Offset(0, 4),
             ),
           ],
         ),
@@ -122,7 +122,7 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
                       Icon(Icons.cloud_sync, color: Colors.white, size: 20),
                       SizedBox(width: 8),
@@ -136,18 +136,18 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  SizedBox(height: 6),
                   Text(
                     '$plotCount 块实地田已同步至云种植游戏',
-                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                    style: TextStyle(color: Colors.white70, fontSize: 13),
                   ),
-                  const SizedBox(height: 2),
+                  SizedBox(height: 2),
                   Text(
                     '天气哨 + 农事哨 24 小时自动值守',
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                    style: TextStyle(color: Colors.white70, fontSize: 12),
                   ),
-                  const SizedBox(height: 8),
-                  const Row(
+                  SizedBox(height: 8),
+                  Row(
                     children: [
                       Icon(Icons.videogame_asset, color: Colors.white, size: 14),
                       SizedBox(width: 5),
@@ -165,7 +165,7 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
               ),
             ),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: unhandled > 0
                     ? Colors.red.shade600
@@ -174,7 +174,7 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
               ),
               child: Text(
                 unhandled > 0 ? '预警 $unhandled' : '平安',
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -189,21 +189,21 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
 
   Widget _buildSectionHeader(String title, String tail) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+      padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
             title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
+              color: context.palette.textPrimary,
             ),
           ),
           Text(
             tail,
-            style: const TextStyle(fontSize: 12, color: AppColors.textHint),
+            style: TextStyle(fontSize: 12, color: context.palette.textHint),
           ),
         ],
       ),
@@ -213,13 +213,13 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
   Widget _buildAlertCard(SentinelAlert alert) {
     final color = _severityColor(alert.severity);
     return Material(
-      color: AppColors.surface,
+      color: context.palette.surface,
       borderRadius: BorderRadius.circular(12),
       elevation: 1,
       child: Opacity(
         opacity: alert.handled ? 0.55 : 1,
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -234,7 +234,7 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
                     ),
                     child: Icon(_alertIcon(alert.type), color: color, size: 20),
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       alert.title,
@@ -242,24 +242,24 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                         color: alert.handled
-                            ? AppColors.textSecondary
-                            : AppColors.textPrimary,
+                            ? context.palette.textSecondary
+                            : context.palette.textPrimary,
                       ),
                     ),
                   ),
                   _buildSeverityChip(alert),
                 ],
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Text(
                 alert.message,
-                style: const TextStyle(
-                    fontSize: 13, color: AppColors.textSecondary),
+                style: TextStyle(
+                    fontSize: 13, color: context.palette.textSecondary),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.all(10),
+                padding: EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: AppColors.primary.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(8),
@@ -270,7 +270,7 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       '哨兵建议',
                       style: TextStyle(
                         fontSize: 11,
@@ -278,11 +278,11 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
                         color: AppColors.primary,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    SizedBox(height: 4),
                     Text(
                       alert.recommendation,
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.textSecondary),
+                      style: TextStyle(
+                          fontSize: 12, color: context.palette.textSecondary),
                     ),
                   ],
                 ),
@@ -296,18 +296,18 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
                         alert.type == SentinelAlertType.pestRisk)
                       TextButton(
                         onPressed: () => _bookFlyingService(alert),
-                        child: const Text('预约飞防'),
+                        child: Text('预约飞防'),
                       ),
                     TextButton(
                       onPressed: () => ref
                           .read(sentinelServiceProvider)
                           .handleAlert(alert.id),
-                      child: const Text('知道了'),
+                      child: Text('知道了'),
                     ),
                   ],
                 )
               else
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(top: 4),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.end,
@@ -333,7 +333,7 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
   Widget _buildSeverityChip(SentinelAlert alert) {
     final color = _severityColor(alert.severity);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(20),
@@ -352,7 +352,7 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
   Color _severityColor(SentinelSeverity severity) {
     switch (severity) {
       case SentinelSeverity.urgent:
-        return const Color(0xFFC62828);
+        return Color(0xFFC62828);
       case SentinelSeverity.warning:
         return AppColors.accent;
       case SentinelSeverity.info:
@@ -381,11 +381,11 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
     final stage = planting.stageAt(now);
     final days = planting.daysElapsedAt(now);
     return Material(
-      color: AppColors.surface,
+      color: context.palette.surface,
       borderRadius: BorderRadius.circular(12),
       elevation: 1,
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -398,33 +398,33 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
                     color: AppColors.primary.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.agriculture,
                     color: AppColors.primary,
                     size: 20,
                   ),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         '${planting.crop.label} · ${planting.location}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
+                          color: context.palette.textPrimary,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 2),
+                      SizedBox(height: 2),
                       Text(
                         '${_formatArea(planting.areaMu)} 亩 · 已种植 $days 天 · 云游戏 ${planting.gamePlot} 号田',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: AppColors.textHint,
+                          color: context.palette.textHint,
                         ),
                       ),
                     ],
@@ -432,14 +432,14 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
                 ),
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: AppColors.info.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
                     stage.label,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
                       color: AppColors.info,
@@ -448,7 +448,7 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
@@ -457,16 +457,16 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
                     child: LinearProgressIndicator(
                       value: progress,
                       minHeight: 6,
-                      backgroundColor: AppColors.surfaceVariant,
+                      backgroundColor: context.palette.surfaceVariant,
                       valueColor:
-                          const AlwaysStoppedAnimation(AppColors.primary),
+                          AlwaysStoppedAnimation(AppColors.primary),
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                SizedBox(width: 10),
                 Text(
                   '${(progress * 100).toStringAsFixed(0)}%',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                     color: AppColors.primary,
@@ -474,26 +474,26 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            SizedBox(height: 4),
             Row(
               children: [
-                const Icon(Icons.cloud_done_outlined,
+                Icon(Icons.cloud_done_outlined,
                     size: 14, color: AppColors.info),
-                const SizedBox(width: 4),
-                const Text(
+                SizedBox(width: 4),
+                Text(
                   '生长进度已同步至云种植游戏',
-                  style: TextStyle(fontSize: 11, color: AppColors.textHint),
+                  style: TextStyle(fontSize: 11, color: context.palette.textHint),
                 ),
-                const Spacer(),
+                Spacer(),
                 // 一键预约飞防：专业飞手上门作业（作物/亩数在飞防表单中填写）
                 TextButton(
                   style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    padding: EdgeInsets.symmetric(horizontal: 8),
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
                   onPressed: () => context.push('/services/booking/farmer'),
-                  child: const Text(
+                  child: Text(
                     '预约飞防',
                     style: TextStyle(
                       fontSize: 12,
@@ -510,9 +510,26 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
     );
   }
 
-  /// 预警卡"预约飞防"：跳转预约飞防表单（专业飞手上门喷洒农药）
+  /// 预警卡"预约飞防"：跳转预约飞防表单，并预填关联田块的作物/亩数/地点
   void _bookFlyingService(SentinelAlert alert) {
-    context.push('/services/booking/farmer');
+    FieldPlanting? planting;
+    for (final p in ref.read(sentinelServiceProvider).plantings) {
+      if (p.id == alert.fieldId) {
+        planting = p;
+        break;
+      }
+    }
+    final params = <String, String>{};
+    if (planting != null) {
+      params['crop'] = planting.crop.label;
+      params['area'] = _formatArea(planting.areaMu);
+      params['location'] = planting.location;
+    }
+    final uri = Uri(
+      path: '/services/booking/farmer',
+      queryParameters: params.isEmpty ? null : params,
+    );
+    context.push(uri.toString());
   }
 
   String _formatArea(double v) =>
@@ -521,20 +538,20 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
   Widget _buildEmptyAlerts() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.palette.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.surfaceVariant),
+        border: Border.all(color: context.palette.surfaceVariant),
       ),
-      child: const Column(
+      child: Column(
         children: [
           Icon(Icons.verified_user_outlined,
               size: 36, color: AppColors.success),
           SizedBox(height: 8),
           Text(
             '哨兵一切正常，暂无预警',
-            style: TextStyle(fontSize: 13, color: AppColors.textHint),
+            style: TextStyle(fontSize: 13, color: context.palette.textHint),
           ),
         ],
       ),
@@ -544,24 +561,24 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
   Widget _buildEmptyPlantings() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: context.palette.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.surfaceVariant),
+        border: Border.all(color: context.palette.surfaceVariant),
       ),
-      child: const Column(
+      child: Column(
         children: [
-          Icon(Icons.grass_outlined, size: 36, color: AppColors.textDisabled),
+          Icon(Icons.grass_outlined, size: 36, color: context.palette.textDisabled),
           SizedBox(height: 8),
           Text(
             '还没有登记实地种植',
-            style: TextStyle(fontSize: 13, color: AppColors.textHint),
+            style: TextStyle(fontSize: 13, color: context.palette.textHint),
           ),
           SizedBox(height: 4),
           Text(
             '点击右下角按钮，登记后自动同步云种植游戏',
-            style: TextStyle(fontSize: 12, color: AppColors.textDisabled),
+            style: TextStyle(fontSize: 12, color: context.palette.textDisabled),
           ),
         ],
       ),
@@ -578,8 +595,8 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.surface,
-      shape: const RoundedRectangleBorder(
+      backgroundColor: context.palette.surface,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       builder: (sheetContext) {
@@ -600,32 +617,32 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.grass, color: AppColors.primary),
-                        const SizedBox(width: 8),
-                        const Text(
+                        Icon(Icons.grass, color: AppColors.primary),
+                        SizedBox(width: 8),
+                        Text(
                           '登记实地种植',
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary,
+                            color: context.palette.textPrimary,
                           ),
                         ),
-                        const Spacer(),
+                        Spacer(),
                         IconButton(
-                          icon: const Icon(Icons.close, size: 20),
+                          icon: Icon(Icons.close, size: 20),
                           onPressed: () => Navigator.of(sheetContext).pop(),
                         ),
                       ],
                     ),
-                    const Text(
+                    Text(
                       '登记后自动同步至云种植游戏，田哨开始为这块田值守',
-                      style: TextStyle(fontSize: 12, color: AppColors.textHint),
+                      style: TextStyle(fontSize: 12, color: context.palette.textHint),
                     ),
-                    const SizedBox(height: 14),
-                    const Text('作物',
+                    SizedBox(height: 14),
+                    Text('作物',
                         style: TextStyle(
-                            fontSize: 13, color: AppColors.textSecondary)),
-                    const SizedBox(height: 6),
+                            fontSize: 13, color: context.palette.textSecondary)),
+                    SizedBox(height: 6),
                     Wrap(
                       spacing: 8,
                       children: [
@@ -637,19 +654,19 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
                               fontSize: 13,
                               color: selected == crop
                                   ? AppColors.textOnPrimary
-                                  : AppColors.textSecondary,
+                                  : context.palette.textSecondary,
                             ),
                             selectedColor: AppColors.primary,
                             onSelected: (_) => setSheetState(() => selected = crop),
                           ),
                       ],
                     ),
-                    const SizedBox(height: 14),
+                    SizedBox(height: 14),
                     TextFormField(
                       controller: areaCtrl,
                       keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(
+                          TextInputType.numberWithOptions(decimal: true),
+                      decoration: InputDecoration(
                         labelText: '种植亩数',
                         hintText: '例如 5 或 12.5',
                         suffixText: '亩',
@@ -662,17 +679,17 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
                         return null;
                       },
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: 12),
                     TextFormField(
                       controller: locationCtrl,
-                      decoration: const InputDecoration(
+                      decoration: InputDecoration(
                         labelText: '地块位置',
                         hintText: '例如 朋兴乡丹阳村 2 号地',
                       ),
                       validator: (v) =>
                           (v == null || v.trim().isEmpty) ? '请填写地块位置' : null,
                     ),
-                    const SizedBox(height: 18),
+                    SizedBox(height: 18),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -696,7 +713,7 @@ class _SentinelPageState extends ConsumerState<SentinelPage> {
                             ),
                           );
                         },
-                        child: const Text('登记并同步云种植'),
+                        child: Text('登记并同步云种植'),
                       ),
                     ),
                   ],

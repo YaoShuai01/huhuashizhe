@@ -944,6 +944,16 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.7.0',
+        'date': '2026-11-21',
+        'content': [
+          '新增田哨预警：寒潮/病虫害提醒、田块登记与云端田哨同步',
+          '新增田哨农场游戏，首页「田哨预警」可进入',
+          '预警卡/田块卡支持一键预约飞防，自动预填作物、亩数、地点',
+          '田哨页补齐深色模式配色',
+        ],
+      },
+      {
         'version': 'v3.6.0',
         'date': '2026-11-21',
         'content': [
