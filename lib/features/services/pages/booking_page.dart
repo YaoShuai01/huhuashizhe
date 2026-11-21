@@ -14,6 +14,7 @@ class BookingPage extends StatefulWidget {
 
 class _BookingPageState extends State<BookingPage> {
   static const List<String> _crops = ['油菜', '水稻', '小麦', '玉米', '果树', '其他'];
+  static const String _otherCrop = '其他';
   static const List<String> _periods = ['上午', '下午'];
 
   static const List<_Pilot> _pilots = [
@@ -29,6 +30,7 @@ class _BookingPageState extends State<BookingPage> {
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
+  final _cropCtrl = TextEditingController();
 
   String _crop = _crops.first;
   String _period = _periods.first;
@@ -61,6 +63,7 @@ class _BookingPageState extends State<BookingPage> {
     _nameCtrl.dispose();
     _phoneCtrl.dispose();
     _noteCtrl.dispose();
+    _cropCtrl.dispose();
     super.dispose();
   }
 
@@ -164,6 +167,23 @@ class _BookingPageState extends State<BookingPage> {
                     runSpacing: 8,
                     children: _crops.map(_cropChip).toList(),
                   ),
+                  if (_crop == _otherCrop) ...[
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _cropCtrl,
+                      decoration: const InputDecoration(
+                        labelText: '作物名称',
+                        hintText: '请填写作物名称，如：甘蔗',
+                      ),
+                      validator: (value) {
+                        if (_crop != _otherCrop) return null;
+                        if (value == null || value.trim().isEmpty) {
+                          return '请填写作物名称';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
