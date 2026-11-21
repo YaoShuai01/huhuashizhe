@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../services/update_service.dart';
@@ -7,6 +7,9 @@ import '../../../widgets/update_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_version.dart' show appVersion;
+import '../../forum/data/forum_models.dart';
+import '../../forum/data/forum_repository.dart';
+import '../../forum/forum_scope.dart';
 
 // ========== 操作文档页 ==========
 class ManualPage extends StatelessWidget {
@@ -319,48 +322,206 @@ class _AccountPageState extends State<AccountPage> {
   }
 }
 
-class FeedbackPage extends StatelessWidget {
-  const FeedbackPage({super.key});
+class FeedbackPage extends StatefulWidget {
+  const FeedbackPage({super.key, this.repository});
+
+  /// 外部注入的论坛数据源，为空时取 ForumScope 或默认实现
+  final ForumRepository? repository;
+
+  @override
+  State<FeedbackPage> createState() => _FeedbackPageState();
+}
+
+class _FeedbackPageState extends State<FeedbackPage> {
+  /// 与论坛「管理区 - 意见反馈」共用同一个版块
+  static const String _section = '意见反馈';
+
+  final _ctrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  ForumRepository get _repository =>
+      widget.repository ?? ForumScope.of(context);
+
+  void _submit() {
+    final text = _ctrl.text.trim();
+    if (text.isEmpty) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text('请填写反馈内容')));
+      return;
+    }
+    final summary = text.length > 20 ? '${text.substring(0, 20)}…' : text;
+    _repository.publish(
+      section: _section,
+      title: '意见反馈：$summary',
+      content: text,
+    );
+    _ctrl.clear();
+    FocusScope.of(context).unfocus();
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text('已提交，可在论坛「管理区 - 意见反馈」查看'),
+          action: SnackBarAction(
+            label: '去查看',
+            onPressed: () =>
+                context.push('/forum/section', extra: _section),
+          ),
+        ),
+      );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final repository = _repository;
     return Scaffold(
-      appBar: AppBar(title: const Text('反馈')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            TextField(
-              maxLines: 6,
-              decoration: const InputDecoration(
-                hintText: '请描述您遇到的问题或建议...',
-                alignLabelWithHint: true,
+      appBar: AppBar(title: Text('反馈')),
+      body: AnimatedBuilder(
+        animation: repository,
+        builder: (context, _) {
+          final records = repository.myPosts
+              .where((post) => post.section == _section)
+              .toList();
+          return ListView(
+            padding: EdgeInsets.all(16),
+            children: [
+              TextField(
+                controller: _ctrl,
+                maxLines: 6,
+                decoration: InputDecoration(
+                  hintText: '请描述您遇到的问题或建议...',
+                  alignLabelWithHint: true,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: () {},
-              icon: const Icon(Icons.attach_file),
-              label: const Text('上传截图（可选）'),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 14),
+              SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: () {},
+                icon: Icon(Icons.attach_file),
+                label: Text('上传截图（可选）'),
+                style: OutlinedButton.styleFrom(
+                  padding: EdgeInsets.symmetric(vertical: 14),
+                ),
               ),
-            ),
-            const Spacer(),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('感谢您的反馈！')),
-                  );
-                  Navigator.pop(context);
-                },
-                child: const Text('提交反馈'),
+              SizedBox(height: 8),
+              Text(
+                '提交后会同步到论坛「管理区 - 意见反馈」，管理员回复后可在下方查看。',
+                style: TextStyle(fontSize: 12, color: context.palette.textHint),
               ),
-            ),
-            const SizedBox(height: 16),
-          ],
+              SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: _submit,
+                  child: Text('提交反馈'),
+                ),
+              ),
+              SizedBox(height: 24),
+              Text(
+                '我的反馈记录 ${records.length} 条',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: context.palette.textPrimary,
+                ),
+              ),
+              SizedBox(height: 8),
+              if (records.isEmpty)
+                Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(
+                    child: Text(
+                      '还没有提交过反馈',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: context.palette.textHint,
+                      ),
+                    ),
+                  ),
+                )
+              else
+                for (final post in records)
+                  _recordTile(repository, post),
+              SizedBox(height: 16),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _recordTile(ForumRepository repository, ForumPost post) {
+    final replyCount = repository.commentsOf(post.id).length;
+    final String status;
+    if (post.pendingReview) {
+      status = '待复审';
+    } else if (replyCount > 0) {
+      status = '已回复 $replyCount';
+    } else {
+      status = '待回复';
+    }
+    final replied = replyCount > 0;
+    return Card(
+      margin: EdgeInsets.only(bottom: 10),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => context.push('/forum/post', extra: post),
+        child: Padding(
+          padding: EdgeInsets.fromLTRB(14, 12, 14, 12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      post.content,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 14,
+                        height: 1.45,
+                        color: context.palette.textPrimary,
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: (replied ? AppColors.primary : AppColors.accent)
+                          .withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      status,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: replied ? AppColors.primary : AppColors.accent,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 6),
+              Text(
+                forumTimeText(post.createdAt),
+                style: TextStyle(
+                  fontSize: 11,
+                  color: context.palette.textHint,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -782,6 +943,17 @@ class VersionInfoPage extends ConsumerWidget {
 
   List<Widget> _buildUpdateHistory() {
     final histories = [
+      {
+        'version': 'v3.5.0',
+        'date': '2026-11-21',
+        'content': [
+          '新增「服务」页：小课堂、预约飞防、论坛入口集中展示',
+          '新增无人机飞防预约：农户端按亩计价、飞手端接单工作台',
+          '论坛点赞状态按用户记录：未点赞白空心、点赞后琥珀橙',
+          '反馈与论坛「管理区 - 意见反馈」互通，可查看回复',
+          '服务模块页面的深色模式适配将在后续版本继续完善',
+        ],
+      },
       {
         'version': 'v3.4.5',
         'date': '2026-11-21',

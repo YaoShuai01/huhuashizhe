@@ -41,6 +41,7 @@ class ForumFavoritesPage extends StatelessWidget {
             onRefresh: repo.refresh,
             isFavorite: repo.isFavorite,
             onFavorite: repo.toggleFavorite,
+            isLiked: repo.isLiked,
             onTapPost: (post) => context.push('/forum/post', extra: post),
           );
         },

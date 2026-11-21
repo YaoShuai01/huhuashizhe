@@ -31,6 +31,9 @@ abstract class ForumRepository extends ChangeNotifier {
 
   void toggleLike(ForumPost post);
 
+  /// 当前用户是否已给该帖点赞
+  bool isLiked(ForumPost post);
+
   /// 帖子评论（按时间正序）
   List<ForumComment> commentsOf(String postId);
 
@@ -181,6 +184,9 @@ class InMemoryForumRepository extends ForumRepository {
     post.likes = target.likes;
     notifyListeners();
   }
+
+  @override
+  bool isLiked(ForumPost post) => _likedIds.contains(post.id);
 
   @override
   List<ForumComment> commentsOf(String postId) {
