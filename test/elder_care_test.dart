@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:huhuashizhe/core/accessibility/elder_care_controller.dart';
 import 'package:huhuashizhe/core/accessibility/elder_care_reader.dart';
@@ -177,10 +178,12 @@ void main() {
     final controller = ElderCareController(enabled: false);
 
     await tester.pumpWidget(
-      MaterialApp(
-        home: ElderCareScope(
-          controller: controller,
-          child: const MinePage(),
+      ProviderScope(
+        child: MaterialApp(
+          home: ElderCareScope(
+            controller: controller,
+            child: const MinePage(),
+          ),
         ),
       ),
     );

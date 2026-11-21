@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/accessibility/elder_care_reader.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../auth/services/auth_service.dart';
 
 /// 飞防预约：使用者填写作业信息，预约飞手上门喷洒农药
 class BookingPage extends StatefulWidget {
@@ -39,6 +40,14 @@ class _BookingPageState extends State<BookingPage> {
   bool _distanceAscending = true;
   bool _ratingAscending = false;
   DateTime _date = DateTime.now().add(const Duration(days: 1));
+
+  @override
+  void initState() {
+    super.initState();
+    // 联系人默认带当前登录账号昵称，可手改
+    final nickname = AuthService.instance.currentUser?.nickname;
+    if (nickname != null && nickname.isNotEmpty) _nameCtrl.text = nickname;
+  }
 
   /// 按当前排序字段与方向排列的飞手列表
   List<_Pilot> get _sortedPilots {

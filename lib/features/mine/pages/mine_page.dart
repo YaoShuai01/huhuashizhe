@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/accessibility/elder_care_scope.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_version.dart' show appVersion;
+import '../../auth/providers/auth_provider.dart';
+import '../../auth/services/auth_service.dart';
 
-class MinePage extends StatelessWidget {
+class MinePage extends ConsumerWidget {
   const MinePage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authProvider);
     return Scaffold(
       appBar: AppBar(
         title: const Text('我的'),
@@ -28,11 +32,19 @@ class MinePage extends StatelessWidget {
                     backgroundImage: const AssetImage('assets/images/icom.png'),
                   ),
                   const SizedBox(height: 12),
-                   Text('未设置昵称', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: context.palette.textPrimary)),
+                   Text(
+                    user?.nickname ?? '未设置昵称',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: context.palette.textPrimary),
+                  ),
                   const SizedBox(height: 4),
+                  Text(
+                    user?.username ?? '-',
+                    style: TextStyle(fontSize: 12, color: context.palette.textHint),
+                  ),
+                  const SizedBox(height: 2),
                   InkWell(
                     onTap: () => context.push('/mine/account'),
-                    child:  Text('点击编辑资料', style: TextStyle(fontSize: 13, color: context.palette.textHint)),
+                    child: Text('点击编辑资料', style: TextStyle(fontSize: 13, color: context.palette.textHint)),
                   ),
                 ],
               ),
@@ -135,9 +147,8 @@ class MinePage extends StatelessWidget {
                           TextButton(
                             onPressed: () {
                               Navigator.pop(ctx);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('已退出登录')),
-                              );
+                              ref.read(authProvider.notifier).logout();
+                              context.go('/auth');
                             },
                             child: const Text('确定', style: TextStyle(color: AppColors.error)),
                           ),

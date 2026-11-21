@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../../auth/services/auth_service.dart';
 import 'forum_models.dart';
 
 /// 论坛数据与交互的统一接口。
@@ -102,7 +103,17 @@ class InMemoryForumRepository extends ForumRepository {
     }
   }
 
-  static const String currentUserName = '我';
+  /// 当前发帖用户名：已登录本地演示账号时用账号昵称，否则沿用演示名"我"。
+  /// 用昵称保证 UI 直观；账号服务在 LocalDatabase 未初始化（测试环境）时安全降级。
+  static String get currentUserName {
+    try {
+      final user = AuthService.instance.currentUser;
+      if (user != null && user.nickname.isNotEmpty) return user.nickname;
+    } catch (_) {
+      // 本地库不可用时回退演示名
+    }
+    return '我';
+  }
 
   final List<ForumCategory> _categories;
   final List<ForumSection> _sections;

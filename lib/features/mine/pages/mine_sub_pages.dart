@@ -7,6 +7,8 @@ import '../../../widgets/update_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_version.dart' show appVersion;
+import '../../auth/providers/auth_provider.dart';
+import '../../auth/services/auth_service.dart';
 import '../../forum/data/forum_models.dart';
 import '../../forum/data/forum_repository.dart';
 import '../../forum/forum_scope.dart';
@@ -230,18 +232,26 @@ class MissionHistoryPage extends StatelessWidget {
   }
 }
 
-class AccountPage extends StatefulWidget {
+class AccountPage extends ConsumerStatefulWidget {
   const AccountPage({super.key});
 
   @override
-  State<AccountPage> createState() => _AccountPageState();
+  ConsumerState<AccountPage> createState() => _AccountPageState();
 }
 
-class _AccountPageState extends State<AccountPage> {
+class _AccountPageState extends ConsumerState<AccountPage> {
   final _nicknameCtrl = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    final user = AuthService.instance.currentUser;
+    _nicknameCtrl.text = user?.nickname ?? '';
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final user = ref.watch(authProvider);
     return Scaffold(
       appBar: AppBar(title: const Text('我的账户')),
       body: SingleChildScrollView(
@@ -271,7 +281,12 @@ class _AccountPageState extends State<AccountPage> {
                 ],
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 12),
+            Text(
+              '账号：${user?.username ?? '-'}',
+              style: TextStyle(fontSize: 13, color: context.palette.textHint),
+            ),
+            const SizedBox(height: 20),
             TextField(
               controller: _nicknameCtrl,
               decoration: const InputDecoration(
@@ -301,9 +316,13 @@ class _AccountPageState extends State<AccountPage> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  if (_nicknameCtrl.text.trim().isNotEmpty) {
-                    Navigator.pop(context);
+                  final error = AuthService.instance.updateNickname(_nicknameCtrl.text);
+                  if (error != null) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+                    return;
                   }
+                  ref.read(authProvider.notifier).refresh();
+                  if (mounted) Navigator.pop(context);
                 },
                 child: const Text('保存'),
               ),
