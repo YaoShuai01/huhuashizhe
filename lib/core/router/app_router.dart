@@ -6,6 +6,7 @@ import '../../features/classroom/pages/classroom_page.dart';
 import '../../features/services/pages/services_page.dart';
 import '../../features/services/pages/booking_page.dart';
 import '../../features/services/pages/booking_role_page.dart';
+import '../../features/services/pages/pilot_profile_page.dart';
 import '../../features/services/pages/pilot_workbench_page.dart';
 import '../../features/mine/pages/mine_page.dart';
 import '../../features/presets/widgets/preset_form_page.dart';
@@ -135,6 +136,11 @@ final appRouter = GoRouter(
       path: '/services/booking/pilot',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const PilotWorkbenchPage(),
+    ),
+    GoRoute(
+      path: '/services/booking/pilot/profile',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const PilotProfilePage(),
     ),
     GoRoute(
       path: '/classroom/course',

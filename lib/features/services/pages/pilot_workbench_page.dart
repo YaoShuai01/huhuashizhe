@@ -1,9 +1,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/accessibility/elder_care_reader.dart';
 import '../../../core/theme/app_theme.dart';
+import 'pilot_profile_page.dart';
 
 /// 飞手工作台：查看附近订单并接单
 class PilotWorkbenchPage extends StatefulWidget {
@@ -39,8 +41,10 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
   ];
 
   bool _accepting = true;
-  List<_FarmOrder> _pending = List.of(_seedOrders);
-  final List<_AcceptedOrder> _accepted = [];
+
+  // 接单状态保存在页面外的存储中，退出工作台再进入不会丢失
+  final List<_FarmOrder> _pending = _PilotOrders.pending;
+  final List<_AcceptedOrder> _accepted = _PilotOrders.accepted;
 
   Future<void> _accept(_FarmOrder order) async {
     final confirmed = await showDialog<bool>(
@@ -49,7 +53,7 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
     );
     if (confirmed != true || !mounted) return;
     setState(() {
-      _pending = _pending.where((item) => item != order).toList();
+      _pending.remove(order);
       _accepted.insert(0, _AcceptedOrder(order: order, acceptedAt: DateTime.now()));
     });
     ScaffoldMessenger.of(context)
@@ -130,6 +134,8 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
             ),
           ),
           const SizedBox(height: 14),
+          _profileCard(),
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
@@ -170,6 +176,35 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
           else
             for (final entry in _accepted) _acceptedCard(entry),
         ],
+      ),
+    );
+  }
+
+  Widget _profileCard() {
+    final profile = PilotProfileStore.current;
+    return Card(
+      margin: EdgeInsets.zero,
+      child: ListTile(
+        leading: const Icon(Icons.badge_outlined, color: AppColors.primary),
+        title: const Text(
+          '飞手资料',
+          style: TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            color: AppColors.textPrimary,
+          ),
+        ),
+        subtitle: Text(
+          profile == null
+              ? '完善姓名、服务区域与报价，让更多农户找到你'
+              : '已完善：${profile.name} · ${profile.region}',
+          style: const TextStyle(fontSize: 12, color: AppColors.textHint),
+        ),
+        trailing: const Icon(Icons.chevron_right, color: AppColors.textHint),
+        onTap: () async {
+          await context.push('/services/booking/pilot/profile');
+          if (mounted) setState(() {});
+        },
       ),
     );
   }
@@ -370,6 +405,13 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
       ],
     );
   }
+}
+
+/// 飞手接单状态：页面退出后仍保留，再次进入工作台可看到已接订单
+class _PilotOrders {
+  static final List<_FarmOrder> pending =
+      List.of(_PilotWorkbenchPageState._seedOrders);
+  static final List<_AcceptedOrder> accepted = <_AcceptedOrder>[];
 }
 
 /// 已接订单，记录接单时间用于判断取消是否收费
