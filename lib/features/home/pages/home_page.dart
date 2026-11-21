@@ -309,6 +309,14 @@ class HomePage extends ConsumerWidget {
           color: const Color(0xFFC62828),
           onTap: () => context.push('/sentinel'),
         ),
+        _buildActionCard(
+          context,
+          icon: Icons.agriculture,
+          title: '田哨农场',
+          subtitle: '云端种田小游戏 · 一键直达',
+          color: const Color(0xFF2E7D32),
+          onTap: () => context.push('/sentinel/farm'),
+        ),
       ],
     );
   }
