@@ -944,6 +944,17 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.5.0',
+        'date': '2026-11-21',
+        'content': [
+          '新增「服务」页：小课堂、预约飞防、论坛入口集中展示',
+          '新增无人机飞防预约：农户端按亩计价、飞手端接单工作台',
+          '论坛点赞状态按用户记录：未点赞白空心、点赞后琥珀橙',
+          '反馈与论坛「管理区 - 意见反馈」互通，可查看回复',
+          '服务模块页面的深色模式适配将在后续版本继续完善',
+        ],
+      },
+      {
         'version': 'v3.4.5',
         'date': '2026-11-21',
         'content': [
