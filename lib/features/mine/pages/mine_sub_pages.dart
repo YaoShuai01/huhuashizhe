@@ -944,6 +944,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.7.1',
+        'date': '2026-11-21',
+        'content': [
+          '田哨农场手机端优化：窄屏适配、作物/操作按钮网格排版、触摸目标加大',
+          '限制农场页面缩放，去掉点按高亮，修复水滴动画类名冲突',
+          '首页宫格新增田哨农场直达入口',
+        ],
+      },
+      {
         'version': 'v3.7.0',
         'date': '2026-11-21',
         'content': [
