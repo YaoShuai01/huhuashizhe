@@ -99,7 +99,7 @@ class _ScheduleMessagesPageState extends State<ScheduleMessagesPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder:
-          (ctx) => Padding(
+ (ctx) => Padding(
             padding: EdgeInsets.fromLTRB(
               20,
               20,
@@ -119,14 +119,14 @@ class _ScheduleMessagesPageState extends State<ScheduleMessagesPage> {
                   width: double.infinity,
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceVariant,
+                    color: context.palette.surfaceVariant,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     message.content,
-                    style: const TextStyle(
+                    style:  TextStyle(
                       fontSize: 13,
-                      color: AppColors.textSecondary,
+                      color: context.palette.textSecondary,
                     ),
                   ),
                 ),
@@ -191,7 +191,7 @@ class _ScheduleMessagesPageState extends State<ScheduleMessagesPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder:
-          (ctx) => AlertDialog(
+ (ctx) => AlertDialog(
             title: const Text('删除留言'),
             content: const Text('删除后，这条留言下的所有回复也会一起消失，确定吗？'),
             actions: [
@@ -223,7 +223,7 @@ class _ScheduleMessagesPageState extends State<ScheduleMessagesPage> {
     final ok = await showDialog<bool>(
       context: context,
       builder:
-          (ctx) => AlertDialog(
+ (ctx) => AlertDialog(
             title: const Text('删除回复'),
             content: const Text('确定删除这条回复吗？'),
             actions: [
@@ -289,14 +289,14 @@ class _ScheduleMessagesPageState extends State<ScheduleMessagesPage> {
   }
 
   Widget _buildIntro() {
-    return const Row(
+    return  Row(
       children: [
-        Icon(Icons.lock_outline, size: 15, color: AppColors.textHint),
+        Icon(Icons.lock_outline, size: 15, color: context.palette.textHint),
         SizedBox(width: 5),
         Expanded(
           child: Text(
             '匿名留言，管理员也看不到你的姓名',
-            style: TextStyle(fontSize: 12, color: AppColors.textHint),
+            style: TextStyle(fontSize: 12, color: context.palette.textHint),
           ),
         ),
       ],
@@ -322,10 +322,10 @@ class _ScheduleMessagesPageState extends State<ScheduleMessagesPage> {
           Expanded(
             child: Text(
               _service.error ?? '服务器未启动，当前显示本地缓存。',
-              style: const TextStyle(
+              style:  TextStyle(
                 fontSize: 12,
                 height: 1.45,
-                color: AppColors.textSecondary,
+                color: context.palette.textSecondary,
               ),
             ),
           ),
@@ -372,16 +372,16 @@ class _ScheduleMessagesPageState extends State<ScheduleMessagesPage> {
           const SizedBox(height: 8),
           Row(
             children: [
-              const Expanded(
+               Expanded(
                 child: Text(
                   '自己的留言和回复只有自己和管理员能删除',
-                  style: TextStyle(fontSize: 11, color: AppColors.textHint),
+                  style: TextStyle(fontSize: 11, color: context.palette.textHint),
                 ),
               ),
               FilledButton(
                 onPressed: online && !_posting ? _publish : null,
                 child:
-                    _posting
+ _posting
                         ? const SizedBox(
                           width: 16,
                           height: 16,
@@ -397,15 +397,15 @@ class _ScheduleMessagesPageState extends State<ScheduleMessagesPage> {
   }
 
   Widget _buildEmpty() {
-    return const Padding(
+    return  Padding(
       padding: EdgeInsets.symmetric(vertical: 48),
       child: Column(
         children: [
-          Icon(Icons.forum_outlined, size: 48, color: AppColors.textDisabled),
+          Icon(Icons.forum_outlined, size: 48, color: context.palette.textDisabled),
           SizedBox(height: 12),
           Text(
             '还没有留言，匿名写下第一句吧',
-            style: TextStyle(fontSize: 13, color: AppColors.textHint),
+            style: TextStyle(fontSize: 13, color: context.palette.textHint),
           ),
         ],
       ),
@@ -436,16 +436,16 @@ class _ScheduleMessagesPageState extends State<ScheduleMessagesPage> {
             children: [
               Text(
                 _formatTime(message.createdAt),
-                style: const TextStyle(fontSize: 11, color: AppColors.textHint),
+                style:  TextStyle(fontSize: 11, color: context.palette.textHint),
               ),
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
                   color:
-                      message.isMine
+ message.isMine
                           ? AppColors.primary.withValues(alpha: 0.1)
-                          : AppColors.surfaceVariant,
+                          : context.palette.surfaceVariant,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -454,7 +454,7 @@ class _ScheduleMessagesPageState extends State<ScheduleMessagesPage> {
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
                     color:
-                        message.isMine ? AppColors.primary : AppColors.textHint,
+ message.isMine ? AppColors.primary : context.palette.textHint,
                   ),
                 ),
               ),
@@ -497,7 +497,7 @@ class _ScheduleMessagesPageState extends State<ScheduleMessagesPage> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(10, 8, 8, 6),
       decoration: BoxDecoration(
-        color: AppColors.surfaceVariant,
+        color: context.palette.surfaceVariant,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
@@ -513,9 +513,9 @@ class _ScheduleMessagesPageState extends State<ScheduleMessagesPage> {
               Expanded(
                 child: Text(
                   '${_formatTime(reply.createdAt)}${reply.isMine ? ' · 我' : ''}',
-                  style: const TextStyle(
+                  style:  TextStyle(
                     fontSize: 10,
-                    color: AppColors.textHint,
+                    color: context.palette.textHint,
                   ),
                 ),
               ),

@@ -57,10 +57,10 @@ class ForumCommentTile extends StatelessWidget {
                         comment.author,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style:  TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
+                          color: context.palette.textPrimary,
                         ),
                       ),
                     ),
@@ -70,9 +70,9 @@ class ForumCommentTile extends StatelessWidget {
                         forumTimeText(comment.createdAt),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style:  TextStyle(
                           fontSize: 11,
-                          color: AppColors.textHint,
+                          color: context.palette.textHint,
                         ),
                       ),
                     ),
@@ -81,10 +81,10 @@ class ForumCommentTile extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   comment.content,
-                  style: const TextStyle(
+                  style:  TextStyle(
                     fontSize: 13,
                     height: 1.45,
-                    color: AppColors.textSecondary,
+                    color: context.palette.textSecondary,
                   ),
                 ),
               ],

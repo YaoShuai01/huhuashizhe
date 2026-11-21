@@ -33,14 +33,14 @@ class ForumEmptyState extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(icon, size: 64, color: AppColors.textDisabled),
+                    Icon(icon, size: 64, color: context.palette.textDisabled),
                     const SizedBox(height: 12),
                     Text(
                       text,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
+                      style:  TextStyle(
                         fontSize: 14,
-                        color: AppColors.textHint,
+                        color: context.palette.textHint,
                       ),
                     ),
                     if (actionLabel != null && onAction != null) ...[

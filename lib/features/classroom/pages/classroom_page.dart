@@ -107,11 +107,11 @@ class _ClassroomPageState extends State<ClassroomPage> {
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            color: AppColors.surface,
+            color: context.palette.surface,
             child: TextField(
               decoration: InputDecoration(
                 hintText: '搜索科普内容...',
-                prefixIcon: const Icon(Icons.search, color: AppColors.textHint),
+                prefixIcon:  Icon(Icons.search, color: context.palette.textHint),
                 contentPadding: const EdgeInsets.symmetric(vertical: 0),
               ),
             ),
@@ -193,7 +193,7 @@ class _ClassroomPageState extends State<ClassroomPage> {
                               const SizedBox(width: 8),
                               Chip(
                                 label: Text(course['category'], style: const TextStyle(fontSize: 11)),
-                                backgroundColor: AppColors.surfaceVariant,
+                                backgroundColor: context.palette.surfaceVariant,
                                 padding: EdgeInsets.zero,
                                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                 visualDensity: VisualDensity.compact,
@@ -210,14 +210,14 @@ class _ClassroomPageState extends State<ClassroomPage> {
                             course['content'],
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.5),
+                            style:  TextStyle(color: context.palette.textSecondary, fontSize: 13, height: 1.5),
                           ),
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              const Icon(Icons.visibility_outlined, size: 14, color: AppColors.textHint),
+                               Icon(Icons.visibility_outlined, size: 14, color: context.palette.textHint),
                               const SizedBox(width: 4),
-                              const Text('128 次阅读', style: TextStyle(fontSize: 12, color: AppColors.textHint)),
+                               Text('128 次阅读', style: TextStyle(fontSize: 12, color: context.palette.textHint)),
                               const Spacer(),
                               IconButton(
                                 icon: const Icon(Icons.bookmark_outline, size: 18),
@@ -250,9 +250,9 @@ class _ClassroomPageState extends State<ClassroomPage> {
           onTap: () => setState(() => _selectedCategory = category),
           child: Chip(
             label: Text(category),
-            backgroundColor: isSelected ? AppColors.primary : AppColors.surfaceVariant,
+            backgroundColor: isSelected ? AppColors.primary : context.palette.surfaceVariant,
             labelStyle: TextStyle(
-              color: isSelected ? AppColors.textOnPrimary : AppColors.textSecondary,
+              color: isSelected ? AppColors.textOnPrimary : context.palette.textSecondary,
               fontSize: 13,
               fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
             ),

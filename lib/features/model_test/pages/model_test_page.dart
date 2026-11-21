@@ -423,7 +423,7 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
                         size: 18,
                         color: m.id == _model.id
                             ? AppColors.primary
-                            : AppColors.textHint,
+                            : context.palette.textHint,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -433,7 +433,7 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
                             fontSize: 14,
                             color: m.id == _model.id
                                 ? AppColors.primary
-                                : AppColors.textPrimary,
+                                : context.palette.textPrimary,
                             fontWeight: m.id == _model.id
                                 ? FontWeight.w600
                                 : FontWeight.w400,
@@ -608,7 +608,7 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
 
   Widget _buildSwitchBar() {
     return Container(
-      color: AppColors.surface,
+      color: context.palette.surface,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
@@ -626,7 +626,7 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
                     : (_cameraOn ? '识别中' : '已关闭'),
             style: TextStyle(
               fontSize: 12,
-              color: _cameraOn ? AppColors.success : AppColors.textHint,
+              color: _cameraOn ? AppColors.success : context.palette.textHint,
             ),
           ),
           const SizedBox(width: 8),
@@ -662,12 +662,12 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
               ? Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
-                    children: const [
+                    children:  [
                       Icon(Icons.shield_outlined,
-                          size: 52, color: AppColors.textDisabled),
+                          size: 52, color: context.palette.textDisabled),
                       SizedBox(height: 10),
                       Text('暂无预警，打开摄像头开始识别',
-                          style: TextStyle(color: AppColors.textHint, fontSize: 13)),
+                          style: TextStyle(color: context.palette.textHint, fontSize: 13)),
                     ],
                   ),
                 )
@@ -711,21 +711,21 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(group.zhName,
-                        style: const TextStyle(
+                        style:  TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary)),
+                            color: context.palette.textPrimary)),
                     const SizedBox(height: 2),
                     Text(
                       '识别 ${group.hitCount} 次 · 置信度 '
                       '${(group.maxConfidence * 100).toStringAsFixed(0)}%',
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.textHint),
+                      style:  TextStyle(
+                          fontSize: 12, color: context.palette.textHint),
                     ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: AppColors.textHint),
+               Icon(Icons.chevron_right, color: context.palette.textHint),
             ],
           ),
         ),

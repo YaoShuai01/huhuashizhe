@@ -8,15 +8,15 @@ import '../data/forum_models.dart';
 IconData forumMessageIcon(ForumMessageKind kind) {
   switch (kind) {
     case ForumMessageKind.like:
-      return Icons.favorite_border;
+ return Icons.favorite_border;
     case ForumMessageKind.reply:
-      return Icons.reply_outlined;
+ return Icons.reply_outlined;
     case ForumMessageKind.favorite:
-      return Icons.bookmark_border;
+ return Icons.bookmark_border;
     case ForumMessageKind.announcement:
-      return Icons.campaign_outlined;
+ return Icons.campaign_outlined;
     case ForumMessageKind.moderation:
-      return Icons.shield_outlined;
+ return Icons.shield_outlined;
   }
 }
 
@@ -24,14 +24,14 @@ IconData forumMessageIcon(ForumMessageKind kind) {
 Color forumMessageColor(ForumMessageKind kind) {
   switch (kind) {
     case ForumMessageKind.like:
-      return AppColors.accent;
+ return AppColors.accent;
     case ForumMessageKind.reply:
-      return AppColors.primary;
+ return AppColors.primary;
     case ForumMessageKind.favorite:
-      return AppColors.primaryLight;
+ return AppColors.primaryLight;
     case ForumMessageKind.announcement:
-    case ForumMessageKind.moderation:
-      return AppColors.primary;
+ case ForumMessageKind.moderation:
+ return AppColors.primary;
   }
 }
 
@@ -55,14 +55,14 @@ class ForumMessageTile extends StatelessWidget {
     final color = forumMessageColor(message.kind);
 
     return Material(
-      color: AppColors.surface,
+      color: context.palette.surface,
       child: InkWell(
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-          decoration: const BoxDecoration(
+          decoration:  BoxDecoration(
             border: Border(
-              bottom: BorderSide(color: AppColors.surfaceVariant),
+              bottom: BorderSide(color: context.palette.surfaceVariant),
             ),
           ),
           child: Row(
@@ -95,7 +95,7 @@ class ForumMessageTile extends StatelessWidget {
                           color: AppColors.error,
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: AppColors.surface,
+                            color: context.palette.surface,
                             width: 1.5,
                           ),
                         ),
@@ -120,7 +120,7 @@ class ForumMessageTile extends StatelessWidget {
                               fontWeight: unread
                                   ? FontWeight.w600
                                   : FontWeight.w500,
-                              color: AppColors.textPrimary,
+                              color: context.palette.textPrimary,
                             ),
                           ),
                         ),
@@ -130,9 +130,9 @@ class ForumMessageTile extends StatelessWidget {
                             forumTimeText(message.createdAt),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style:  TextStyle(
                               fontSize: 11,
-                              color: AppColors.textHint,
+                              color: context.palette.textHint,
                             ),
                           ),
                         ),
@@ -143,10 +143,10 @@ class ForumMessageTile extends StatelessWidget {
                       message.body,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style:  TextStyle(
                         fontSize: 13,
                         height: 1.45,
-                        color: AppColors.textSecondary,
+                        color: context.palette.textSecondary,
                       ),
                     ),
                   ],

@@ -84,7 +84,7 @@ class _ScheduleRotationOrderPageState extends State<ScheduleRotationOrderPage> {
               color: AppColors.info.withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Row(
+            child:  Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(Icons.info_outline, size: 18, color: AppColors.info),
@@ -95,7 +95,7 @@ class _ScheduleRotationOrderPageState extends State<ScheduleRotationOrderPage> {
                     style: TextStyle(
                       fontSize: 12,
                       height: 1.5,
-                      color: AppColors.textSecondary,
+                      color: context.palette.textSecondary,
                     ),
                   ),
                 ),
@@ -113,9 +113,9 @@ class _ScheduleRotationOrderPageState extends State<ScheduleRotationOrderPage> {
                 ),
               ),
               const Spacer(),
-              const Text(
+               Text(
                 '从上到下依次顺延',
-                style: TextStyle(fontSize: 11, color: AppColors.textHint),
+                style: TextStyle(fontSize: 11, color: context.palette.textHint),
               ),
             ],
           ),
@@ -130,10 +130,10 @@ class _ScheduleRotationOrderPageState extends State<ScheduleRotationOrderPage> {
                   color: Theme.of(context).dividerColor.withValues(alpha: 0.4),
                 ),
               ),
-              child: const Center(
+              child:  Center(
                 child: Text(
                   '还没有序列，点击下方姓名标签添加',
-                  style: TextStyle(fontSize: 12, color: AppColors.textHint),
+                  style: TextStyle(fontSize: 12, color: context.palette.textHint),
                 ),
               ),
             )
@@ -145,15 +145,15 @@ class _ScheduleRotationOrderPageState extends State<ScheduleRotationOrderPage> {
             style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 4),
-          const Text(
+           Text(
             '点一次加一个班次，可重复点击',
-            style: TextStyle(fontSize: 11, color: AppColors.textHint),
+            style: TextStyle(fontSize: 11, color: context.palette.textHint),
           ),
           const SizedBox(height: 10),
           if (widget.members.isEmpty)
-            const Text(
+             Text(
               '还没有成员，请先返回“成员”页添加',
-              style: TextStyle(fontSize: 13, color: AppColors.textHint),
+              style: TextStyle(fontSize: 13, color: context.palette.textHint),
             )
           else
             Wrap(
@@ -168,7 +168,7 @@ class _ScheduleRotationOrderPageState extends State<ScheduleRotationOrderPage> {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 14),
           child: FilledButton(
             onPressed:
-                _order.isEmpty
+ _order.isEmpty
                     ? null
                     : () =>
                         Navigator.of(context).pop(List<String>.from(_order)),
@@ -245,7 +245,7 @@ class _ScheduleRotationOrderPageState extends State<ScheduleRotationOrderPage> {
             visualDensity: VisualDensity.compact,
             tooltip: '下移',
             onPressed:
-                index == _order.length - 1 ? null : () => _move(index, 1),
+ index == _order.length - 1 ? null : () => _move(index, 1),
             icon: const Icon(Icons.keyboard_arrow_down, size: 20),
           ),
           IconButton(
@@ -268,13 +268,13 @@ class _ScheduleRotationOrderPageState extends State<ScheduleRotationOrderPage> {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
           color:
-              count > 0
+ count > 0
                   ? AppColors.primary.withValues(alpha: 0.1)
                   : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color:
-                count > 0
+ count > 0
                     ? AppColors.primary.withValues(alpha: 0.45)
                     : Theme.of(context).dividerColor.withValues(alpha: 0.6),
           ),
@@ -287,14 +287,14 @@ class _ScheduleRotationOrderPageState extends State<ScheduleRotationOrderPage> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: count > 0 ? AppColors.primary : AppColors.textPrimary,
+                color: count > 0 ? AppColors.primary : context.palette.textPrimary,
               ),
             ),
             const SizedBox(width: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
               decoration: BoxDecoration(
-                color: count > 0 ? AppColors.primary : AppColors.surfaceVariant,
+                color: count > 0 ? AppColors.primary : context.palette.surfaceVariant,
                 borderRadius: BorderRadius.circular(9),
               ),
               child: Text(
@@ -302,7 +302,7 @@ class _ScheduleRotationOrderPageState extends State<ScheduleRotationOrderPage> {
                 style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w700,
-                  color: count > 0 ? Colors.white : AppColors.textHint,
+                  color: count > 0 ? Colors.white : context.palette.textHint,
                 ),
               ),
             ),

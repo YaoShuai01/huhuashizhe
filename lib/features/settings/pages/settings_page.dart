@@ -1,18 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/local_database.dart';
+import '../../../providers/theme_provider.dart';
 import '../../../services/drone_udp_service.dart';
 import '../../../services/voice_service.dart';
 
-class SettingsPage extends StatefulWidget {
+class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
 
   @override
-  State<SettingsPage> createState() => _SettingsPageState();
+  ConsumerState<SettingsPage> createState() => _SettingsPageState();
 }
 
-class _SettingsPageState extends State<SettingsPage> {
-  bool _darkMode = false;
+class _SettingsPageState extends ConsumerState<SettingsPage> {
   bool _notifications = true;
   bool _autoWeather = true;
   bool _voicePrompt = true;
@@ -28,7 +29,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _loadSettings() {
     setState(() {
-      _darkMode = _db.getBool('dark_mode');
       _notifications = _db.getBool('notifications');
       _autoWeather = _db.getBool('auto_weather');
       // 语音播报首次使用默认开启
@@ -71,11 +71,30 @@ class _SettingsPageState extends State<SettingsPage> {
           const Divider(indent: 16, endIndent: 16),
           _sectionHeader('显示'),
           SwitchListTile(
-            title: const Text('深色模式'),
-            subtitle: const Text('切换深色/浅色主题'),
-            value: _darkMode,
+            title: const Text('跟随系统'),
+            subtitle: const Text('主题始终跟随系统深/浅色设置'),
+            value: ref.watch(themeModeProvider) == ThemeMode.system,
             activeColor: AppColors.primary,
-            onChanged: (v) => setState(() { _darkMode = v; _db.setBool('dark_mode', v); }),
+            onChanged: (v) =>
+                ref.read(themeModeProvider.notifier).setFollowSystem(v),
+          ),
+          SwitchListTile(
+            title: const Text('深色模式'),
+            subtitle: Text(
+              ref.watch(themeModeProvider) == ThemeMode.system
+                  ? '由系统控制，关闭「跟随系统」后可手动切换'
+                  : '当前为手动模式，切换深色/浅色主题',
+            ),
+            // 跟随系统时开关置灰：显示系统当前状态，且不可点，
+            // 保证「一直跟随系统」的语义不被绕过。
+            value: ref.watch(themeModeProvider) == ThemeMode.dark ||
+                (ref.watch(themeModeProvider) == ThemeMode.system &&
+                    MediaQuery.platformBrightnessOf(context) ==
+                        Brightness.dark),
+            activeColor: AppColors.primary,
+            onChanged: ref.watch(themeModeProvider) == ThemeMode.system
+                ? null
+                : (v) => ref.read(themeModeProvider.notifier).setDarkMode(v),
           ),
           const Divider(indent: 16, endIndent: 16),
           _sectionHeader('功能'),

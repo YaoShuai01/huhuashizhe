@@ -128,13 +128,13 @@ class _ForumMessagesPageState extends State<ForumMessagesPage> {
                     padding: const EdgeInsets.fromLTRB(16, 20, 16, 6),
                     child: Row(
                       children: [
-                        const Expanded(
+                         Expanded(
                           child: Text(
                             '消息列表',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
+                              color: context.palette.textPrimary,
                             ),
                           ),
                         ),
@@ -143,9 +143,9 @@ class _ForumMessagesPageState extends State<ForumMessagesPage> {
                             '共 ${messages.length} 条',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style:  TextStyle(
                               fontSize: 12,
-                              color: AppColors.textHint,
+                              color: context.palette.textHint,
                             ),
                           ),
                         ),

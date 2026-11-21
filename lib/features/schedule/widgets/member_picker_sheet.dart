@@ -92,7 +92,7 @@ class _MemberPickerSheetState extends State<_MemberPickerSheet> {
                 width: 36,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: AppColors.textDisabled,
+                  color: context.palette.textDisabled,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -112,9 +112,9 @@ class _MemberPickerSheetState extends State<_MemberPickerSheet> {
                         if (widget.dateLabel != null)
                           Text(
                             widget.dateLabel!,
-                            style: const TextStyle(
+                            style:  TextStyle(
                               fontSize: 12,
-                              color: AppColors.textHint,
+                              color: context.palette.textHint,
                             ),
                           ),
                       ],
@@ -168,7 +168,7 @@ class _MemberPickerSheetState extends State<_MemberPickerSheet> {
                         widget.members.isEmpty
                             ? '还没有成员，请先在“成员”页添加'
                             : '没有匹配的成员',
-                        style: const TextStyle(color: AppColors.textHint),
+                        style:  TextStyle(color: context.palette.textHint),
                       ),
                     )
                   : ListView.builder(
@@ -180,7 +180,7 @@ class _MemberPickerSheetState extends State<_MemberPickerSheet> {
                           leading: CircleAvatar(
                             radius: 18,
                             backgroundColor:
-                                Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+ Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
                             child: Text(
                               member.name.isEmpty ? '?' : member.name.characters.first,
                               style: TextStyle(

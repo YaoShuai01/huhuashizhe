@@ -35,14 +35,14 @@ class _GrowthRecordsPageState extends State<GrowthRecordsPage> {
           ? Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.bug_report, size: 64, color: AppColors.textDisabled),
+                children:  [
+                  Icon(Icons.bug_report, size: 64, color: context.palette.textDisabled),
                   SizedBox(height: 12),
                   Text('暂无病虫害记录',
-                      style: TextStyle(color: AppColors.textHint, fontSize: 15)),
+                      style: TextStyle(color: context.palette.textHint, fontSize: 15)),
                   SizedBox(height: 4),
                   Text('在首页进入"模型测试"进行一次实时识别后自动同步',
-                      style: TextStyle(color: AppColors.textHint, fontSize: 12)),
+                      style: TextStyle(color: context.palette.textHint, fontSize: 12)),
                 ],
               ),
             )
@@ -96,10 +96,10 @@ class _GrowthRecordsPageState extends State<GrowthRecordsPage> {
                   children: [
                     Text(
                       record.name,
-                      style: const TextStyle(
+                      style:  TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
+                          color: context.palette.textPrimary,
                           height: 1.3),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -109,8 +109,8 @@ class _GrowthRecordsPageState extends State<GrowthRecordsPage> {
                       problemNames.isEmpty
                           ? '未识别到问题 · ${record.totalImages} 张采集图'
                           : '${problemNames.take(3).join('、')}${problemNames.length > 3 ? ' 等${problemNames.length}项' : ''}',
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.textHint),
+                      style:  TextStyle(
+                          fontSize: 12, color: context.palette.textHint),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -120,7 +120,7 @@ class _GrowthRecordsPageState extends State<GrowthRecordsPage> {
               if (record.aiPending)
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+ const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: AppColors.accent.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
@@ -129,7 +129,7 @@ class _GrowthRecordsPageState extends State<GrowthRecordsPage> {
                       style: TextStyle(fontSize: 10, color: AppColors.accent)),
                 ),
               const SizedBox(width: 4),
-              const Icon(Icons.chevron_right, color: AppColors.textHint),
+               Icon(Icons.chevron_right, color: context.palette.textHint),
             ],
           ),
         ),

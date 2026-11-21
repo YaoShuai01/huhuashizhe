@@ -35,20 +35,20 @@ class ForumCategoryCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Text(
                 title,
-                style: const TextStyle(
+                style:  TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                  color: context.palette.textPrimary,
                 ),
               ),
             ),
             const SizedBox(height: 12),
             if (categories.isEmpty)
-              const Padding(
+               Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
                 child: Text(
                   '暂无分区',
-                  style: TextStyle(fontSize: 13, color: AppColors.textHint),
+                  style: TextStyle(fontSize: 13, color: context.palette.textHint),
                 ),
               )
             else

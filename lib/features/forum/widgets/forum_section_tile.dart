@@ -31,7 +31,7 @@ class ForumSectionTile extends StatelessWidget {
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
           decoration: BoxDecoration(
-            color: AppColors.surface,
+            color: context.palette.surface,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
@@ -50,10 +50,10 @@ class ForumSectionTile extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(10, 12, 16, 12),
                 child: Row(
                   children: [
-                    const Icon(
+                     Icon(
                       Icons.chevron_right,
                       size: 20,
-                      color: AppColors.textDisabled,
+                      color: context.palette.textDisabled,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -64,10 +64,10 @@ class ForumSectionTile extends StatelessWidget {
                             section.title,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style:  TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
+                              color: context.palette.textPrimary,
                             ),
                           ),
                           const SizedBox(height: 3),
@@ -75,9 +75,9 @@ class ForumSectionTile extends StatelessWidget {
                             section.desc,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style:  TextStyle(
                               fontSize: 12,
-                              color: AppColors.textHint,
+                              color: context.palette.textHint,
                             ),
                           ),
                         ],
@@ -87,9 +87,9 @@ class ForumSectionTile extends StatelessWidget {
                       const SizedBox(width: 8),
                       Text(
                         '$postCount 帖',
-                        style: const TextStyle(
+                        style:  TextStyle(
                           fontSize: 11,
-                          color: AppColors.textHint,
+                          color: context.palette.textHint,
                         ),
                       ),
                     ],
