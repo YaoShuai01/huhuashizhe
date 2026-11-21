@@ -65,17 +65,17 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
               value: _accepting,
               onChanged: (value) => setState(() => _accepting = value),
               activeColor: AppColors.primary,
-              title: const Text(
+              title: Text(
                 '接受新订单',
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary,
+                  color: context.palette.textPrimary,
                 ),
               ),
-              subtitle: const Text(
+              subtitle: Text(
                 '关闭后不再展示新的农户订单',
-                style: TextStyle(fontSize: 12, color: AppColors.textHint),
+                style: TextStyle(fontSize: 12, color: context.palette.textHint),
               ),
             ),
           ),
@@ -92,12 +92,12 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
             ],
           ),
           const SizedBox(height: 20),
-          const Text(
+          Text(
             '附近订单',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
+              color: context.palette.textPrimary,
             ),
           ),
           const SizedBox(height: 10),
@@ -106,12 +106,12 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
           else
             for (final order in _pending) _orderCard(order),
           const SizedBox(height: 20),
-          const Text(
+          Text(
             '我的接单',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary,
+              color: context.palette.textPrimary,
             ),
           ),
           const SizedBox(height: 10),
@@ -142,9 +142,9 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
             const SizedBox(height: 4),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
-                color: AppColors.textHint,
+                color: context.palette.textHint,
               ),
             ),
           ],
@@ -161,7 +161,7 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
         child: Center(
           child: Text(
             text,
-            style: const TextStyle(fontSize: 13, color: AppColors.textHint),
+            style: TextStyle(fontSize: 13, color: context.palette.textHint),
           ),
         ),
       ),
@@ -184,10 +184,10 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
                   Expanded(
                     child: Text(
                       '${order.crop} · ${order.area.toStringAsFixed(0)} 亩',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+                        color: context.palette.textPrimary,
                       ),
                     ),
                   ),
@@ -243,18 +243,18 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
                 children: [
                   Text(
                     '${order.crop} · ${order.area.toStringAsFixed(0)} 亩',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
+                      color: context.palette.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     '${order.village} · ${order.time}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: AppColors.textHint,
+                      color: context.palette.textHint,
                     ),
                   ),
                 ],
@@ -284,16 +284,16 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
   Widget _infoRow(IconData icon, String text) {
     return Row(
       children: [
-        Icon(icon, size: 15, color: AppColors.textHint),
+        Icon(icon, size: 15, color: context.palette.textHint),
         const SizedBox(width: 5),
         Expanded(
           child: Text(
             text,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: AppColors.textSecondary,
+              color: context.palette.textSecondary,
             ),
           ),
         ),

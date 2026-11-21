@@ -175,7 +175,7 @@ class ForumPostCard extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: liked
                             ? AppColors.accent.withValues(alpha: 0.12)
-                            : AppColors.textHint,
+                            : context.palette.textHint,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(

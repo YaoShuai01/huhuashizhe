@@ -224,13 +224,13 @@ class _ForumComposePageState extends State<ForumComposePage> {
               ),
             ),
             const SizedBox(height: 8),
-             Text(
+            Text(
               '发布后所有用户可见，请遵守社区版规，勿发布广告与违规内容。',
               style: TextStyle(fontSize: 12, color: context.palette.textHint),
             ),
             if (_submitting) ...[
               const SizedBox(height: 12),
-              const Row(
+              Row(
                 children: [
                   SizedBox(
                     width: 14,
@@ -242,7 +242,7 @@ class _ForumComposePageState extends State<ForumComposePage> {
                     'AI 审核中，请稍候…',
                     style: TextStyle(
                       fontSize: 12,
-                      color: AppColors.textSecondary,
+                      color: context.palette.textSecondary,
                     ),
                   ),
                 ],

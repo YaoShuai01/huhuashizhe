@@ -199,7 +199,7 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                         ),
                       ),
                       if (comments.isEmpty)
-                         Padding(
+                        Padding(
                           padding: EdgeInsets.symmetric(vertical: 32),
                           child: Center(
                             child: Text(
@@ -230,7 +230,7 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
     // 只朗读昵称与提问/回答内容，跳过时间、版块与底部操作区
     return ElderCareBlock(
       readText:
- '${widget.post.author}。${widget.post.title}。${widget.post.content}',
+'${widget.post.author}。${widget.post.title}。${widget.post.content}',
       child: _postHeaderCard(repository),
     );
   }
@@ -351,7 +351,7 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                     decoration: BoxDecoration(
                       color: repository.isLiked(post)
                           ? AppColors.accent.withValues(alpha: 0.12)
-                          : AppColors.textHint,
+                          : context.palette.textHint,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(

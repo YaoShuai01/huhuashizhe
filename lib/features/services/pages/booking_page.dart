@@ -150,12 +150,12 @@ class _BookingPageState extends State<BookingPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     '作物类型',
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
+                      color: context.palette.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -247,12 +247,12 @@ class _BookingPageState extends State<BookingPage> {
                           color: AppColors.accent,
                         ),
                         const SizedBox(width: 8),
-                        const Expanded(
+                        Expanded(
                           child: Text(
                             '预估费用',
                             style: TextStyle(
                               fontSize: 13,
-                              color: AppColors.textPrimary,
+                              color: context.palette.textPrimary,
                             ),
                           ),
                         ),
@@ -306,9 +306,9 @@ class _BookingPageState extends State<BookingPage> {
                           Expanded(
                             child: Text(
                               '${_date.year}年${_date.month}月${_date.day}日',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 14,
-                                color: AppColors.textPrimary,
+                                color: context.palette.textPrimary,
                               ),
                             ),
                           ),
@@ -319,10 +319,10 @@ class _BookingPageState extends State<BookingPage> {
                               color: AppColors.primary,
                             ),
                           ),
-                          const Icon(
+                          Icon(
                             Icons.chevron_right,
                             size: 18,
-                            color: AppColors.textHint,
+                            color: context.palette.textHint,
                           ),
                         ],
                       ),
@@ -331,12 +331,12 @@ class _BookingPageState extends State<BookingPage> {
                   const Divider(height: 20),
                   Row(
                     children: [
-                      const Text(
+                      Text(
                         '作业时段',
                         style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
+                          color: context.palette.textPrimary,
                         ),
                       ),
                       const SizedBox(width: 14),
@@ -424,10 +424,10 @@ class _BookingPageState extends State<BookingPage> {
               ),
             ),
             const SizedBox(height: 10),
-            const Text(
+            Text(
               '提交后飞手会电话与你确认作业时间与价格，请勿重复预约。',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: AppColors.textHint),
+              style: TextStyle(fontSize: 12, color: context.palette.textHint),
             ),
           ],
         ),
@@ -494,10 +494,10 @@ class _BookingPageState extends State<BookingPage> {
   Widget _sectionTitle(String title) {
     return Text(
       title,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.w600,
-        color: AppColors.textPrimary,
+        color: context.palette.textPrimary,
       ),
     );
   }
@@ -522,9 +522,9 @@ class _BookingPageState extends State<BookingPage> {
               children: [
                 Text(
                   '共 ${pilots.length} 位飞手',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 12,
-                    color: AppColors.textHint,
+                    color: context.palette.textHint,
                   ),
                 ),
                 const Spacer(),
@@ -558,7 +558,7 @@ class _BookingPageState extends State<BookingPage> {
   /// 排序组：字段名 + 升序、降序两个图标
   Widget _sortGroup({required String label, required bool ascending}) {
     final active = _sortField == label;
-    final color = active ? AppColors.primary : AppColors.textHint;
+    final color = active ? AppColors.primary : context.palette.textHint;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -610,7 +610,7 @@ class _BookingPageState extends State<BookingPage> {
           child: Icon(
             up ? Icons.arrow_upward : Icons.arrow_downward,
             size: 14,
-            color: selected ? AppColors.primary : AppColors.textHint,
+            color: selected ? AppColors.primary : context.palette.textHint,
           ),
         ),
       ),
@@ -658,10 +658,10 @@ class _BookingPageState extends State<BookingPage> {
                         children: [
                           Text(
                             pilot.name,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
+                              color: context.palette.textPrimary,
                             ),
                           ),
                           const SizedBox(width: 5),
@@ -685,9 +685,9 @@ class _BookingPageState extends State<BookingPage> {
                         '已接 ${pilot.orders} 单 · 距你 ${pilot.distanceKm} km · ${pilot.price.toStringAsFixed(0)} 元/亩',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: AppColors.textHint,
+                          color: context.palette.textHint,
                         ),
                       ),
                     ],
@@ -699,7 +699,7 @@ class _BookingPageState extends State<BookingPage> {
                       ? Icons.check_circle
                       : Icons.radio_button_unchecked,
                   size: 20,
-                  color: selected ? AppColors.primary : AppColors.textHint,
+                  color: selected ? AppColors.primary : context.palette.textHint,
                 ),
               ],
             ),
@@ -717,10 +717,10 @@ class _BookingPageState extends State<BookingPage> {
       onSelected: (_) => setState(() => _crop = crop),
       labelStyle: TextStyle(
         fontSize: 13,
-        color: selected ? AppColors.textOnPrimary : AppColors.textSecondary,
+        color: selected ? AppColors.textOnPrimary : context.palette.textSecondary,
       ),
       selectedColor: AppColors.primary,
-      backgroundColor: AppColors.surfaceVariant,
+      backgroundColor: context.palette.surfaceVariant,
       side: BorderSide.none,
       showCheckmark: false,
     );
@@ -734,10 +734,10 @@ class _BookingPageState extends State<BookingPage> {
       onSelected: (_) => setState(() => _period = period),
       labelStyle: TextStyle(
         fontSize: 13,
-        color: selected ? AppColors.textOnPrimary : AppColors.textSecondary,
+        color: selected ? AppColors.textOnPrimary : context.palette.textSecondary,
       ),
       selectedColor: AppColors.primary,
-      backgroundColor: AppColors.surfaceVariant,
+      backgroundColor: context.palette.surfaceVariant,
       side: BorderSide.none,
       showCheckmark: false,
     );
