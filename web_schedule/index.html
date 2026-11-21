@@ -471,7 +471,14 @@
 <div id="ceremony-root"></div>
 <div id="toast" class="toast"></div>
 <script>
-const DEFAULT_API = 'https://437iy0be1396.vicp.fun';
+const FALLBACK_API = 'http://121.199.75.235:8080/schedule';
+const DEFAULT_API = (location.protocol === 'http:' || location.protocol === 'https:')
+  ? location.origin + '/schedule'
+  : FALLBACK_API;
+const LEGACY_APIS = [
+  'https://437iy0be1396.vicp.fun',
+  'https://437iy0be1396.vicp.fun/schedule'
+];
 const LS = {
   api: 'hhsz_schedule_api',
   token: 'hhsz_schedule_token',
@@ -485,8 +492,17 @@ const LS = {
   messagesSeenAt: 'hhsz_messages_seen_at'
 };
 
+function initialApi() {
+  const stored = (localStorage.getItem(LS.api) || '').replace(/\/+$/, '');
+  if (!stored || LEGACY_APIS.indexOf(stored) >= 0) {
+    localStorage.setItem(LS.api, DEFAULT_API);
+    return DEFAULT_API;
+  }
+  return stored;
+}
+
 const state = {
-  api: localStorage.getItem(LS.api) || DEFAULT_API,
+  api: initialApi(),
   token: localStorage.getItem(LS.token) || '',
   role: localStorage.getItem(LS.role) || '',
   memberId: localStorage.getItem(LS.memberId) || '',
@@ -1322,7 +1338,7 @@ function dayCellHtml(date, schedule, editable) {
 
 // ==================== 交互 ====================
 async function init() {
-  state.api = localStorage.getItem(LS.api) || DEFAULT_API;
+  state.api = initialApi();
   state.token = localStorage.getItem(LS.token) || '';
   state.role = localStorage.getItem(LS.role) || '';
   state.memberId = localStorage.getItem(LS.memberId) || '';
