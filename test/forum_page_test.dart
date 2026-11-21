@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -304,6 +306,45 @@ void main() {
     expect(find.text('全部评论 ${before + 1}'), findsOneWidget);
   });
 
+  testWidgets('发送评论时显示加载中，重复点击不会重复提交', (tester) async {
+    final repository = InMemoryForumRepository();
+    final post = repository.postsOf('农友留言区').first;
+    final completer = Completer<ForumAuditResult>();
+    final moderator = _DeferredModerationService(completer);
+    final before = repository.commentsOf(post.id).length;
+
+    await tester.pumpWidget(
+      wrap(
+        ForumPostDetailPage(
+          post: post,
+          repository: repository,
+          moderationService: moderator,
+        ),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField), '第一下就能发送');
+    await tester.pump();
+
+    await tester.tap(find.byTooltip('发送评论'));
+    await tester.pump();
+
+    // 审核中按钮变为加载状态，立即给出反馈
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(moderator.calls, 1);
+
+    // 加载中再次点击不会重复提交
+    await tester.tap(find.byTooltip('发送评论'), warnIfMissed: false);
+    await tester.pump();
+    expect(moderator.calls, 1);
+
+    completer.complete(_passResult);
+    await tester.pumpAndSettle();
+
+    expect(repository.commentsOf(post.id).length, before + 1);
+    expect(find.text('第一下就能发送'), findsOneWidget);
+  });
+
   testWidgets('详情页收藏按钮切换状态并给出提示', (tester) async {
     final repository = InMemoryForumRepository();
     final post = repository.postsOf('农友留言区').first;
@@ -564,6 +605,23 @@ GoRouter _composeRouter(
       ),
     ],
   );
+}
+
+class _DeferredModerationService implements ForumModerationService {
+  _DeferredModerationService(this.completer);
+
+  final Completer<ForumAuditResult> completer;
+  int calls = 0;
+
+  @override
+  Future<ForumAuditResult> review({
+    required String title,
+    String content = '',
+    String extraText = '',
+  }) {
+    calls++;
+    return completer.future;
+  }
 }
 
 class _FakeModerationService implements ForumModerationService {
