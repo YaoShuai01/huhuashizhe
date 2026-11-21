@@ -783,6 +783,16 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.4.5',
+        'date': '2026-11-21',
+        'content': [
+          '修复设置页「深色模式」开关不生效的问题',
+          '新增「跟随系统」开关：开启时主题跟随系统，关闭后可手动切换深色/浅色',
+          '深色模式下卡片、文字、对话框、闪屏全面适配，不再出现白卡片或黑字看不清',
+          '遥控器与 GPS 测速页保持设计上的固定深色，不受主题切换影响',
+        ],
+      },
+      {
         'version': 'v3.4.4',
         'date': '2026-11-20',
         'content': [
