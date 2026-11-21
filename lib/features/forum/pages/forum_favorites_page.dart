@@ -32,7 +32,7 @@ class ForumFavoritesPage extends StatelessWidget {
               icon: Icons.bookmark_border,
               text: '还没有收藏的帖子',
               actionLabel: '去论坛看看',
-              onAction: () => context.go('/forum'),
+              onAction: () => context.push('/forum'),
             );
           }
           return ForumPostList(

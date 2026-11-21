@@ -54,7 +54,7 @@ class ServicesPage extends StatelessWidget {
                 color: AppColors.info,
                 title: '论坛',
                 desc: '农友交流区、问答区与管理区，发布帖子、评论互动与私信提醒',
-                onTap: () => context.go('/forum'),
+                onTap: () => context.push('/forum'),
               ),
             ],
           ),

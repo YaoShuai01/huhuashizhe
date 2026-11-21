@@ -73,16 +73,6 @@ final appRouter = GoRouter(
         StatefulShellBranch(
           routes: [
             GoRoute(
-              path: '/forum',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: ForumPage(),
-              ),
-            ),
-          ],
-        ),
-        StatefulShellBranch(
-          routes: [
-            GoRoute(
               path: '/services',
               pageBuilder: (context, state) => const NoTransitionPage(
                 child: ServicesPage(),
@@ -171,6 +161,11 @@ final appRouter = GoRouter(
       path: '/speedometer',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const GpsSpeedometerPage(),
+    ),
+    GoRoute(
+      path: '/forum',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const ForumPage(),
     ),
     GoRoute(
       path: '/forum/section',
@@ -354,11 +349,6 @@ class AppShell extends StatelessWidget {
             icon: Icon(Icons.dashboard_outlined),
             activeIcon: Icon(Icons.dashboard),
             label: '数据管理',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.forum_outlined),
-            activeIcon: Icon(Icons.forum),
-            label: '论坛',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.miscellaneous_services_outlined),
