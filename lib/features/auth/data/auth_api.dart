@@ -1,6 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart'
-    show TargetPlatform, defaultTargetPlatform, kIsWeb;
 
 /// 登录用户：登录号由服务端自动生成，昵称只用于展示
 class AuthUser {
@@ -43,24 +41,24 @@ abstract class AuthApi {
   });
 }
 
-/// 默认后端地址：
-/// - 优先取 --dart-define=FORUM_API_BASE=http://电脑IP:3000
-/// - Android 模拟器用 10.0.2.2 访问电脑本机
-/// - 其他平台（Windows / Web）直接用 127.0.0.1
+/// 默认后端地址：直接使用已部署的云服务器，手机任意网络都能访问，无需同一 Wi-Fi。
+/// 本地联调时可用 --dart-define=FORUM_API_BASE=http://电脑IP:3000 覆盖。
 const String _envForumApiBase = String.fromEnvironment('FORUM_API_BASE');
 
-String get defaultForumApiBase {
-  if (_envForumApiBase.isNotEmpty) return _envForumApiBase;
-  if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-    return 'http://10.0.2.2:3000';
-  }
-  return 'http://127.0.0.1:3000';
-}
+/// 公网后端：Tomcat 8080 的 /forum 反向代理到论坛服务 3000
+const String _publicForumApiBase = 'http://121.199.75.235:8080/forum';
+
+String get defaultForumApiBase =>
+    _envForumApiBase.isNotEmpty ? _envForumApiBase : _publicForumApiBase;
 
 class DioAuthApi implements AuthApi {
   DioAuthApi({Dio? dio, String? baseUrl})
-      : _baseUrl = baseUrl ?? defaultForumApiBase,
+      : _baseUrl = _normalizeBase(baseUrl ?? defaultForumApiBase),
         _dio = dio ?? _createDio(baseUrl ?? defaultForumApiBase);
+
+  /// 去掉末尾斜杠，避免拼接出双斜杠地址
+  static String _normalizeBase(String base) =>
+      base.endsWith('/') ? base.substring(0, base.length - 1) : base;
 
   static Dio _createDio(String baseUrl) => Dio(
         BaseOptions(
