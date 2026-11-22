@@ -144,3 +144,17 @@ INSERT IGNORE INTO app_releases (version_name, version_code, release_notes, down
 ('3.8.0', 135,
  '新增云种植模块：田块创建、种植向导、云田详情、远程控制、预警与 AI 农事助手；首页新增云种植入口卡，底部导航保持不变；云种植数据保存在本机，支持地块、种植记录与待办管理。',
  'http://121.199.75.235:8080/app/huhuashizhe_v3.8.0.apk', 85347013, 'system', '2026-11-22 01:07:08.168');
+
+INSERT IGNORE INTO app_releases (version_name, version_code, release_notes, download_url, file_size, published_by, published_at) VALUES
+('3.9.0', 137,
+ '新增账号登录：昵称 + 密码注册/登录，登录态保存在本机，重启自动恢复；「我的」页新增账号入口，显示当前昵称，支持切换账号与退出登录；修复本地数据库初始化前调用 remove() 可能导致的空指针异常。',
+ 'http://121.199.75.235:8080/app/huhuashizhe_v3.9.0.apk', 85380568, 'system', '2026-11-22 01:58:29.667');
+
+-- Node 论坛/登录服务演示数据（幂等）
+INSERT IGNORE INTO users (nickname) VALUES ('农友小助手');
+
+INSERT INTO posts (user_id, section, title, content)
+SELECT u.id, '农友留言区', '飞防作业时段怎么选', '上午露水大，下午风大，大家一般几点起飞？'
+FROM users u
+LEFT JOIN posts p ON p.title = '飞防作业时段怎么选'
+WHERE u.nickname = '农友小助手' AND p.id IS NULL;

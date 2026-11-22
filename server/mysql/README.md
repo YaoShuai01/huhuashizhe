@@ -56,6 +56,7 @@
 | `forum_likes` / `forum_favorites` | 点赞、收藏（每用户一条） |
 | `forum_notifications` | 点赞/回复/收藏/公告/审核消息 |
 | `forum_moderation_logs` | AI 初审与人工复审记录 |
+| `users` / `posts` / `replies` | Node 登录/论坛服务使用（昵称账号、帖子、回复） |
 
 ### 飞防预约
 | 表 | 说明 |
@@ -107,6 +108,8 @@
 & C:\huhuashizhe\mysql\bin\mysql.exe --defaults-extra-file=C:\huhuashizhe\config\mysql-root.cnf -e "source C:/huhuashizhe/upgrade-staging/seed.sql"
 ```
 
+Node 服务也可在 `server/` 目录执行 `npm run init`（读取同一份 `schema.sql` / `seed.sql`，可重复执行）。
+
 后续结构变更请新增 `migrations/00X_xxx.sql`，并在 `schema_migrations` 记录版本；不要直接改已上线的列。
 
 ## 6. 备份
@@ -117,13 +120,33 @@
 
 ## 7. 与现有 SQLite 的关系
 
-- 当前线上轮协/留言接口仍读写 `C:\huhuashizhe\data\schedule.db`，**本次不切换、不双写**，避免影响已发布版本。
-- MySQL 先作为新功能的统一库；需要迁移旧数据时，单独写一次性迁移脚本（成员 → `members`，排班 JSON → `schedule_*`，留言 → `messages`），迁移前先备份 SQLite。
+- 当前线上**轮协/留言**接口仍读写 `C:\huhuashizhe\data\schedule.db`，**不切换、不双写**，避免影响已发布版本。
+- **Node 登录/论坛服务**已切换到本 MySQL 库（`users` / `posts` / `replies`）。
+- 需要迁移旧 SQLite 数据时，单独写一次性迁移脚本（成员 → `members`，排班 JSON → `schedule_*`，留言 → `messages`），迁移前先备份 SQLite。
 - 新服务连接示例（Java）：
   `jdbc:mysql://127.0.0.1:3306/huhuashizhe?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC&useSSL=false`
   驱动：`com.mysql:mysql-connector-j:8.4.0`（或 8.0.x）。
 
-## 8. 安全
+## 8. Node 登录/论坛服务（server/）
+
+| 项 | 值 |
+|---|---|
+| 技术栈 | Node.js 20+ / Express / mysql2 |
+| 端口 | `3000`（公网 `http://121.199.75.235:3000`） |
+| 部署目录 | `C:\huhuashizhe\forum-server` |
+| 开机自启 | 计划任务 `HuHuaShiZheForum` |
+| 数据库 | `huhuashizhe`，账号 `hhsz_app`，配置从 `config.properties` 的 `mysql.*` 读取 |
+| 初始化 | `npm run init`（schema.sql + seed.sql） |
+
+接口：
+- `POST /api/auth/register` `{nickname,password}`
+- `POST /api/auth/login` `{nickname,password}`
+- `GET /api/posts?section=&limit=&offset=`
+- `POST /api/posts` `{userId,section,title,content}`
+
+APP 端默认地址在 `lib/features/auth/data/auth_api.dart`，可用 `--dart-define=FORUM_API_BASE=...` 覆盖。
+
+## 9. 安全
 
 - MySQL 只监听 `127.0.0.1`，**不要在阿里云安全组放行 3306**。
 - 业务账号只授权 `huhuashizhe.*`；root 不用于应用连接。
