@@ -44,6 +44,12 @@ class _CloudPlotCreatePageState extends ConsumerState<CloudPlotCreatePage> {
     });
   }
 
+  /// 按住顶点拖动：实时改坐标，面积/周长随 build 重算
+  void _movePoint(int index, List<double> point) {
+    if (index < 0 || index >= _points.length) return;
+    setState(() => _points[index] = point);
+  }
+
   void _autoDetect() {
     final c = ref.read(cloudFarmProvider);
     final pts = CloudEngine.autoDetectPoints(c.plots.length);
@@ -53,7 +59,8 @@ class _CloudPlotCreatePageState extends ConsumerState<CloudPlotCreatePage> {
         ..addAll(pts);
       if (_name.text.isEmpty) _name.text = '新田块 ${c.plots.length + 1}';
     });
-    _map.move(centroidOf(pts), 17);
+    final center = centroidOf(pts);
+    _map.move(displayPoint(center.latitude, center.longitude), 17);
     _toast('已生成示例边界，请拖动或用定位校正');
   }
 
@@ -134,6 +141,7 @@ class _CloudPlotCreatePageState extends ConsumerState<CloudPlotCreatePage> {
                     center: LatLng(location.lat, location.lng),
                     zoom: 16,
                     onAddPoint: _addPoint,
+                    onMovePoint: _movePoint,
                   ),
                 ),
                 Positioned(
@@ -154,8 +162,8 @@ class _CloudPlotCreatePageState extends ConsumerState<CloudPlotCreatePage> {
                         const SizedBox(width: 4),
                         Text(
                           hasArea
-                              ? '${_points.length} 个边界点 · 点击可继续加点'
-                              : '点击地图依次添加边界点',
+                              ? '${_points.length} 个边界点 · 点击加点，按住顶点可拖动微调'
+                              : '点击地图添加边界点，按住顶点可拖动微调',
                           style: const TextStyle(fontSize: 10, color: Colors.white),
                         ),
                       ],
