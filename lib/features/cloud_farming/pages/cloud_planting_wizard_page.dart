@@ -366,6 +366,12 @@ class _CloudPlantingWizardPageState
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
       children: [
+        _guideCard([
+          TextSpan(
+            text:
+                '先选作物。带「本地主栽」标签的作物与当前气候最匹配，例如${top.name}适宜度最高；选错也没关系，下一步还能改。',
+          ),
+        ]),
         _climateCard(c.location),
         if (_pinned && plot != null) ...[
           const SizedBox(height: 10),
@@ -400,12 +406,6 @@ class _CloudPlantingWizardPageState
           ),
         ],
         const SizedBox(height: 10),
-        _guideCard([
-          TextSpan(
-            text:
-                '先选作物。带「本地主栽」标签的作物与当前气候最匹配，例如${top.name}适宜度最高；选错也没关系，下一步还能改。',
-          ),
-        ]),
         const CloudSectionHead(
           title: '选择作物',
           sub: '按本地气候与“几年几熟”推荐',
@@ -900,6 +900,13 @@ class _CloudPlantingWizardPageState
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
       children: [
+        _guideCard([
+          const TextSpan(
+            text:
+                '按实际情况填写土壤、灌溉和最近施肥。墒情由天气 + 土壤 + 灌溉推算，问卷越准确，提醒越贴近田里真实情况。',
+          ),
+        ]),
+        const SizedBox(height: 10),
         CloudCard(
           child: Row(
             children: [
@@ -938,12 +945,6 @@ class _CloudPlantingWizardPageState
           ),
         ),
         const SizedBox(height: 10),
-        _guideCard([
-          const TextSpan(
-            text:
-                '按实际情况填写土壤、灌溉和最近施肥。墒情由天气 + 土壤 + 灌溉推算，问卷越准确，提醒越贴近田里真实情况。',
-          ),
-        ]),
         const CloudSectionHead(
           title: '土壤条件问卷',
           sub: 'AI 据此推断墒情',

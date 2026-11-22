@@ -26,6 +26,7 @@ class CloudLocateResult {
 class CloudFarmController extends ChangeNotifier {
   static const String storageKey = 'cloud_farm_v1';
   static const String guideSeenKey = 'cloud_farm_guide_seen_v1';
+  static const String weatherCityKey = 'cloud_farm_city_v1';
 
   late CloudState state;
   final LocalDatabase _db = LocalDatabase();
@@ -33,7 +34,8 @@ class CloudFarmController extends ChangeNotifier {
 
   CloudFarmController() {
     _load();
-    if (!state.location.isSeed) {
+    _loadWeatherCity();
+    if (_weatherCityCode != null || !state.location.isSeed) {
       unawaited(refreshWeather());
     }
   }
@@ -52,6 +54,14 @@ class CloudFarmController extends ChangeNotifier {
 
   String? _weatherError;
   String? get weatherError => _weatherError;
+
+  String? _weatherCityName;
+  String? _weatherCityCode;
+
+  /// 手动选择的天气城市（为空表示按定位自动获取）
+  String? get weatherCityName => _weatherCityName;
+
+  String? get weatherCityCode => _weatherCityCode;
 
   CloudLocation get location => state.location;
 
@@ -145,7 +155,9 @@ class CloudFarmController extends ChangeNotifier {
   Future<bool> refreshWeather() async {
     if (_refreshingWeather) return false;
     final loc = state.location;
-    if (loc.isSeed) {
+    final cityCode = _weatherCityCode;
+    final cityName = _weatherCityName;
+    if (cityCode == null && loc.isSeed) {
       _weatherError = '未定位，天气暂不可用';
       notifyListeners();
       return false;
@@ -155,11 +167,13 @@ class CloudFarmController extends ChangeNotifier {
     _weatherError = null;
     notifyListeners();
     try {
-      final result = await _weatherService.fetch(
-        lat: loc.lat,
-        lng: loc.lng,
-        locationName: loc.name,
-      );
+      final result = cityCode != null
+          ? await _weatherService.fetchByCode(cityCode, name: cityName)
+          : await _weatherService.fetch(
+              lat: loc.lat,
+              lng: loc.lng,
+              locationName: loc.name,
+            );
       final snapshot = result.snapshot;
       if (snapshot != null) {
         state.weather = snapshot;
@@ -189,6 +203,87 @@ class CloudFarmController extends ChangeNotifier {
     }
   }
 
+  /// 手动选择天气城市：仅影响天气与气候展示，不改变地图定位
+  Future<bool> setWeatherCity(String name, String code) async {
+    final cityName = name.trim();
+    final cityCode = code.trim();
+    if (cityName.isEmpty || cityCode.isEmpty) {
+      _weatherError = '城市信息不完整，请重新选择';
+      notifyListeners();
+      return false;
+    }
+    if (_refreshingWeather) {
+      _weatherError = '天气正在刷新，请稍候';
+      notifyListeners();
+      return false;
+    }
+
+    _refreshingWeather = true;
+    _weatherError = null;
+    notifyListeners();
+    try {
+      final result =
+          await _weatherService.fetchByCode(cityCode, name: cityName);
+      final snapshot = result.snapshot;
+      if (snapshot == null) {
+        _weatherError = result.error ?? '天气获取失败，请检查网络';
+        return false;
+      }
+      _weatherCityName = cityName;
+      _weatherCityCode = cityCode;
+      state.weather = snapshot;
+      _weatherError = null;
+      _saveWeatherCity();
+      _save();
+      return true;
+    } catch (e) {
+      debugPrint('cloud weather city switch failed: $e');
+      _weatherError = '天气获取失败，请检查网络';
+      return false;
+    } finally {
+      _refreshingWeather = false;
+      notifyListeners();
+    }
+  }
+
+  /// 恢复为按定位自动获取天气（清除已保存的天气城市）
+  Future<void> restoreAutoWeather() async {
+    _weatherCityName = null;
+    _weatherCityCode = null;
+    _db.remove(weatherCityKey);
+    notifyListeners();
+    await refreshWeather();
+  }
+
+  void _loadWeatherCity() {
+    try {
+      final raw = _db.get(weatherCityKey);
+      if (raw == null) return;
+      final decoded = jsonDecode(raw);
+      if (decoded is Map<String, dynamic>) {
+        final name = decoded['name']?.toString().trim() ?? '';
+        final code = decoded['code']?.toString().trim() ?? '';
+        if (name.isNotEmpty && code.isNotEmpty) {
+          _weatherCityName = name;
+          _weatherCityCode = code;
+        }
+      }
+    } catch (e) {
+      debugPrint('cloud farm weather city load failed: $e');
+    }
+  }
+
+  void _saveWeatherCity() {
+    final name = _weatherCityName;
+    final code = _weatherCityCode;
+    if (name == null || code == null) return;
+    try {
+      _db.set(weatherCityKey, jsonEncode({'name': name, 'code': code}));
+    } catch (e) {
+      debugPrint('cloud farm weather city save failed: $e');
+    }
+  }
+
   void _load() {
     try {
       final raw = _db.get(storageKey);
@@ -196,9 +291,13 @@ class CloudFarmController extends ChangeNotifier {
         final decoded = jsonDecode(raw);
         if (decoded is Map<String, dynamic>) {
           final parsed = CloudState.fromJson(decoded);
+          // 旧版本内置了 4 个示例田块，这里只保留「示范田块1」，其余示例移除；
+          // 用户自己圈选的田块 id 不是 p2/p3/p4，不受影响。
+          parsed.plots.removeWhere((p) => const {'p2', 'p3', 'p4'}.contains(p.id));
           if (parsed.plots.isNotEmpty) {
             state = parsed;
             _loaded = true;
+            _save();
             return;
           }
         }
@@ -422,6 +521,15 @@ class CloudFarmController extends ChangeNotifier {
     final trimmed = path?.trim();
     plot.photoPath =
         (trimmed == null || trimmed.isEmpty) ? null : trimmed;
+    _save();
+    notifyListeners();
+  }
+
+  /// 删除田块（仅删除本机数据，删除后不可恢复）
+  void deletePlot(String plotId) {
+    final before = state.plots.length;
+    state.plots.removeWhere((p) => p.id == plotId);
+    if (state.plots.length == before) return;
     _save();
     notifyListeners();
   }

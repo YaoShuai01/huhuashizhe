@@ -944,6 +944,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.10.2',
+        'date': '2026-11-22',
+        'content': [
+          '云种植界面按网页最终版对齐：天气卡、田块地图、向导指引、定位面板全面升级',
+          '地图支持自动框选全部田块、缩放比例尺，选中田块高亮、其余虚线边界',
+          '新增手动选择城市获取天气，定位面板与田块列表交互与网页版一致',
+        ],
+      },
+      {
         'version': 'v3.10.1',
         'date': '2026-11-22',
         'content': [
