@@ -26,11 +26,28 @@ esp_err_t vision_cam_init(void);
 camera_fb_t *cam_capture(void);
 void cam_release(camera_fb_t *fb);
 
-/** 设置推流分辨率档位（k_cam_res 索引），返回实际档位 */
+/** 设置推流分辨率档位（k_cam_res 索引），返回实际档位；推流封顶 UXGA */
 int cam_set_stream_res(int res_idx);
+
+/// 设置拍照分辨率档位（k_cam_res 索引），返回实际档位；可到 QSXGA 5MP。
+/// 与推流档位互不影响，用完请用 cam_set_stream_res() 切回。
+int cam_set_snapshot_res(int res_idx);
+
+/// 切换传感器分辨率但【不改变】推流档位记录，供网页预览临时降档用。
+/// 返回实际生效档位。用完请再调用一次传回原档位。
+int cam_set_preview_res(int res_idx);
 
 /** 设置推流参数：fps（2~20）、JPEG质量（6最佳~25最差） */
 void cam_set_stream_params(int fps, int quality);
+
+/// 只改 JPEG 质量，不动 fps。供码率自适应使用（画面临时变复杂时自动降质保帧率）。
+/// 返回实际生效的质量值。
+int cam_set_quality_only(int quality);
+
+/// 只改推流帧率，不动 JPEG 质量。供码率控制器动态调帧率。
+/// 注意：帧率优先级高于质量 —— 质量已到底仍超码率时才降帧率，
+/// 码率富余时优先恢复帧率。返回实际生效的帧率。
+int cam_set_fps_only(int fps);
 
 int cam_get_fps(void);
 int cam_get_quality(void);
