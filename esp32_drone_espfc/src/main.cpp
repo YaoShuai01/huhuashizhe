@@ -41,9 +41,10 @@ void gyroTask(void* pvParameters)
 {
   gyroTaskHandle = Task::currentHandle();
   espfc.begin();
-  printf("[ESPFC] gyro=%d accel=%d mag=%d baro=%d rate=%dHz\n",
+  printf("[ESPFC] gyro=%d accel=%d mag=%d baro=%d gps=%d rate=%dHz\n",
          (int)espfc.isGyroReady(), (int)espfc.isAccelReady(),
-         (int)espfc.isMagReady(), (int)espfc.isBaroReady(), espfc.gyroRate());
+         (int)espfc.isMagReady(), (int)espfc.isBaroReady(),
+         (int)espfc.isGpsReady(), espfc.gyroRate());
   fflush(stdout);
   bool timerOk = espfc.beginGyroTimer(gyroTimerIsr);
   if (!timerOk)
@@ -124,6 +125,19 @@ void loop()
     else
       rgbLedWrite(STATUS_LED_PIN, 0, 0, 0);
     shown = want;
+  }
+
+  // 调试期每 5 秒打印一次传感器状态，接 USB 串口即可看到气压计/GPS/磁力计数据
+  static uint32_t lastStatus = 0;
+  if (now - lastStatus >= 5000)
+  {
+    lastStatus = now;
+    printf("[ESPFC] baro=%d press=%dPa alt=%dcm vario=%dcm/s gps=%d fix=%d sats=%d mag=%d/%d/%d\n",
+           (int)espfc.isBaroReady(), espfc.baroPressure(), espfc.baroAltitude10() * 10,
+           espfc.baroVario100(),
+           (int)espfc.isGpsReady(), (int)espfc.isGpsFix(), espfc.gpsSats(),
+           espfc.magX(), espfc.magY(), espfc.magZ());
+    fflush(stdout);
   }
   vTaskDelay(pdMS_TO_TICKS(20));
 }

@@ -11,7 +11,8 @@
 #
 # 注意：
 #   - 首次烧录前建议先备份原固件；本工程默认使用 2MB 分区表（app 1.875MB）。
-#   - 编译产物在 %TEMP%\hhs_espfc_build。
+#   - 编译产物固定放在 D:\hhsz_fw_build（不写 C 盘），可用环境变量 HHS_FW_BUILD 覆盖。
+#   - 源码保留在项目目录，换机器只需改 HHS_FW_BUILD 或本脚本第 25 行。
 
 param(
     [switch]$Flash,
@@ -21,7 +22,8 @@ param(
 $ErrorActionPreference = "Stop"
 
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
-$build = Join-Path $env:TEMP "hhs_espfc_build"
+$build = $env:HHS_FW_BUILD
+if (-not $build) { $build = "D:\hhsz_fw_build\hhs_espfc_build" }
 
 $cli = $env:ARDUINO_CLI
 if (-not $cli) {

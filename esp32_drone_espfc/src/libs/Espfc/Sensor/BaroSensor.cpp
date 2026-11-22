@@ -135,6 +135,9 @@ void BaroSensor::updateAltitude()
   }
   else if (baro.altitudeBiasSamples == 0)
   {
+    // Snap the ground zero exactly at the end of the sampling window instead of
+    // leaving the exponential-filter residual (was ~5m off after 3s).
+    baro.altitudeBias = altitude;
     _model.logger.info().log("BARO BIAS").logln(baro.altitudeBias);
     baro.altitudeBiasSamples--;
   }

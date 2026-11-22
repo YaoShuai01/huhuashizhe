@@ -44,21 +44,25 @@ int FAST_CODE_ATTR SensorManager::read()
     _model.appQueue.push(Event(EVENT_GYRO_READ));
   }
 
+  // Do not early-return here: when the accel runs at the same rate as the gyro
+  // (500Hz airframe) an early return would starve the mag/baro updates forever.
+  int updated = 0;
+
   if (_model.state.accel.timer.syncTo(_model.state.gyro.timer))
   {
     _accel.update();
     _model.appQueue.push(Event(EVENT_ACCEL_READ));
     _model.state.mode.button = _button.update();
-    return 1;
+    updated = 1;
   }
 
-  if (_mag.update()) return 1;
+  if (_mag.update()) updated = 1;
 
-  if (_baro.update()) return 1;
+  if (_baro.update()) updated = 1;
 
-  if (_voltage.update()) return 1;
+  if (_voltage.update()) updated = 1;
 
-  return 0;
+  return updated;
 }
 
 int FAST_CODE_ATTR SensorManager::preLoop()

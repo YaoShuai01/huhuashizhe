@@ -4,9 +4,64 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <cstring>
 #include <tuple>
 
 namespace Espfc::Sensor {
+
+namespace {
+
+// NMEA ddmm.mmmm / dddmm.mmmm -> degrees * 1e7
+int32_t nmeaCoordinate(const char* value, const char* hemi)
+{
+  if (!value || !*value) return 0;
+  const char* dot = std::strchr(value, '.');
+  const int dotPos = dot ? static_cast<int>(dot - value) : static_cast<int>(std::strlen(value));
+  double deg = 0;
+  double min = 0;
+  if (dotPos > 2)
+  {
+    char buf[4] = {0};
+    const int n = std::min(dotPos - 2, 3);
+    std::strncpy(buf, value, n);
+    deg = atof(buf);
+    min = atof(value + dotPos - 2);
+  }
+  else
+  {
+    min = atof(value);
+  }
+  double out = deg + min / 60.0;
+  if (hemi && (*hemi == 'S' || *hemi == 'W')) out = -out;
+  return static_cast<int32_t>(llround(out * 1e7));
+}
+
+// hhmmss.sss (UTC)
+void nmeaParseTime(const char* v, GpsDateTime& dt)
+{
+  if (!v || std::strlen(v) < 6) return;
+  dt.hour = static_cast<uint8_t>((v[0] - '0') * 10 + (v[1] - '0'));
+  dt.minute = static_cast<uint8_t>((v[2] - '0') * 10 + (v[3] - '0'));
+  dt.second = static_cast<uint8_t>((v[4] - '0') * 10 + (v[5] - '0'));
+  const char* dot = std::strchr(v, '.');
+  dt.msec = dot ? static_cast<uint16_t>(atof(dot) * 1000.0) : 0;
+  if (dt.hour > 23 || dt.minute > 59 || dt.second > 60)
+  {
+    dt.hour = dt.minute = dt.second = 0;
+    dt.msec = 0;
+  }
+}
+
+// ddmmyy
+void nmeaParseDate(const char* v, GpsDateTime& dt)
+{
+  if (!v || std::strlen(v) < 6) return;
+  dt.day = static_cast<uint8_t>((v[0] - '0') * 10 + (v[1] - '0'));
+  dt.month = static_cast<uint8_t>((v[2] - '0') * 10 + (v[3] - '0'));
+  dt.year = static_cast<uint16_t>(2000 + (v[4] - '0') * 10 + (v[5] - '0'));
+}
+
+} // namespace
 
 static constexpr std::array<int, 6> BAUDS{
     9600, 115200, 230400, 57600, 38400, 19200,
@@ -96,9 +151,94 @@ void GpsSensor::processNmea(uint8_t c)
     if (!_model.isModeActive(MODE_ARMED)) _model.logger.err().logln("GPS RX Frame Err");
   }
 
+  handleNmea();
+
   onMessage();
 
   _nmeaMsg = Gps::NmeaMessage();
+}
+
+// NMEA 0183 fallback for receivers without UBX support (ATGM336H / BN series etc).
+// Parses GGA (fix, sats, position, altitude), RMC (status, speed, course, date)
+// and GSA (2D/3D fix type) into the same state fields used by the UBX path.
+void GpsSensor::handleNmea()
+{
+  char* payload = _nmeaMsg.payload;
+  if (!payload || std::strlen(payload) < 7) return;
+
+  const char* type = payload + 2; // skip talker id (GN/GP/BD/GL...)
+  const bool isGga = std::strncmp(type, "GGA,", 4) == 0;
+  const bool isRmc = std::strncmp(type, "RMC,", 4) == 0;
+  const bool isGsa = std::strncmp(type, "GSA,", 4) == 0;
+  if (!isGga && !isRmc && !isGsa) return;
+
+  char* fields[20] = {};
+  size_t count = 0;
+  char* save = nullptr;
+  for (char* f = strtok_r(payload, ",", &save); f && count < 20; f = strtok_r(nullptr, ",", &save))
+  {
+    fields[count++] = f;
+  }
+  if (count < 3) return;
+
+  auto& gps = _model.state.gps;
+
+  if (isGga && count >= 10)
+  {
+    const int quality = atoi(fields[6]);
+    const int sats = atoi(fields[7]);
+    gps.present = true;
+    gps.numSats = static_cast<uint8_t>(std::min(sats, 255));
+    gps.fix = quality > 0;
+    if (quality > 0) gps.fixType = 3;
+    if (fields[2][0] && fields[4][0])
+    {
+      gps.location.raw.lat = nmeaCoordinate(fields[2], fields[3]);
+      gps.location.raw.lon = nmeaCoordinate(fields[4], fields[5]);
+    }
+    if (fields[9][0]) gps.location.raw.height = static_cast<int32_t>(llround(atof(fields[9]) * 1000.0));
+    nmeaParseTime(fields[1], gps.dateTime);
+  }
+  else if (isRmc && count >= 10)
+  {
+    gps.present = true;
+    nmeaParseTime(fields[1], gps.dateTime);
+    nmeaParseDate(fields[9], gps.dateTime);
+    if (fields[2][0] == 'A')
+    {
+      gps.fix = true;
+      gps.fixType = 3;
+      if (fields[3][0] && fields[5][0])
+      {
+        gps.location.raw.lat = nmeaCoordinate(fields[3], fields[4]);
+        gps.location.raw.lon = nmeaCoordinate(fields[5], fields[6]);
+      }
+      const float knots = atof(fields[7]);
+      gps.velocity.raw.groundSpeed = static_cast<int32_t>(lrintf(knots * 514.444f)); // knots -> mm/s
+      gps.velocity.raw.speed3d = gps.velocity.raw.groundSpeed;
+      gps.velocity.raw.heading = static_cast<int32_t>(lrintf(atof(fields[8]) * 1e5f)); // deg -> deg * 1e5
+    }
+  }
+  else if (isGsa && count >= 3)
+  {
+    const int fixType = atoi(fields[2]);
+    if (fixType >= 2)
+    {
+      gps.fixType = static_cast<uint8_t>(fixType);
+      gps.fix = true;
+    }
+  }
+
+  if (isGga || isRmc)
+  {
+    gps.time = gps.dateTime.hour * 3600000u + gps.dateTime.minute * 60000u +
+               gps.dateTime.second * 1000u + gps.dateTime.msec;
+    _nmeaCount++;
+    const uint32_t now = micros();
+    gps.interval = now - gps.lastMsgTs;
+    gps.lastMsgTs = now;
+    calculateHomeVector();
+  }
 }
 
 void GpsSensor::onMessage()
@@ -207,6 +347,14 @@ void GpsSensor::handleReceive()
   }
   else if (_state == WAIT && micros() > _timeout)
   {
+    // NMEA-only receiver (ATGM336H etc): no UBX ACK, but valid NMEA is flowing.
+    // Skip the UBX configuration chain and go straight to receive mode.
+    if (_nmeaCount > 0 && _timeoutState == ERROR)
+    {
+      _model.logger.info().logln("GPS NMEA");
+      setState(RECEIVE);
+      return;
+    }
     // timeout
     _state = _timeoutState;
     _model.state.gps.present = false;

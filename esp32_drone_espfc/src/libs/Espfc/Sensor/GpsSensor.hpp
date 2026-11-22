@@ -41,6 +41,7 @@ private:
 
   bool processUbx(uint8_t c);
   void processNmea(uint8_t c);
+  void handleNmea();
   void setBaud(int baud);
 
   void onMessage();
@@ -104,6 +105,7 @@ private:
   uint32_t _timeout = 0;
   int _currentBaud = 0;
   int _targetBaud = 0;
+  uint32_t _nmeaCount = 0;
 
   Gps::UbxParser _ubxParser;
   Gps::UbxMessage _ubxMsg;

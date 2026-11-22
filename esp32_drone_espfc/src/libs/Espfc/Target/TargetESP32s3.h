@@ -34,6 +34,16 @@
 #define ESPFC_SERIAL_REMAP_PINS
 #define ESPFC_SERIAL_DEBUG_PORT SERIAL_USB
 
+// GPS: ATGM336H (NMEA 0183, 9600 8N1)
+// Module TX -> GPIO47 (ESP RX). Module RX is not connected: NMEA output needs
+// no configuration, and GPIO48 is the on-board status LED.
+#define ESPFC_SERIAL_1
+#define ESPFC_SERIAL_1_TX -1
+#define ESPFC_SERIAL_1_RX 47
+#define ESPFC_SERIAL_1_FN (SERIAL_FUNCTION_GPS)
+#define ESPFC_SERIAL_1_BAUD (SERIAL_SPEED_9600)
+#define ESPFC_SERIAL_1_BBAUD (SERIAL_SPEED_NONE)
+
 // MPU6050 wiring confirmed by user: SDA=GPIO41, SCL=GPIO42 (hardware I2C)
 #define ESPFC_I2C_0
 #define ESPFC_I2C_0_SCL 42
@@ -44,7 +54,7 @@
 #define ESPFC_LED_PIN -1
 
 // motors stop at zero throttle, no serial receiver feature (UDP input is always present)
-#define ESPFC_FEATURE_MASK (FEATURE_MOTOR_STOP)
+#define ESPFC_FEATURE_MASK (FEATURE_MOTOR_STOP | FEATURE_GPS)
 
 // 100kHz soft I2C cannot sustain 1kHz; 500Hz gyro / 250Hz PID is safe.
 #define ESPFC_GYRO_I2C_RATE_MAX 500

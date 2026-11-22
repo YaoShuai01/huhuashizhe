@@ -164,6 +164,14 @@ int InputUdp::begin(void)
     Control::Controller::setTrim(AXIS_YAW, Utils::toRad(ty * 0.1f));
   }
 
+  // 偏航修正方向：桨/电机全部反向安装的机架需要翻转，存 NVS 永久生效
+  {
+    Preferences prefs;
+    prefs.begin("hhs", true);
+    _model.config.mixer.yawReverse = prefs.getBool("yawrev", _model.config.mixer.yawReverse != 0);
+    prefs.end();
+  }
+
   BaseType_t ret = xTaskCreatePinnedToCore(taskEntry, "udp_rc", 8192, this, 1, nullptr, 0);
   return (ap && ret == pdPASS) ? 1 : 0;
 }
@@ -204,7 +212,18 @@ void InputUdp::taskLoop()
     WiFiClient client = web.available();
     if (client)
     {
+      // Browsers open speculative connections that send nothing. Without a short
+      // timeout readStringUntil() blocks up to 1s per socket and starves the UDP
+      // RC loop (page freezes, link drops). 50ms is plenty for a local GET line.
+      client.setTimeout(50);
       const String req = client.readStringUntil('\n');
+      if (req.indexOf("GET ") < 0)
+      {
+        client.stop();
+        tick(now);
+        vTaskDelay(pdMS_TO_TICKS(2));
+        continue;
+      }
 
       // ---- JSON API（APP 使用）----
       if (req.indexOf("/api/") >= 0)
@@ -212,7 +231,67 @@ void InputUdp::taskLoop()
         String body;
         int code = 200;
 
-        if (req.indexOf("/api/gyrocal") >= 0)
+        if (req.indexOf("/api/state") >= 0)
+        {
+          const auto& g = _model.state.gyro.adc;
+          const auto& e = _model.state.attitude.euler;
+          const auto& gps = _model.state.gps;
+          const int32_t lat = gps.location.raw.lat;
+          const int32_t lon = gps.location.raw.lon;
+          body = "{\"ok\":1";
+          body += ",\"armed\":" + String(_model.isModeActive(MODE_ARMED) ? 1 : 0);
+          body += ",\"yawrev\":" + String(_model.config.mixer.yawReverse ? 1 : 0);
+          body += ",\"thr\":" + String((int)_throttle);
+          body += ",\"gyro\":[" + String(g[AXIS_ROLL], 1) + "," + String(g[AXIS_PITCH], 1) + "," +
+                  String(g[AXIS_YAW], 1) + "]";
+          body += ",\"angle\":[" + String(e[AXIS_ROLL] * 57.2958f, 1) + "," +
+                  String(e[AXIS_PITCH] * 57.2958f, 1) + "," + String(e[AXIS_YAW] * 57.2958f, 1) + "]";
+          body += ",\"mag\":[" + String(_model.state.mag.raw.x) + "," +
+                  String(_model.state.mag.raw.y) + "," + String(_model.state.mag.raw.z) + "]";
+          body += ",\"motors\":[" + String(_model.state.output.us[0]) + "," +
+                  String(_model.state.output.us[1]) + "," + String(_model.state.output.us[2]) + "," +
+                  String(_model.state.output.us[3]) + "]";
+          body += ",\"ch\":[" + String((int)_model.state.input.us[AXIS_ROLL]) + "," +
+                  String((int)_model.state.input.us[AXIS_PITCH]) + "," +
+                  String((int)_model.state.input.us[AXIS_THRUST]) + "," +
+                  String((int)_model.state.input.us[AXIS_YAW]) + "]";
+          body += ",\"dev\":{\"gyro\":" + String(_model.state.gyro.present ? 1 : 0) +
+                  ",\"accel\":" + String(_model.state.accel.present ? 1 : 0) +
+                  ",\"mag\":" + String(_model.state.mag.present ? 1 : 0) +
+                  ",\"baro\":" + String(_model.state.baro.present ? 1 : 0) + "}";
+          body += ",\"baro\":{\"alt\":" + String(_model.state.baro.altitudeGround, 2) +
+                  ",\"vario\":" + String(_model.state.baro.vario, 2) +
+                  ",\"press\":" + String(_model.state.baro.pressure * 0.01f, 1) + "}";
+          body += ",\"gps\":{\"present\":" + String(gps.present ? 1 : 0) +
+                  ",\"fix\":" + String(gps.fix ? 1 : 0) +
+                  ",\"type\":" + String(gps.fixType) +
+                  ",\"sats\":" + String(gps.numSats) +
+                  ",\"lat\":" + String(lat * 1e-7, 7) +
+                  ",\"lon\":" + String(lon * 1e-7, 7) +
+                  ",\"alt\":" + String(gps.location.raw.height * 0.001f, 1) +
+                  ",\"spd\":" + String(gps.velocity.raw.groundSpeed * 0.001f, 2) +
+                  ",\"cog\":" + String(gps.velocity.raw.heading * 1e-5f, 1) + "}";
+          body += "}";
+        }
+        else if (req.indexOf("/api/yawrev") >= 0)
+        {
+          if (_model.isModeActive(MODE_ARMED))
+          {
+            code = 409;
+            body = "{\"ok\":0,\"err\":\"armed\"}";
+          }
+          else
+          {
+            const int on = std::clamp(queryInt(req, "on", _model.config.mixer.yawReverse ? 1 : 0), 0, 1);
+            _model.config.mixer.yawReverse = on != 0;
+            Preferences prefs;
+            prefs.begin("hhs", false);
+            prefs.putBool("yawrev", on != 0);
+            prefs.end();
+            body = "{\"ok\":1,\"yawrev\":" + String(on) + "}";
+          }
+        }
+        else if (req.indexOf("/api/gyrocal") >= 0)
         {
           if (_model.isModeActive(MODE_ARMED))
           {
@@ -291,6 +370,68 @@ void InputUdp::taskLoop()
       client.print(" 油门=");
       client.print((int)_throttle);
       client.print("us</p>");
+      client.print("<p style='font-size:16px'>陀螺°/s 横滚 ");
+      client.print(_model.state.gyro.adc[AXIS_ROLL], 1);
+      client.print(" 俯仰 ");
+      client.print(_model.state.gyro.adc[AXIS_PITCH], 1);
+      client.print(" 偏航 ");
+      client.print(_model.state.gyro.adc[AXIS_YAW], 1);
+      client.print("</p>");
+      client.print("<p style='font-size:16px'>磁力计 ");
+      if (_model.state.mag.present)
+      {
+        client.print((int)_model.state.mag.raw.x);
+        client.print(" / ");
+        client.print((int)_model.state.mag.raw.y);
+        client.print(" / ");
+        client.print((int)_model.state.mag.raw.z);
+      }
+      else
+      {
+        client.print("未检测到");
+      }
+      client.print("</p>");
+      client.print("<p style='font-size:16px'>电机 ");
+      for (int i = 0; i < 4; i++)
+      {
+        client.print(_model.state.output.us[i]);
+        client.print(" ");
+      }
+      client.print("</p>");
+      client.print("<p style='font-size:16px'>气压计 ");
+      if (_model.state.baro.present)
+      {
+        client.print(_model.state.baro.altitudeGround, 1);
+        client.print("m 爬升 ");
+        client.print(_model.state.baro.vario, 2);
+        client.print("m/s ");
+        client.print(_model.state.baro.pressure * 0.01f, 1);
+        client.print("hPa");
+      }
+      else
+      {
+        client.print("未检测到");
+      }
+      client.print("</p>");
+      client.print("<p style='font-size:16px'>GPS ");
+      if (_model.state.gps.present)
+      {
+        client.print(_model.state.gps.fix ? "已定位" : "搜星中");
+        client.print(" 卫星 ");
+        client.print(_model.state.gps.numSats);
+        if (_model.state.gps.fix)
+        {
+          client.print(" 经纬 ");
+          client.print(_model.state.gps.location.raw.lat * 1e-7f, 6);
+          client.print(", ");
+          client.print(_model.state.gps.location.raw.lon * 1e-7f, 6);
+        }
+      }
+      else
+      {
+        client.print("未检测到");
+      }
+      client.print("</p>");
       client.print("<p>链路 收 ");
       client.print((uint32_t)_packets);
       client.print(" / 丢 ");
@@ -314,6 +455,11 @@ void InputUdp::taskLoop()
       client.print("° 旋转 ");
       client.print(currentTrim(AXIS_YAW) * 0.1f, 1);
       client.print("°/s</p>");
+      client.print("<p>偏航反向 ");
+      client.print(_model.config.mixer.yawReverse ? "开" : "关");
+      client.print("（原地自旋时切换试试，上锁后才能改）</p>");
+      client.print("<a href='/api/yawrev?on=1'>偏航反向 开</a>");
+      client.print("<a href='/api/yawrev?on=0'>偏航反向 关</a>");
       client.print("<a href='/api/gyrocal'>陀螺仪校准（静止时点）</a>");
       client.print("<a class='stop' href='/api/trimclear'>清除微调</a>");
       client.print(PAGE_BUTTONS);

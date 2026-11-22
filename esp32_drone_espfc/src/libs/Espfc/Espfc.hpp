@@ -40,7 +40,16 @@ public:
   bool isAccelReady() const { return _model.state.accel.present; }
   bool isMagReady() const { return _model.state.mag.present; }
   bool isBaroReady() const { return _model.state.baro.present; }
+  bool isGpsReady() const { return _model.state.gps.present; }
+  bool isGpsFix() const { return _model.state.gps.fix; }
+  int gpsSats() const { return _model.state.gps.numSats; }
   int gyroRate() const { return _model.state.gyro.timer.rate; }
+  int baroPressure() const { return (int)_model.state.baro.pressure; }
+  int baroAltitude10() const { return (int)(_model.state.baro.altitudeGround * 10.f); }
+  int baroVario100() const { return (int)(_model.state.baro.vario * 100.f); }
+  int magX() const { return _model.state.mag.raw.x; }
+  int magY() const { return _model.state.mag.raw.y; }
+  int magZ() const { return _model.state.mag.raw.z; }
 
 private:
   Model _model;
