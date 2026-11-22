@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 
 import '../../../core/accessibility/elder_care_reader.dart';
 import '../../../core/theme/app_theme.dart';
+import '../data/booking_role.dart';
+import '../widgets/booking_role_switch.dart';
 
 /// 飞防预约：使用者填写作业信息，预约飞手上门喷洒农药
 class BookingPage extends StatefulWidget {
@@ -135,7 +137,26 @@ class _BookingPageState extends State<BookingPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('预约飞防')),
+      appBar: AppBar(
+        title: const Text('预约飞防'),
+        actions: [
+          TextButton.icon(
+            onPressed: () => showBookingRoleSwitch(
+              context,
+              currentRole: bookingRoleFarmer,
+            ),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.textOnPrimary,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+            icon: const Icon(Icons.swap_horiz, size: 18),
+            label: const Text(
+              '身份转换',
+              style: TextStyle(fontSize: 14),
+            ),
+          ),
+        ],
+      ),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -156,7 +177,7 @@ class _BookingPageState extends State<BookingPage> {
                   const Text(
                     '作物类型',
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: 15,
                       fontWeight: FontWeight.w600,
                       color: AppColors.textPrimary,
                     ),
@@ -271,7 +292,7 @@ class _BookingPageState extends State<BookingPage> {
                           child: Text(
                             '预估费用',
                             style: TextStyle(
-                              fontSize: 13,
+                              fontSize: 15,
                               color: AppColors.textPrimary,
                             ),
                           ),
@@ -279,7 +300,7 @@ class _BookingPageState extends State<BookingPage> {
                         Text(
                           _estimatedText,
                           style: const TextStyle(
-                            fontSize: 18,
+                            fontSize: 20,
                             fontWeight: FontWeight.w700,
                             color: AppColors.accent,
                           ),
@@ -327,7 +348,7 @@ class _BookingPageState extends State<BookingPage> {
                             child: Text(
                               '${_date.year}年${_date.month}月${_date.day}日',
                               style: const TextStyle(
-                                fontSize: 14,
+                                fontSize: 16,
                                 color: AppColors.textPrimary,
                               ),
                             ),
@@ -335,7 +356,7 @@ class _BookingPageState extends State<BookingPage> {
                           const Text(
                             '修改日期',
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: 14,
                               color: AppColors.primary,
                             ),
                           ),
@@ -354,7 +375,7 @@ class _BookingPageState extends State<BookingPage> {
                       const Text(
                         '作业时段',
                         style: TextStyle(
-                          fontSize: 13,
+                          fontSize: 15,
                           fontWeight: FontWeight.w600,
                           color: AppColors.textPrimary,
                         ),
@@ -437,7 +458,7 @@ class _BookingPageState extends State<BookingPage> {
                 child: const Text(
                   '提交预约',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 18,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -447,7 +468,7 @@ class _BookingPageState extends State<BookingPage> {
             const Text(
               '提交后飞手会电话与你确认作业时间与价格，请勿重复预约。',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 12, color: AppColors.textHint),
+              style: TextStyle(fontSize: 14, color: AppColors.textHint),
             ),
           ],
         ),
@@ -492,7 +513,7 @@ class _BookingPageState extends State<BookingPage> {
                   Text(
                     '无人机植保预约',
                     style: TextStyle(
-                      fontSize: 17,
+                      fontSize: 19,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
@@ -500,7 +521,7 @@ class _BookingPageState extends State<BookingPage> {
                   SizedBox(height: 4),
                   Text(
                     '专业飞手 · 上门作业 · 按亩计价',
-                    style: TextStyle(fontSize: 12, color: Colors.white70),
+                    style: TextStyle(fontSize: 14, color: Colors.white70),
                   ),
                 ],
               ),
@@ -515,7 +536,7 @@ class _BookingPageState extends State<BookingPage> {
     return Text(
       title,
       style: const TextStyle(
-        fontSize: 14,
+        fontSize: 16,
         fontWeight: FontWeight.w600,
         color: AppColors.textPrimary,
       ),
@@ -543,7 +564,7 @@ class _BookingPageState extends State<BookingPage> {
                 Text(
                   '共 ${pilots.length} 位飞手',
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 14,
                     color: AppColors.textHint,
                   ),
                 ),
@@ -585,7 +606,7 @@ class _BookingPageState extends State<BookingPage> {
         Text(
           label,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 14,
             fontWeight: active ? FontWeight.w600 : FontWeight.w400,
             color: color,
           ),
@@ -663,7 +684,7 @@ class _BookingPageState extends State<BookingPage> {
                   child: Text(
                     pilot.name.substring(0, 1),
                     style: const TextStyle(
-                      fontSize: 14,
+                      fontSize: 16,
                       fontWeight: FontWeight.w600,
                       color: AppColors.primary,
                     ),
@@ -679,7 +700,7 @@ class _BookingPageState extends State<BookingPage> {
                           Text(
                             pilot.name,
                             style: const TextStyle(
-                              fontSize: 14,
+                              fontSize: 16,
                               fontWeight: FontWeight.w600,
                               color: AppColors.textPrimary,
                             ),
@@ -694,7 +715,7 @@ class _BookingPageState extends State<BookingPage> {
                           Text(
                             pilot.rating.toStringAsFixed(1),
                             style: const TextStyle(
-                              fontSize: 12,
+                              fontSize: 14,
                               color: AppColors.accent,
                             ),
                           ),
@@ -706,7 +727,7 @@ class _BookingPageState extends State<BookingPage> {
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 12,
+                          fontSize: 14,
                           color: AppColors.textHint,
                         ),
                       ),
@@ -736,7 +757,7 @@ class _BookingPageState extends State<BookingPage> {
       selected: selected,
       onSelected: (_) => setState(() => _crop = crop),
       labelStyle: TextStyle(
-        fontSize: 13,
+        fontSize: 15,
         color: selected ? AppColors.textOnPrimary : AppColors.textSecondary,
       ),
       selectedColor: AppColors.primary,
@@ -753,7 +774,7 @@ class _BookingPageState extends State<BookingPage> {
       selected: selected,
       onSelected: (_) => setState(() => _period = period),
       labelStyle: TextStyle(
-        fontSize: 13,
+        fontSize: 15,
         color: selected ? AppColors.textOnPrimary : AppColors.textSecondary,
       ),
       selectedColor: AppColors.primary,
