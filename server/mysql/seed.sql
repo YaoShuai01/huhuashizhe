@@ -1,8 +1,8 @@
 -- 演示数据（可重复执行）
 USE huhuashizhe;
 
--- 演示账号：农友小助手（未设置密码，可在 App「账号登录 → 首次使用？设置密码」补设）
-INSERT INTO users (nickname) VALUES ('农友小助手')
+-- 演示账号：农友小助手，固定登录号 10000001（初始无密码）
+INSERT INTO users (login_id, nickname) VALUES ('10000001', '农友小助手')
 ON DUPLICATE KEY UPDATE nickname = VALUES(nickname);
 
 -- 一条演示帖子，仅在不存在时插入

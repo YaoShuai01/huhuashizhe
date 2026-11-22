@@ -7,7 +7,8 @@ server/
 ├─ mysql/
 │  ├─ schema.sql   # 建库 + 三张表（可重复执行）
 │  ├─ seed.sql     # 演示数据（幂等）
-│  └─ README.md    # 本文件
+│  ├─ README.md    # 本文件
+│  └─ migrations/  # 已有库的结构变更
 ├─ db.js           # 连接池（环境变量可覆盖）
 ├─ init.js         # 一次性执行 schema.sql + seed.sql
 ├─ auth.js         # 注册 / 登录接口
@@ -54,9 +55,36 @@ mysql -h127.0.0.1 -uroot -p < mysql/schema.sql
 mysql -h127.0.0.1 -uroot -p < mysql/seed.sql
 ```
 
+## 账号与登录规则
+
+- **注册**：填昵称 + 设置密码，服务端自动生成一个唯一的 8 位数字**登录号**（如 `30219845`），返回给用户自行保存
+- **登录**：用登录号 + 密码，昵称只用于帖子与回复展示，不参与登录
+- 昵称仍然唯一（重复注册会返回 409），登录号冲突时服务端自动换号重试
+- 密码只存 `scrypt` 加盐哈希，不存明文；`password_hash` 为空表示该账号还没设置密码
+
+接口：
+
+```
+POST /api/auth/register  {"nickname":"农友阿芳","password":"123456"}
+  → 201 {"id":3,"loginId":"30219845","nickname":"农友阿芳"}
+
+POST /api/auth/login     {"loginId":"30219845","password":"123456"}
+  → 200 {"id":3,"loginId":"30219845","nickname":"农友阿芳"}
+```
+
+## 已有库升级
+
+早期的库（登录号字段还不存在）执行一次：
+
+```bash
+mysql --host=127.0.0.1 --user=root --password=123456 < mysql/migrations/001_add_login_id.sql
+```
+
+迁移会补 `login_id` 列、加唯一索引，并给已有账号按 `id + 10000000` 生成登录号（如 id=1 → `10000001`）。
+
 ## 表分组
 
-- **账号**：`users` —— 昵称即账号，昵称唯一；密码只存 `scrypt` 加盐哈希，不存明文；`password_hash` 为空表示还没设置密码
+- **账号**：`users` —— `login_id` 为系统生成的 8 位登录号（唯一），`nickname` 仅用于展示（也保持唯一）；密码只存 `scrypt` 加盐哈希
 - **内容**：`posts`（帖子）、`replies`（回复），都带 `user_id` 外键并级联删除
 - **索引**：`posts(section, created_at)` 支持版块内按时间倒序；`replies(post_id, created_at)` 支持回复列表
 

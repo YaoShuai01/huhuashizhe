@@ -7,14 +7,16 @@ CREATE DATABASE IF NOT EXISTS huhuashizhe
 
 USE huhuashizhe;
 
--- 用户：昵称即账号，密码只存加盐哈希
+-- 用户：登录号由系统自动生成，昵称仅用于展示
 CREATE TABLE IF NOT EXISTS users (
   id            INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+  login_id      CHAR(8)                  DEFAULT NULL,
   nickname      VARCHAR(20)     NOT NULL,
   password_hash VARCHAR(255)             DEFAULT NULL,
   avatar        VARCHAR(255)             DEFAULT NULL,
   created_at    DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
+  UNIQUE KEY uk_users_login_id (login_id),
   UNIQUE KEY uk_users_nickname (nickname)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '用户';
 
