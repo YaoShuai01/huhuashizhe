@@ -10,7 +10,7 @@ import '../models/cloud_models.dart';
 const String _satelliteUrl =
     'https://webst0{s}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}';
 
-/// 高德注记层（道路 + 地名），与卫星图同为 GCJ-02 瓦片
+/// 国内地图注记层（道路 + 地名），与卫星图同为 GCJ-02 瓦片
 const String _annotationUrl =
     'https://webst0{s}.is.autonavi.com/appmaptile?style=8&x={x}&y={y}&z={z}';
 
@@ -19,11 +19,11 @@ const List<String> _amapSubdomains = ['1', '2', '3', '4'];
 List<LatLng> latLngsOf(List<List<double>> points) =>
     points.map((p) => LatLng(p[0], p[1])).toList();
 
-/// 存储坐标（WGS-84，GPS 原始值）→ 显示坐标（GCJ-02，高德瓦片）
+/// 存储坐标（WGS-84，GPS 原始值）→ 显示坐标（GCJ-02，国内地图瓦片）
 LatLng displayPoint(double lat, double lng) =>
     CoordTransform.wgs84ToGcj02(lat, lng);
 
-/// 批量把存储坐标转为高德瓦片坐标系
+/// 批量把存储坐标转为国内地图瓦片坐标系
 List<LatLng> displayLatLngsOf(List<List<double>> points) =>
     points.map((p) => displayPoint(p[0], p[1])).toList();
 
@@ -71,7 +71,7 @@ class CloudFarmMap extends StatefulWidget {
   /// 缩放级别变化回调（用于比例尺）
   final ValueChanged<double>? onZoomChanged;
 
-  /// 是否叠加高德注记层（道路与地名）
+  /// 是否叠加国内地图注记层（道路与地名）
   final bool showLabels;
 
   /// 拖动已选边界点回调（index, 新的 [lat, lng]）
@@ -367,7 +367,7 @@ class MiniPlotMap extends StatelessWidget {
   final double zoom;
   final BorderRadius? borderRadius;
 
-  /// 是否叠加高德注记层（道路与地名）
+  /// 是否叠加国内地图注记层（道路与地名）
   final bool showLabels;
 
   const MiniPlotMap({
