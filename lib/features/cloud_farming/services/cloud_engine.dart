@@ -54,7 +54,7 @@ class MoistureInfo {
   final double daysSince;
   final SoilInfo soil;
   final IrrigationInfo irrigation;
-  final int rain48;
+  final int? rain48;
 
   const MoistureInfo({
     required this.value,
@@ -208,7 +208,11 @@ class CloudEngine {
   }
 
   /// 墒情推断
-  static MoistureInfo moisture(CloudPlot plot, [DateTime? now]) {
+  static MoistureInfo moisture(
+    CloudPlot plot, {
+    DateTime? now,
+    CloudWeatherSnapshot? weather,
+  }) {
     final g = growth(plot, now);
     return moistureFor(
       soilKey: plot.soil,
@@ -216,6 +220,7 @@ class CloudEngine {
       lastWaterAt: plot.lastWaterAt,
       stageIdx: g?.idx ?? 0,
       now: now,
+      weather: weather,
     );
   }
 
@@ -225,30 +230,45 @@ class CloudEngine {
     required DateTime? lastWaterAt,
     required int stageIdx,
     DateTime? now,
+    CloudWeatherSnapshot? weather,
   }) {
-    final weather = CloudSeed.weather;
+    final snapshot = weather;
+    final humidity = snapshot?.humidity ?? CloudSeed.weather.humidity;
+    final temp = snapshot?.temp ?? CloudSeed.weather.temp.toDouble();
+    final rain3 = snapshot != null
+        ? (snapshot.rainLast3mm ?? 0)
+        : CloudSeed.weather.rainLast3mm;
+    final rain48 = snapshot == null
+        ? CloudSeed.weather.forecast[2].rain
+        : snapshot.forecastRainAt(2);
     final soil = CloudSeed.soilOf(soilKey);
     final irr = CloudSeed.irrigationOf(irrigationKey);
     final daysSince = daysBetween(lastWaterAt, now ?? DateTime.now());
-    final air = (weather.humidity - 65) * 0.25;
-    final temp = -(weather.temp - 24) * 0.9;
-    final rain = weather.rainLast3mm * 0.8;
+    final air = (humidity - 65) * 0.25;
+    final tempFactor = -(temp - 24) * 0.9;
+    final rain = rain3 * 0.8;
     final evap = -daysSince * 1.6;
     const etTable = [0.0, 0.5, 1.0, 1.5, 2.5, 3.2, 3.8, 4.6, 3.2];
     final etDemand = -etTable[stageIdx.clamp(0, etTable.length - 1)];
-    final raw = soil.base + irr.base + air + temp + rain + evap + etDemand;
+    final raw = soil.base + irr.base + air + tempFactor + rain + evap + etDemand;
     final value = raw.clamp(18.0, 92.0).round();
     final factors = <MoistureFactor>[
       MoistureFactor('土壤基础', soil.base.toDouble(), soil.name),
       MoistureFactor('灌溉条件', irr.base.toDouble(), irr.name),
-      MoistureFactor('近3日降水', rain, '${weather.rainLast3mm}mm'),
+      MoistureFactor(
+        '近3日降水',
+        rain,
+        snapshot != null && snapshot.rainLast3mm == null
+            ? '暂无实测'
+            : '${rain3}mm',
+      ),
       MoistureFactor('蒸发消耗', evap + etDemand, '${daysSince.floor()} 天未浇水'),
     ];
-    if ((air + temp).abs() >= 0.5) {
+    if ((air + tempFactor).abs() >= 0.5) {
       factors.add(MoistureFactor(
         '空气/温度',
-        air + temp,
-        '${weather.humidity}% · ${weather.temp}℃',
+        air + tempFactor,
+        '$humidity% · ${temp.round()}℃',
       ));
     }
     return MoistureInfo(
@@ -257,13 +277,13 @@ class CloudEngine {
       daysSince: daysSince,
       soil: soil,
       irrigation: irr,
-      rain48: weather.forecast[2].rain,
+      rain48: rain48,
     );
   }
 
   static WaterAdvice waterAdvice(MoistureInfo m, int threshold) {
     if (m.value < threshold - 5) {
-      if (m.rain48 >= 60) {
+      if (m.rain48 != null && m.rain48! >= 60) {
         return WaterAdvice(
           CloudTone.amber,
           '墒情 ${m.value}%，但未来 48 小时降水概率 ${m.rain48}%，建议暂缓灌溉，雨后再复测。',
@@ -297,14 +317,21 @@ class CloudEngine {
     final out = <CloudAlert>[];
     final threshold = state.settings.moistureThreshold;
     final n = now ?? DateTime.now();
-    final weather = CloudSeed.weather;
-    final rain48 = weather.forecast[2].rain;
+    final snapshot = state.weather;
+    final humidity = snapshot?.humidity ?? CloudSeed.weather.humidity;
+    final temp = snapshot?.temp ?? CloudSeed.weather.temp.toDouble();
+    final rain3 = snapshot != null
+        ? (snapshot.rainLast3mm ?? 0)
+        : CloudSeed.weather.rainLast3mm;
+    final rain48 = snapshot == null
+        ? CloudSeed.weather.forecast[2].rain
+        : snapshot.forecastRainAt(2);
 
     for (final plot in state.plots) {
       final g = growth(plot, n);
       if (g == null || plot.harvested) continue;
       final crop = g.crop;
-      final m = moisture(plot, n);
+      final m = moisture(plot, now: n, weather: snapshot);
       final snoozeUntil = state.snoozed['${plot.id}:water'];
 
       if (m.value < threshold && (snoozeUntil == null || !snoozeUntil.isAfter(n))) {
@@ -320,7 +347,10 @@ class CloudEngine {
               : '${plot.name}墒情偏低，48h 内有降雨',
           subtitle: 'AI 墒情推断 · ${g.stage.name}期',
           reason:
-              'AI 推断土壤湿度 ${m.value}%（阈值 $threshold%）。依据：${m.soil.name}基础 ${m.soil.base}%、${m.irrigation.name}、近 3 日降水 ${weather.rainLast3mm}mm、${m.daysSince.floor()} 天未浇水、${crop.name}${g.stage.name}期耗水。未来 48h 降水概率 $rain48%。',
+              'AI 推断土壤湿度 ${m.value}%（阈值 $threshold%）。依据：${m.soil.name}基础 ${m.soil.base}%、${m.irrigation.name}、'
+              '${snapshot != null && snapshot.rainLast3mm == null ? '近 3 日降水暂无实测' : '近 3 日降水 ${rain3}mm'}、'
+              '${m.daysSince.floor()} 天未浇水、${crop.name}${g.stage.name}期耗水。'
+              '${rain48 == null ? '未来 48h 暂无可信预报。' : '未来 48h 降水概率 $rain48%。'}',
           window: high ? '今日 17:00—19:00' : '雨后再评估',
           actionText: high ? '确认灌溉' : '记录灌溉',
           urgency: high ? CloudUrgency.high : CloudUrgency.medium,
@@ -364,7 +394,7 @@ class CloudEngine {
       final daysPest = plot.lastPestAt == null ? 99.0 : daysBetween(plot.lastPestAt, n);
       final pestRisk = (plot.cropId == 'rapeseed' &&
               g.idx >= 4 &&
-              weather.humidity >= 72) ||
+              humidity >= 72) ||
           (plot.cropId == 'pakchoi' && g.idx >= 3);
       if (pestRisk && daysPest > 10) {
         final rapeseed = plot.cropId == 'rapeseed';
@@ -377,7 +407,7 @@ class CloudEngine {
           title: rapeseed ? '${plot.name}花期菌核病风险偏高' : '${plot.name}注意菜青虫防治',
           subtitle: '植保提醒 · 结合湿度与阶段',
           reason:
-              '${weather.humidity}% 空气湿度、${weather.temp}℃ 气温，${crop.name}处于${g.stage.name}期，${rapeseed ? '菌核病与蚜虫' : '菜青虫与蚜虫'}进入高发窗口。建议抢晴喷施，避开开花授粉高峰。',
+              '$humidity% 空气湿度、${temp.round()}℃ 气温，${crop.name}处于${g.stage.name}期，${rapeseed ? '菌核病与蚜虫' : '菜青虫与蚜虫'}进入高发窗口。建议抢晴喷施，避开开花授粉高峰。',
           window: '近 2 天下午',
           actionText: '标记已防治',
           urgency: CloudUrgency.medium,

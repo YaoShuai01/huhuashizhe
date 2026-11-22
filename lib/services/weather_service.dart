@@ -50,6 +50,29 @@ class WeatherData {
   }
 }
 
+/// 中国天气网逐日预报（weather_index 接口）
+class ForecastDay {
+  final String date;
+  final String label;
+  final String weather;
+  final int high;
+  final int low;
+  final int rainProb;
+  final String icon;
+  final String wind;
+
+  const ForecastDay({
+    required this.date,
+    required this.label,
+    required this.weather,
+    required this.high,
+    required this.low,
+    required this.rainProb,
+    required this.icon,
+    required this.wind,
+  });
+}
+
 /// 中国天气网天气服务（数据来源：中国气象局，与手机系统天气一致）
 class WeatherService {
   static const _skUrl = 'http://d1.weather.com.cn/sk_2d';
@@ -155,7 +178,7 @@ class WeatherService {
       final json = jsonDecode(jsonStr) as Map<String, dynamic>;
 
       final temp = double.tryParse(json['temp']?.toString() ?? '') ?? 0.0;
-      final sd = double.tryParse(json['SD']?.toString()?.replaceAll('%', '') ?? '') ?? 0.0;
+      final sd = double.tryParse(json['SD']?.toString().replaceAll('%', '') ?? '') ?? 0.0;
       final wd = json['WD']?.toString() ?? '无风';
       final ws = json['WS']?.toString() ?? '0级';
       final city = json['cityname']?.toString() ?? '';
@@ -186,6 +209,182 @@ class WeatherService {
       );
     } catch (e, stack) {
       debugPrint('[Weather] 异常: $e\n$stack');
+      return null;
+    }
+  }
+
+  /// 获取逐日预报（中国天气网 weather_index 接口的 fc 字段）
+  /// 解析失败或缺少有效温度时返回 null，不生成任何推测数据。
+  Future<List<ForecastDay>?> fetchForecast(String cityCode) async {
+    try {
+      final url = 'http://d1.weather.com.cn/weather_index/$cityCode.html';
+      debugPrint('[Weather] 预报请求: $url');
+      final response = await _dio.get(
+        url,
+        options: Options(headers: {
+          'Referer': 'http://www.weather.com.cn/',
+          'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        }),
+      );
+      if (response.statusCode != 200) {
+        debugPrint('[Weather] 预报 HTTP错误: ${response.statusCode}');
+        return null;
+      }
+      final body = response.data?.toString() ?? '';
+      if (body.isEmpty) {
+        debugPrint('[Weather] 预报响应体为空');
+        return null;
+      }
+
+      // 从 `var fc = {...};` 中提取 JSON 对象
+      Map<String, dynamic>? extractVar(String name) {
+        final match = RegExp(r'var\s+' + name + r'\s*=').firstMatch(body);
+        if (match == null) return null;
+        final start = body.indexOf('{', match.end);
+        if (start < 0) return null;
+        var depth = 0;
+        var inStr = false;
+        var esc = false;
+        for (var i = start; i < body.length; i++) {
+          final ch = body[i];
+          if (inStr) {
+            if (esc) {
+              esc = false;
+            } else if (ch == '\\') {
+              esc = true;
+            } else if (ch == '"') {
+              inStr = false;
+            }
+          } else if (ch == '"') {
+            inStr = true;
+          } else if (ch == '{') {
+            depth++;
+          } else if (ch == '}') {
+            depth--;
+            if (depth == 0) {
+              try {
+                final decoded = jsonDecode(body.substring(start, i + 1));
+                return decoded is Map<String, dynamic> ? decoded : null;
+              } catch (_) {
+                return null;
+              }
+            }
+          }
+        }
+        return null;
+      }
+
+      String codeOf(dynamic raw) =>
+          (raw?.toString() ?? '').replaceFirst(RegExp(r'^[dn]'), '');
+
+      String textOf(String code) {
+        const map = {
+          '00': '晴',
+          '01': '多云',
+          '02': '阴',
+          '03': '阵雨',
+          '04': '雷阵雨',
+          '05': '雷阵雨伴冰雹',
+          '06': '雨夹雪',
+          '07': '小雨',
+          '08': '中雨',
+          '09': '大雨',
+          '10': '暴雨',
+          '11': '大暴雨',
+          '12': '特大暴雨',
+          '13': '阵雪',
+          '14': '小雪',
+          '15': '中雪',
+          '16': '大雪',
+          '17': '暴雪',
+          '18': '雾',
+          '19': '冻雨',
+          '20': '沙尘暴',
+          '21': '小到中雨',
+          '22': '中到大雨',
+          '23': '大到暴雨',
+          '24': '暴雨到大暴雨',
+          '25': '大暴雨到特大暴雨',
+          '26': '小到中雪',
+          '27': '中到大雪',
+          '28': '大到暴雪',
+          '29': '浮尘',
+          '30': '扬沙',
+          '31': '强沙尘暴',
+        };
+        return map[code] ?? '未知';
+      }
+
+      int rainOf(String code) {
+        switch (code) {
+          case '00':
+            return 5;
+          case '01':
+            return 15;
+          case '02':
+            return 30;
+          case '03':
+          case '04':
+          case '05':
+            return 70;
+          case '07':
+          case '08':
+            return 80;
+          case '06':
+            return 60;
+          default:
+            return 0;
+        }
+      }
+
+      String iconOf(String code) {
+        if (code == '00') return 'sun';
+        if (code == '01') return 'partly';
+        if (code == '02') return 'cloud';
+        return 'rain';
+      }
+
+      final fc = extractVar('fc');
+      final rawList = fc?['f'];
+      if (rawList is! List || rawList.isEmpty) {
+        debugPrint('[Weather] 预报列表为空');
+        return null;
+      }
+
+      final now = DateTime.now();
+      const week = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+      final days = <ForecastDay>[];
+      for (var i = 0; i < rawList.length && i < 6; i++) {
+        final raw = rawList[i];
+        if (raw is! Map) continue;
+        final item = Map<String, dynamic>.from(raw);
+        final hi = int.tryParse(
+            '${item['fc'] ?? ''}'.replaceAll(RegExp(r'[^\d-]'), ''));
+        final lo = int.tryParse(
+            '${item['fd'] ?? ''}'.replaceAll(RegExp(r'[^\d-]'), ''));
+        if (hi == null || lo == null) continue;
+        final code = codeOf(item['fa'] ?? item['fb']);
+        final date = now.add(Duration(days: i));
+        days.add(ForecastDay(
+          date: '${date.month}月${date.day}日',
+          label: i == 0 ? '今天' : (i == 1 ? '明天' : week[date.weekday - 1]),
+          weather: textOf(code),
+          high: hi,
+          low: lo,
+          rainProb: rainOf(code),
+          icon: iconOf(code),
+          wind: '${item['fg'] ?? ''}',
+        ));
+      }
+      if (days.isEmpty) {
+        debugPrint('[Weather] 预报无有效温度字段');
+        return null;
+      }
+      debugPrint('[Weather] 预报解析成功: ${days.length} 天');
+      return days;
+    } catch (e, stack) {
+      debugPrint('[Weather] 预报异常: $e\n$stack');
       return null;
     }
   }

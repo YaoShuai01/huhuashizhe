@@ -944,6 +944,16 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.10.0',
+        'date': '2026-11-22',
+        'content': [
+          '云种植接入真实定位：GPS 定位 + 逆地理地名，定位失败可手动修改',
+          '云种植接入中国天气网实况与 4 日预报，墒情与灌溉建议改用真实天气',
+          '种植向导升级为 4 步，云田详情新增生长时间轴，与网页版对齐',
+          '云田详情支持拍照/相册添加实景图，照片保存在本机文档目录',
+        ],
+      },
+      {
         'version': 'v3.9.0',
         'date': '2026-11-22',
         'content': [
