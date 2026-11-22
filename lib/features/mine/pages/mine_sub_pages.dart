@@ -953,6 +953,16 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.10.6',
+        'date': '2026-11-22',
+        'content': [
+          '论坛帖子与评论接入服务器，登录用户之间共享内容，启动自动拉取',
+          '登录页默认展示设置密码（注册），登录号可在「我的」页点击复制',
+          '预约飞防记住上次身份，农户/飞手页右上角可随时转换',
+          '农户预约页整体字体放大，更方便中老年用户阅读',
+        ],
+      },
+      {
         'version': 'v3.10.5',
         'date': '2026-11-22',
         'content': [
