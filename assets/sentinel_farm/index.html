@@ -156,6 +156,8 @@
   .modal-mask.show{display:block;}
   /* 老内核 fixed 层丢帧补丁：弹窗强制独立合成层，避免内容画不出来（可点击但看不见） */
   .modal{background:#fff;border-radius:14px;width:92%;max-width:420px;margin:30px auto;padding:16px 18px;box-shadow:0 10px 40px rgba(0,0,0,.25);-webkit-transform:translateZ(0);transform:translateZ(0);}
+  #ehModal.show{display:flex;}
+  #ehModal.show .modal{margin:auto;}
   /* 弹窗内按钮禁用 transition 与阴影：它们会诱发老内核图层丢失 */
   .modal .btn{box-shadow:none;transition:none;-webkit-transition:none;}
   .modal h3{color:var(--green-dark);font-size:15px;margin-bottom:2px;}
@@ -166,8 +168,17 @@
   .modal .estimate{margin-top:9px;background:#FFF8E1;border-radius:8px;padding:8px 11px;font-size:12px;color:#795548;}
   .modal .estimate b{color:var(--orange);font-size:14px;}
   .modal .warn{margin-top:7px;font-size:12px;color:var(--red);display:none;}
-  .modal .m-actions{margin-top:14px;text-align:center;}
-  .modal .m-actions .btn{display:inline-block;width:46%;margin:0 2%;padding:12px 0;font-size:15px;}
+  .modal .m-actions{margin-top:16px;display:flex;gap:12px;align-items:stretch;}
+  .modal .m-actions .btn{flex:1;width:auto;margin:0;padding:14px 6px;font-size:15px;min-height:46px;white-space:nowrap;letter-spacing:-0.3px;}
+  /* ===== 收获奖励弹窗（醒目金色庆祝卡） ===== */
+  #rewardModal.show{display:flex;align-items:center;justify-content:center;}
+  .reward-card{background:linear-gradient(165deg,#FFFDE7 0%,#FFECB3 60%,#FFD54F 100%);border:2.5px solid #FFB300;border-radius:20px;width:82%;max-width:330px;margin:0;padding:24px 20px 20px;text-align:center;box-shadow:0 14px 44px rgba(255,143,0,.45);-webkit-transform:translateZ(0);transform:translateZ(0);}
+  .reward-card .rw-coin{font-size:54px;line-height:1;animation:coinPop .55s cubic-bezier(.2,1.6,.4,1);}
+  .reward-card .rw-title{font-size:19px;font-weight:bold;color:#E65100;margin-top:8px;}
+  .reward-card .rw-amount{font-size:30px;font-weight:bold;color:#F57F17;margin:6px 0 8px;text-shadow:0 1px 0 #FFF8E1;}
+  .reward-card .rw-msg{font-size:13px;color:#6D4C41;line-height:1.9;margin-bottom:16px;background:rgba(255,255,255,.55);border-radius:10px;padding:8px 10px;}
+  .reward-card .btn{background:linear-gradient(180deg,#FFB300,#FB8C00);color:#4E342E;font-size:16px;min-height:46px;padding:12px 18px;border-radius:12px;box-shadow:0 3px 8px rgba(230,81,0,.35);transition:none;-webkit-transition:none;}
+  @keyframes coinPop{0%{transform:scale(0) rotate(-40deg);}70%{transform:scale(1.3) rotate(8deg);}100%{transform:scale(1) rotate(0);}}
   .bk-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;}
   @media (max-width:560px){
     .bk-grid{grid-template-columns:1fr;}
@@ -338,6 +349,16 @@
         <button class="btn" id="ehBtn" style="flex:1;background:#5D4037" onclick="confirmEarlyHarvest()">确认提前收获</button>
         <button class="btn" style="flex:1;background:#90A4AE" onclick="closeEhModal()">继续种植等成熟</button>
       </div>
+    </div>
+  </div>
+
+  <div class="modal-mask" id="rewardModal">
+    <div class="reward-card">
+      <div class="rw-coin">💰</div>
+      <div class="rw-title">🎉 收获奖励</div>
+      <div class="rw-amount">+<span id="rwGain">8</span> 金币</div>
+      <div class="rw-msg" id="rwMsg"></div>
+      <button class="btn" onclick="closeReward()">😊 辛苦啦，收下奖励！</button>
     </div>
   </div>
 
@@ -608,9 +629,11 @@ function plotClick(i){
     return;
   }
   if(p.progress>=1 && !p.pest){
+    const ripeName = CROPS[p.crop].name;
     coin+=8; p.crop=null; p.progress=0; p.pest=null; p.suspect=null;
     renderPlot(p); updateStats();
-    floatText('+8 🪙', p.el);
+    floatText('+8 💰', p.el);
+    showReward(8, ripeName + ' 成熟啦！' + REWARD_MSGS[Math.floor(Math.random()*REWARD_MSGS.length)]);
     log('🧺 收获 '+(i+1)+' 号田，<b>+8 金币</b>');
     return;
   }
@@ -661,9 +684,9 @@ function openEarlyHarvest(i){
   const btn = document.getElementById('ehBtn');
   btn.disabled = locked;
   btn.style.opacity = locked ? '.5' : '1';
-  btn.textContent = remain>0 ? '未达最短时效（等 '+remain+' 秒）'
+  btn.textContent = remain>0 ? '❌ 还需等 '+remain+' 秒'
                   : gain<=0 ? '收益为 0，不建议收获'
-                  : '确认提前收获 · +'+gain+' 金币';
+                  : '⚡ 提前收获 +'+gain+' 金币';
   document.getElementById('ehModal').classList.add('show');
 }
 function confirmEarlyHarvest(){
@@ -678,11 +701,42 @@ function confirmEarlyHarvest(){
   earlyCount++;
   p.crop=null; p.progress=0; p.pest=null; p.suspect=null;
   renderPlot(p); updateStats();
-  floatText('+'+gain+' 🪙', p.el);
+  floatText('+'+gain+' 💰', p.el);
+  showReward(gain, c.name + ' 提前收获也有回报！等下次成熟收获可得全额 8 金币哦～');
   closeEhModal();
   log('⚡ 提前收获 '+(ehPlotId+1)+' 号田 '+c.name+'，<b>+'+gain+' 金币</b>（收益系数降至 '+Math.round(currentPayRatio()*100)+'%，成熟收获可得全额 8）');
 }
 function closeEhModal(){ document.getElementById('ehModal').classList.remove('show'); }
+
+/* ===== 收获奖励弹窗（醒目庆祝 + 祝福语） ===== */
+const REWARD_MSGS = [
+  '🌾 辛苦你种植啦！这片田多亏了你悉心照料，这是给你的奖励～',
+  '🌱 从一粒种子到满仓收获，都是你的功劳，奖励请收下！',
+  '🧺 收获满满，田野不会辜负每一份辛勤，金币拿好啦！',
+  '☀️ 风调雨顺，硕果累累——祝你好运常伴，奖励请笑纳！'
+];
+function ensureRewardModal(){
+  if(document.getElementById('rewardModal')) return;
+  const d=document.createElement('div');
+  d.className='modal-mask'; d.id='rewardModal';
+  d.innerHTML='<div class="reward-card">'
+    +'<div class="rw-coin">💰</div>'
+    +'<div class="rw-title">🎉 收获奖励</div>'
+    +'<div class="rw-amount">+<span id="rwGain">0</span> 金币</div>'
+    +'<div class="rw-msg" id="rwMsg"></div>'
+    +'<button class="btn" onclick="closeReward()">😊 辛苦啦，收下奖励！</button>'
+    +'</div>';
+  document.body.appendChild(d);
+}
+function showReward(gain, msg){
+  ensureRewardModal();
+  document.getElementById('rwGain').textContent = gain;
+  document.getElementById('rwMsg').textContent = msg;
+  const m = document.getElementById('rewardModal');
+  m.classList.remove('show'); void m.offsetWidth; /* 重触发金币动画 */
+  m.classList.add('show');
+}
+function closeReward(){ const m=document.getElementById('rewardModal'); if(m) m.classList.remove('show'); }
 
 function floatText(txt, target){
   const r=target.getBoundingClientRect();
@@ -939,8 +993,9 @@ function harvestAll(){
   if(!ripe.length){log('ℹ️ 暂无可收获的成熟作物');return;}
   const gain=ripe.length*8;
   coin+=gain;
-  ripe.forEach(p=>{p.crop=null;p.progress=0;p.pest=null;renderPlot(p);floatText('+8 🪙', p.el);});
+  ripe.forEach(p=>{p.crop=null;p.progress=0;p.pest=null;renderPlot(p);floatText('+8 💰', p.el);});
   updateStats();
+  showReward(gain, '一次收获 '+ripe.length+' 块田，大丰收！' + REWARD_MSGS[Math.floor(Math.random()*REWARD_MSGS.length)]);
   log('🧺 一次性收获 '+ripe.length+' 块田，<b>+'+gain+' 金币</b>');
 }
 
