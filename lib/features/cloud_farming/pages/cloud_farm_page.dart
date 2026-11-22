@@ -891,7 +891,7 @@ class _CloudFarmHomeTabState extends ConsumerState<CloudFarmHomeTab> {
               _climateItem('${cl.annualTemp}℃', '年均温'),
               _climateItem('${cl.rainfall}mm', '年降水'),
               _climateItem('${cl.frostFree}天', '无霜期'),
-              _climateItem('${cl.accumTemp}℃', '≥10℃积温'),
+              _climateItem('${cl.accumTemp}℃·d', '≥10℃年积温'),
             ],
           ),
           const SizedBox(height: 8),
@@ -903,6 +903,19 @@ class _CloudFarmHomeTabState extends ConsumerState<CloudFarmHomeTab> {
                 child: Text(
                   '${cl.zone} · ${cl.pattern} · 土壤 ${cl.soil}',
                   style: TextStyle(fontSize: 10, color: cloudSubtle(context)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Icon(Icons.info_outline, size: 11, color: cloudHint(context)),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  '积温是全年日均气温≥10℃ 的累加值（℃·d），不是实时温度；以上为所在气候区多年平均值。',
+                  style: TextStyle(fontSize: 9.5, color: cloudHint(context)),
                 ),
               ),
             ],
