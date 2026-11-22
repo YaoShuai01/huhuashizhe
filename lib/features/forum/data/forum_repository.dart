@@ -407,5 +407,7 @@ class InMemoryForumRepository extends ForumRepository {
   }
 }
 
-/// 默认数据源：App 内直接使用，也可被外部替换
-final ForumRepository defaultForumRepository = InMemoryForumRepository();
+/// 默认数据源：App 内直接使用，也可被外部替换。
+/// 不加载内置示例，论坛初始为空，帖子全部由用户发布。
+final ForumRepository defaultForumRepository =
+    InMemoryForumRepository(seed: false);

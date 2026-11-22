@@ -29,8 +29,8 @@ class _LoginPageState extends State<LoginPage> {
   late final AuthApi _api = widget.api ?? DioAuthApi();
   late final AuthSession _session = widget.session ?? AuthSession.instance;
 
-  /// true 表示「设置密码」，false 表示「登录」
-  bool _registerMode = false;
+  /// true 表示「设置密码」页（默认先展示未注册用户），false 表示「登录」
+  bool _registerMode = true;
   bool _submitting = false;
   bool _obscure = true;
   String? _error;
@@ -64,12 +64,6 @@ class _LoginPageState extends State<LoginPage> {
             );
       _session.signIn(user);
       if (!mounted) return;
-      // 请求已结束，先收起加载态；注册成功还需弹窗展示登录号
-      setState(() => _submitting = false);
-      if (_registerMode) {
-        await _showLoginIdDialog(user);
-      }
-      if (!mounted) return;
       Navigator.of(context).pop(user);
     } on AuthException catch (error) {
       if (!mounted) return;
@@ -77,47 +71,6 @@ class _LoginPageState extends State<LoginPage> {
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
-  }
-
-  /// 注册成功后必须让用户记住系统分配的登录号
-  Future<void> _showLoginIdDialog(AuthUser user) {
-    return showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('注册成功'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('你的登录号',
-                style: TextStyle(fontSize: 13)),
-            const SizedBox(height: 8),
-            SelectableText(
-              user.loginId,
-              style: const TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 3,
-                color: AppColors.primary,
-              ),
-            ),
-            const SizedBox(height: 14),
-            Text(
-              '昵称「${user.nickname}」仅用于发帖展示。'
-              '以后请用「登录号 + 密码」登录，建议截图保存。',
-              style: TextStyle(fontSize: 13, color: context.palette.textHint),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('我已保存'),
-          ),
-        ],
-      ),
-    );
   }
 
   void _switchMode() {

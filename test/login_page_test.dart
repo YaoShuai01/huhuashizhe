@@ -65,10 +65,30 @@ void main() {
     expect(signedOut.isLoggedIn, isFalse);
   });
 
+  testWidgets('默认先展示设置密码页，可切换到登录', (tester) async {
+    final api = _FakeAuthApi();
+    await tester.pumpWidget(_harness(api));
+    await tester.tap(find.text('去登录'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('设置密码，自动生成登录号'), findsOneWidget);
+    expect(find.widgetWithText(ElevatedButton, '设置密码并生成登录号'),
+        findsOneWidget);
+
+    await tester.tap(find.text('已有登录号？去登录'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('欢迎回来'), findsOneWidget);
+    expect(find.widgetWithText(ElevatedButton, '登录'), findsOneWidget);
+  });
+
   testWidgets('空表单提交时提示填写登录号和密码', (tester) async {
     final api = _FakeAuthApi();
     await tester.pumpWidget(_harness(api));
     await tester.tap(find.text('去登录'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('已有登录号？去登录'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.widgetWithText(ElevatedButton, '登录'));
@@ -85,6 +105,9 @@ void main() {
     await tester.tap(find.text('去登录'));
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('已有登录号？去登录'));
+    await tester.pumpAndSettle();
+
     await tester.enterText(find.byType(TextFormField).at(0), '123');
     await tester.enterText(find.byType(TextFormField).at(1), '123456');
     await tester.tap(find.widgetWithText(ElevatedButton, '登录'));
@@ -98,6 +121,9 @@ void main() {
     final api = _FakeAuthApi();
     await tester.pumpWidget(_harness(api));
     await tester.tap(find.text('去登录'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('已有登录号？去登录'));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField).at(0), '30219845');
@@ -117,6 +143,9 @@ void main() {
     await tester.tap(find.text('去登录'));
     await tester.pumpAndSettle();
 
+    await tester.tap(find.text('已有登录号？去登录'));
+    await tester.pumpAndSettle();
+
     await tester.enterText(find.byType(TextFormField).at(0), '30219845');
     await tester.enterText(find.byType(TextFormField).at(1), '654321');
     await tester.tap(find.widgetWithText(ElevatedButton, '登录'));
@@ -132,9 +161,6 @@ void main() {
     await tester.tap(find.text('去登录'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('首次使用？设置密码'));
-    await tester.pumpAndSettle();
-
     await tester.enterText(find.byType(TextFormField).at(0), '农友阿芳');
     await tester.enterText(find.byType(TextFormField).at(1), '123456');
     await tester.enterText(find.byType(TextFormField).at(2), '654321');
@@ -145,13 +171,10 @@ void main() {
     expect(api.calls, 0);
   });
 
-  testWidgets('注册成功后弹窗展示系统分配的登录号', (tester) async {
+  testWidgets('注册成功后直接返回，不再弹窗展示登录号', (tester) async {
     final api = _FakeAuthApi();
     await tester.pumpWidget(_harness(api));
     await tester.tap(find.text('去登录'));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('首次使用？设置密码'));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextFormField).at(0), '农友阿芳');
@@ -160,13 +183,8 @@ void main() {
     await tester.tap(find.widgetWithText(ElevatedButton, '设置密码并生成登录号'));
     await tester.pumpAndSettle();
 
-    expect(find.text('注册成功'), findsOneWidget);
-    expect(find.text('30219845'), findsOneWidget);
+    expect(find.text('注册成功'), findsNothing);
     expect(AuthSession.instance.user.value?.loginId, '30219845');
-
-    await tester.tap(find.text('我已保存'));
-    await tester.pumpAndSettle();
-
     expect(find.text('去登录'), findsOneWidget);
   });
 }
