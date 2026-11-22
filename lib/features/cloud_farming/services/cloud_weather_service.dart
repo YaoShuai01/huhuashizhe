@@ -47,6 +47,22 @@ class CloudWeatherService {
       return const CloudWeatherResult.failure('无法匹配城市，天气暂不可用');
     }
 
+    return _fetchByCode(cityCode);
+  }
+
+  /// 按中国天气网城市编码直接获取实况 + 预报（用于手动选择城市）
+  Future<CloudWeatherResult> fetchByCode(String cityCode, {String? name}) async {
+    final code = cityCode.trim();
+    if (code.isEmpty) {
+      return const CloudWeatherResult.failure('城市编码为空，天气暂不可用');
+    }
+    return _fetchByCode(code, cityName: name);
+  }
+
+  Future<CloudWeatherResult> _fetchByCode(
+    String cityCode, {
+    String? cityName,
+  }) async {
     WeatherData? current;
     List<ForecastDay>? forecast;
     try {
@@ -94,7 +110,8 @@ class CloudWeatherService {
       source: '中国天气网',
     );
     debugPrint('[CloudWeather] 获取成功: ${snapshot.temp}℃, '
-        '${snapshot.desc}, 预报 ${days.length} 天');
+        '${snapshot.desc}, 预报 ${days.length} 天'
+        '${cityName == null ? '' : '（$cityName / $cityCode）'}');
     return CloudWeatherResult.success(snapshot);
   }
 

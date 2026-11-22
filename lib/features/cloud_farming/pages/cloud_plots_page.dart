@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -18,28 +21,165 @@ class CloudPlotsTab extends ConsumerStatefulWidget {
 
 class _CloudPlotsTabState extends ConsumerState<CloudPlotsTab> {
   final MapController _map = MapController();
+  final ValueNotifier<double> _zoom = ValueNotifier<double>(16);
+
   String? _selectedId;
   bool _legend = true;
+  bool _mapReady = false;
+  bool _locating = false;
+  String _plotSignature = '';
 
-  CloudPlot? _selected(CloudFarmController c) {
-    if (_selectedId == null) return null;
-    return c.plotById(_selectedId);
+  @override
+  void dispose() {
+    _zoom.dispose();
+    super.dispose();
   }
 
-  void _select(CloudFarmController c, String? id) {
-    setState(() => _selectedId = id);
-    if (id != null) {
-      final plot = c.plotById(id);
-      if (plot != null && plot.polygon.length >= 3) {
-        _map.move(centroidOf(plot.polygon), 17);
+  /// 选中项失效时回落到第一块田（与网页版一致）
+  String? _effectiveId(CloudFarmController c) {
+    if (_selectedId != null && c.plotById(_selectedId) != null) {
+      return _selectedId;
+    }
+    return c.plots.isEmpty ? null : c.plots.first.id;
+  }
+
+  List<LatLng> _allPlotPoints(List<CloudPlot> plots) {
+    final points = <LatLng>[];
+    for (final plot in plots) {
+      if (plot.polygon.length >= 3) {
+        points.addAll(latLngsOf(plot.polygon));
       }
     }
+    return points;
+  }
+
+  void _handleMapReady() {
+    _mapReady = true;
+    if (mounted) _zoom.value = _map.camera.zoom;
+  }
+
+  /// 自动框住全部田块（padding 40）
+  void _fitAllPlots(CloudFarmController c) {
+    if (!_mapReady) return;
+    final points = _allPlotPoints(c.plots);
+    if (points.length < 2) return;
+    _map.fitCamera(CameraFit.coordinates(
+      coordinates: points,
+      padding: const EdgeInsets.all(40),
+      maxZoom: 18,
+    ));
+    _zoom.value = _map.camera.zoom;
+  }
+
+  void _focusPlot(CloudPlot plot) {
+    setState(() => _selectedId = plot.id);
+    if (!_mapReady || plot.polygon.length < 3) return;
+    _map.fitCamera(CameraFit.coordinates(
+      coordinates: latLngsOf(plot.polygon),
+      padding: const EdgeInsets.all(48),
+      maxZoom: 18,
+    ));
+    _zoom.value = _map.camera.zoom;
+  }
+
+  Future<void> _locate() async {
+    if (_locating) return;
+    setState(() => _locating = true);
+    final c = ref.read(cloudFarmProvider);
+    final result = await c.locate();
+    if (!mounted) return;
+    setState(() => _locating = false);
+    if (result.ok && _mapReady) {
+      final loc = c.location;
+      _map.move(LatLng(loc.lat, loc.lng), 17);
+      _zoom.value = _map.camera.zoom;
+    }
+    _toast(result.message ??
+        (result.ok ? '已定位到当前位置' : '定位失败，请检查定位权限后重试'));
+  }
+
+  void _zoomBy(double delta) {
+    if (!_mapReady) return;
+    final camera = _map.camera;
+    final zoom = (camera.zoom + delta).clamp(3.0, 19.0);
+    _map.move(camera.center, zoom);
+    _zoom.value = _map.camera.zoom;
+  }
+
+  Future<void> _confirmDelete(CloudPlot plot) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('删除田块'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '${plot.name} · ${plot.area.toStringAsFixed(1)} 亩',
+              style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              '删除后 GPS 边界、作物档案与生长记录都会移除，且无法恢复。',
+              style: TextStyle(fontSize: 12, height: 1.5),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: const Color(0xFFD84343),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('确认删除'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    final name = plot.name;
+    ref.read(cloudFarmProvider).deletePlot(plot.id);
+    if (!mounted) return;
+    setState(() => _selectedId = null);
+    _toast('已删除「$name」');
+  }
+
+  void _toast(String text) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text(text),
+        duration: const Duration(seconds: 2),
+      ));
   }
 
   @override
   Widget build(BuildContext context) {
     final c = ref.watch(cloudFarmProvider);
-    final selected = _selected(c);
+    final selectedId = _effectiveId(c);
+    final selected = c.plotById(selectedId);
+
+    // 新建 / 删除田块后自动重新框选，避免田块落在视野外
+    final signature =
+        '${c.plots.length}:${c.plots.isEmpty ? '-' : c.plots.last.id}';
+    if (_plotSignature.isNotEmpty && _plotSignature != signature) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _mapReady) {
+          _fitAllPlots(ref.read(cloudFarmProvider));
+        }
+      });
+    }
+    _plotSignature = signature;
+
+    final fitPoints = _allPlotPoints(c.plots);
+    final location = LatLng(c.location.lat, c.location.lng);
 
     return Scaffold(
       appBar: AppBar(
@@ -61,9 +201,9 @@ class _CloudPlotsTabState extends ConsumerState<CloudPlotsTab> {
         ),
         actions: [
           IconButton(
-            tooltip: '圈地建模',
+            tooltip: '新建田块',
             onPressed: () => context.push('/cloud-farm/create'),
-            icon: const Icon(Icons.add_circle_outline),
+            icon: const Icon(Icons.add),
           ),
           const SizedBox(width: 4),
         ],
@@ -73,11 +213,20 @@ class _CloudPlotsTabState extends ConsumerState<CloudPlotsTab> {
           Positioned.fill(
             child: CloudFarmMap(
               plots: c.plots,
-              selectedId: _selectedId,
+              selectedId: selectedId,
               mapController: _map,
-              center: LatLng(c.location.lat, c.location.lng),
+              center: location,
               zoom: 16,
-              onSelectPlot: (id) => _select(c, id),
+              cameraFit: fitPoints.length >= 2
+                  ? CameraFit.coordinates(
+                      coordinates: fitPoints,
+                      padding: const EdgeInsets.all(40),
+                      maxZoom: 18,
+                    )
+                  : null,
+              onMapReady: _handleMapReady,
+              onZoomChanged: (zoom) => _zoom.value = zoom,
+              onSelectPlot: (id) => setState(() => _selectedId = id),
             ),
           ),
           Positioned(
@@ -86,51 +235,28 @@ class _CloudPlotsTabState extends ConsumerState<CloudPlotsTab> {
             right: 10,
             child: Row(
               children: [
-                Container(
-                  constraints: const BoxConstraints(maxWidth: 230),
-                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.55),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.gps_fixed,
-                          size: 12, color: Color(0xFF9BE7A4)),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          _locationStatus(c),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 10, color: Colors.white),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const Spacer(),
-                _mapButton(
-                  icon: Icons.my_location,
-                  onTap: () => _map.move(
-                    LatLng(c.location.lat, c.location.lng),
-                    16,
-                  ),
-                ),
+                Expanded(child: _gpsChip(c)),
                 const SizedBox(width: 6),
                 _mapButton(
-                  icon: Icons.layers_outlined,
-                  active: _legend,
-                  onTap: () => setState(() => _legend = !_legend),
+                  icon: _locating ? Icons.gps_not_fixed : Icons.my_location,
+                  tooltip: '定位',
+                  active: _locating,
+                  onTap: _locate,
                 ),
+                if (c.plots.isNotEmpty) ...[
+                  const SizedBox(width: 6),
+                  _mapButton(
+                    icon: Icons.center_focus_strong,
+                    tooltip: '回到田块',
+                    onTap: () => _fitAllPlots(c),
+                  ),
+                ],
               ],
             ),
           ),
-          if (_legend)
+          if (_legend && c.plots.isNotEmpty)
             Positioned(
-              top: 56,
+              top: 64,
               left: 10,
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
@@ -159,23 +285,38 @@ class _CloudPlotsTabState extends ConsumerState<CloudPlotsTab> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(
-                      children: [
-                        for (final plot in c.plots) ...[
-                          CloudPillButton(
-                            text: '${plot.name} · ${plot.area.toStringAsFixed(1)}亩',
-                            active: plot.id == _selectedId,
-                            onTap: () => _select(c, plot.id),
-                          ),
-                          const SizedBox(width: 6),
-                        ],
-                      ],
-                    ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      _MapScaleBar(zoom: _zoom, latitude: c.location.lat),
+                      const Spacer(),
+                      _mapControls(),
+                    ],
                   ),
                   const SizedBox(height: 8),
-                  _bottomPanel(context, c, selected),
+                  if (c.plots.isNotEmpty) ...[
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (final plot in c.plots) ...[
+                            CloudPillButton(
+                              text:
+                                  '${plot.name} · ${plot.area.toStringAsFixed(1)}亩',
+                              active: plot.id == selectedId,
+                              onTap: () => _focusPlot(plot),
+                            ),
+                            const SizedBox(width: 6),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  if (selected == null)
+                    _emptyCard(context)
+                  else
+                    _plotSheet(context, c, selected),
                 ],
               ),
             ),
@@ -185,31 +326,144 @@ class _CloudPlotsTabState extends ConsumerState<CloudPlotsTab> {
     );
   }
 
-  String _locationStatus(CloudFarmController c) {
+  Widget _gpsChip(CloudFarmController c) {
     final loc = c.location;
-    if (loc.isSeed) {
-      return c.lastLocateError != null ? '未定位 · 定位失败' : '未定位 · 示例位置';
-    }
-    final name = loc.name.isEmpty ? '未定位' : loc.name;
-    return '$name · ${cloudAccuracyText(loc.accuracy)}';
+    final failed = c.lastLocateError != null;
+    final title = loc.isSeed
+        ? (failed ? '未定位 · 定位失败' : '未定位 · 点击定位')
+        : (loc.name.isEmpty ? '已定位' : loc.name);
+    final accuracy = loc.isSeed || loc.accuracy == null
+        ? '精度未知'
+        : '±${loc.accuracy!.round()}m';
+    final subtitle =
+        '${loc.lat.toStringAsFixed(4)}°N ${loc.lng.toStringAsFixed(4)}°E · $accuracy';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.58),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            failed ? Icons.gps_off : Icons.gps_fixed,
+            size: 13,
+            color: const Color(0xFF9BE7A4),
+          ),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      fontSize: 10.5,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 1),
+                Text(
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 9, color: Colors.white70),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _mapButton({
     required IconData icon,
+    required String tooltip,
     required VoidCallback onTap,
     bool active = false,
   }) {
-    return Material(
-      color: active ? const Color(0xFF2E7D32) : Colors.black.withValues(alpha: 0.55),
-      borderRadius: BorderRadius.circular(20),
-      child: InkWell(
-        onTap: onTap,
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color:
+            active ? const Color(0xFF2E7D32) : Colors.black.withValues(alpha: 0.58),
         borderRadius: BorderRadius.circular(20),
-        child: Padding(
-          padding: const EdgeInsets.all(7),
-          child: Icon(icon, size: 17, color: Colors.white),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(20),
+          child: Padding(
+            padding: const EdgeInsets.all(7),
+            child: Icon(icon, size: 17, color: Colors.white),
+          ),
         ),
       ),
+    );
+  }
+
+  Widget _mapControls() {
+    return Material(
+      color: Colors.black.withValues(alpha: 0.58),
+      borderRadius: BorderRadius.circular(18),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _controlButton(
+            icon: Icons.layers_outlined,
+            tooltip: '图层',
+            active: _legend,
+            onTap: () => setState(() => _legend = !_legend),
+          ),
+          _controlDivider(),
+          _controlButton(
+            icon: Icons.add,
+            tooltip: '放大',
+            onTap: () => _zoomBy(1),
+          ),
+          _controlDivider(),
+          _controlButton(
+            icon: Icons.remove,
+            tooltip: '缩小',
+            onTap: () => _zoomBy(-1),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _controlButton({
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onTap,
+    bool active = false,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: InkResponse(
+        onTap: onTap,
+        radius: 18,
+        child: SizedBox(
+          width: 34,
+          height: 34,
+          child: Icon(
+            icon,
+            size: 17,
+            color: active ? const Color(0xFF9BE7A4) : Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _controlDivider() {
+    return Container(
+      width: 1,
+      height: 16,
+      color: Colors.white.withValues(alpha: 0.22),
     );
   }
 
@@ -231,43 +485,39 @@ class _CloudPlotsTabState extends ConsumerState<CloudPlotsTab> {
     );
   }
 
-  Widget _bottomPanel(
-      BuildContext context, CloudFarmController c, CloudPlot? plot) {
-    if (plot == null) {
-      return CloudCard(
-        padding: const EdgeInsets.all(13),
-        child: Row(
-          children: [
-            Icon(Icons.touch_app_outlined,
-                size: 18, color: Theme.of(context).colorScheme.primary),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('点击地图田块查看详情',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                  const SizedBox(height: 2),
-                  Text(
-                    '已建模 ${c.plots.length} 块 · 合计 ${c.totalArea.toStringAsFixed(1)} 亩',
-                    style: TextStyle(fontSize: 10, color: cloudHint(context)),
-                  ),
-                ],
-              ),
-            ),
-            CloudLinkButton(
-              '新圈地',
-              icon: Icons.add,
-              onTap: () => context.push('/cloud-farm/create'),
-            ),
-          ],
-        ),
-      );
-    }
+  Widget _emptyCard(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return CloudCard(
+      padding: const EdgeInsets.fromLTRB(16, 26, 16, 22),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.map_outlined, size: 32, color: primary),
+          const SizedBox(height: 8),
+          const Text('还没有田块',
+              style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text(
+            '圈出第一块田，即可开始云种植',
+            style: TextStyle(fontSize: 10.5, color: cloudHint(context)),
+          ),
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            onPressed: () => context.push('/cloud-farm/create'),
+            icon: const Icon(Icons.add, size: 17),
+            label: const Text('新建田块'),
+          ),
+        ],
+      ),
+    );
+  }
 
+  Widget _plotSheet(
+      BuildContext context, CloudFarmController c, CloudPlot plot) {
     final growth = c.growth(plot);
     final moisture = c.moisture(plot);
     final crop = CloudSeed.cropOf(plot.cropId);
+    final stage = growth != null ? '${growth.stage.name}期' : '待种植';
     return CloudCard(
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -276,7 +526,7 @@ class _CloudPlotsTabState extends ConsumerState<CloudPlotsTab> {
         children: [
           Row(
             children: [
-              PlotThumb(cropId: plot.cropId, width: 48, height: 48),
+              PlotThumb(cropId: plot.cropId, width: 50, height: 50),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -289,27 +539,25 @@ class _CloudPlotsTabState extends ConsumerState<CloudPlotsTab> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                  fontSize: 13.5, fontWeight: FontWeight.w700)),
+                                  fontSize: 14, fontWeight: FontWeight.w700)),
                         ),
                         const SizedBox(width: 6),
-                        CloudTag(
-                          growth != null ? '${growth.stage.name}期' : '待种植',
-                          color: growth != null
-                              ? const Color(0xFFF59100)
-                              : cloudHint(context),
-                        ),
+                        CloudTag('${plot.area.toStringAsFixed(1)}亩',
+                            color: Theme.of(context).colorScheme.primary),
                       ],
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 3),
                     Text(
-                      crop != null
-                          ? '${crop.name} · ${crop.variety} · ${plot.area.toStringAsFixed(1)}亩'
-                          : '${plot.area.toStringAsFixed(1)}亩 · 完成圈地，待选作物',
-                      style: TextStyle(fontSize: 10.5, color: cloudSubtle(context)),
+                      crop != null ? '${crop.name} · $stage' : '空闲田块 · 待种植',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style:
+                          TextStyle(fontSize: 11, color: cloudSubtle(context)),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 5),
                     Wrap(
                       spacing: 5,
+                      runSpacing: 4,
                       children: [
                         CloudTag('墒情 ${moisture.value}%',
                             color: Theme.of(context).colorScheme.primary,
@@ -321,58 +569,126 @@ class _CloudPlotsTabState extends ConsumerState<CloudPlotsTab> {
                   ],
                 ),
               ),
-              CloudRing(pct: growth?.pct ?? 0, size: 44, stroke: 4),
+              CloudRing(pct: growth?.pct ?? 0, size: 46, stroke: 4.2),
             ],
           ),
           const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
-                child: OutlinedButton(
-                  onPressed: () => _select(c, null),
+                child: OutlinedButton.icon(
+                  onPressed: () =>
+                      context.push('/cloud-farm/remote/${plot.id}'),
+                  icon: const Icon(Icons.visibility_outlined, size: 15),
                   style: OutlinedButton.styleFrom(
                     minimumSize: const Size(0, 36),
                     padding: EdgeInsets.zero,
+                    textStyle: const TextStyle(fontSize: 11.5),
                   ),
-                  child: const Text('取消选择', style: TextStyle(fontSize: 11)),
+                  label: const Text('异地查看'),
                 ),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 8),
               Expanded(
-                child: OutlinedButton(
-                  onPressed: () => context.push('/cloud-farm/remote/${plot.id}'),
-                  style: OutlinedButton.styleFrom(
-                    minimumSize: const Size(0, 36),
-                    padding: EdgeInsets.zero,
-                  ),
-                  child: const Text('异地查看', style: TextStyle(fontSize: 11)),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                flex: 2,
-                child: FilledButton(
-                  onPressed: () {
-                    if (plot.cropId == null) {
-                      context.push('/cloud-farm/plant',
-                          extra: {'plotId': plot.id});
-                    } else {
-                      context.push('/cloud-farm/plot/${plot.id}');
-                    }
-                  },
+                child: FilledButton.icon(
+                  onPressed: () => context.push('/cloud-farm/plot/${plot.id}'),
+                  icon: const Icon(Icons.eco_outlined, size: 15),
                   style: FilledButton.styleFrom(
                     minimumSize: const Size(0, 36),
                     padding: EdgeInsets.zero,
                     textStyle: const TextStyle(
-                        fontSize: 11, fontWeight: FontWeight.w600),
+                        fontSize: 11.5, fontWeight: FontWeight.w600),
                   ),
-                  child: Text(plot.cropId == null ? '开始种植' : '查看云田'),
+                  label: const Text('查看云田'),
                 ),
               ),
             ],
           ),
+          const SizedBox(height: 2),
+          SizedBox(
+            width: double.infinity,
+            child: TextButton.icon(
+              onPressed: () => _confirmDelete(plot),
+              icon: const Icon(Icons.delete_outline, size: 15),
+              style: TextButton.styleFrom(
+                foregroundColor: const Color(0xFFD84343),
+                minimumSize: const Size(0, 34),
+                padding: EdgeInsets.zero,
+                textStyle: const TextStyle(fontSize: 11),
+              ),
+              label: const Text('删除此田块'),
+            ),
+          ),
         ],
       ),
     );
+  }
+}
+
+/// 随缩放变化的比例尺（约 90px 长，取 1/2/5 的整数档）
+class _MapScaleBar extends StatelessWidget {
+  final ValueListenable<double> zoom;
+  final double latitude;
+
+  const _MapScaleBar({required this.zoom, required this.latitude});
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<double>(
+      valueListenable: zoom,
+      builder: (context, z, _) {
+        const earthCircumference = 40075016.686;
+        final metersPerPixel = earthCircumference *
+            math.cos(latitude * math.pi / 180) /
+            (256 * math.pow(2, z));
+        final meters = _niceDistance(90 * metersPerPixel);
+        final width = (meters / metersPerPixel).clamp(24.0, 130.0);
+        final label = meters >= 1000
+            ? '${(meters / 1000).toStringAsFixed(meters % 1000 == 0 ? 0 : 1)} km'
+            : '${meters.round()} m';
+        return Container(
+          padding: const EdgeInsets.fromLTRB(8, 4, 8, 5),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.55),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label,
+                  style: const TextStyle(
+                      fontSize: 9, color: Colors.white, height: 1.1)),
+              const SizedBox(height: 4),
+              SizedBox(
+                width: width,
+                height: 7,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Container(width: 1.5, height: 7, color: Colors.white),
+                    Expanded(
+                      child: Container(height: 1.2, color: Colors.white),
+                    ),
+                    Container(width: 1.5, height: 7, color: Colors.white),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  double _niceDistance(double target) {
+    if (target <= 0) return 1;
+    final exponent = (math.log(target) / math.ln10).floor();
+    final base = math.pow(10, exponent).toDouble();
+    for (final step in const [1.0, 2.0, 5.0]) {
+      final candidate = base * step;
+      if (candidate >= target) return candidate;
+    }
+    return base * 10;
   }
 }

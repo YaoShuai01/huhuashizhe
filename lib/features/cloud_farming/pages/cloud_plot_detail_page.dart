@@ -87,14 +87,24 @@ class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
         ),
         actions: [
           IconButton(
-            tooltip: '异地查看',
-            onPressed: () => context.push('/cloud-farm/remote/${plot.id}'),
-            icon: const Icon(Icons.videocam_outlined),
+            tooltip: '返回 App 首页',
+            onPressed: () => context.go('/home'),
+            icon: const Icon(Icons.home_outlined),
           ),
           IconButton(
-            tooltip: '边界地图',
-            onPressed: () => _showMapSheet(plot),
+            tooltip: '拍照',
+            onPressed: () => _pickPhoto(plot.id, ImageSource.camera),
+            icon: const Icon(Icons.photo_camera_outlined),
+          ),
+          IconButton(
+            tooltip: '地图',
+            onPressed: () => context.go('/cloud-farm'),
             icon: const Icon(Icons.map_outlined),
+          ),
+          IconButton(
+            tooltip: '删除田块',
+            onPressed: () => _confirmDelete(plot),
+            icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
           ),
         ],
       ),
@@ -483,6 +493,72 @@ class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
   void _removePhoto(CloudPlot plot) {
     ref.read(cloudFarmProvider).setPlotPhoto(plot.id, null);
     _toast('已移除实景照片');
+  }
+
+  /// 删除田块（文案对齐网页版删除弹层）
+  Future<void> _confirmDelete(CloudPlot plot) async {
+    final crop = CloudSeed.cropOf(plot.cropId);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('删除田块'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('${plot.name} · ${plot.area.toStringAsFixed(1)} 亩',
+                style: const TextStyle(fontSize: 12)),
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.error_outline,
+                    size: 15, color: Theme.of(ctx).colorScheme.error),
+                const SizedBox(width: 6),
+                const Expanded(
+                  child: Text(
+                    '删除后 GPS 边界、作物档案与生长记录都会移除，且无法恢复。',
+                    style: TextStyle(fontSize: 12, height: 1.5),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Icon(Icons.eco_outlined,
+                    size: 14, color: Theme.of(ctx).colorScheme.primary),
+                const SizedBox(width: 6),
+                Text(
+                  crop != null ? '${crop.name} · ${crop.variety}' : '当前为空闲田块',
+                  style: const TextStyle(fontSize: 11.5),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            child: const Text('确认删除'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    ref.read(cloudFarmProvider).deletePlot(plot.id);
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/cloud-farm');
+    }
   }
 
   Widget _simMixRow() {

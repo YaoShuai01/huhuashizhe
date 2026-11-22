@@ -334,7 +334,7 @@ class _CloudPlotCreatePageState extends ConsumerState<CloudPlotCreatePage> {
   }
 
   String _locationStatus(CloudLocation loc) {
-    if (loc.isSeed) return '未定位 · 示例位置';
+    if (loc.isSeed) return '未定位 · 点击下方定位';
     final name = loc.name.isEmpty ? '未定位' : loc.name;
     return '$name · ${loc.fromGps ? '已定位' : '手动位置'}';
   }
