@@ -24,7 +24,7 @@ void main() {
     expect(find.text('我的反馈记录 1 条'), findsOneWidget);
     expect(find.text('待回复'), findsOneWidget);
 
-    repository.addComment(post: posts.single, content: '已收到，下个版本支持');
+    await repository.addComment(post: posts.single, content: '已收到，下个版本支持');
     await tester.pumpAndSettle();
 
     expect(find.text('已回复 1'), findsOneWidget);

@@ -34,6 +34,20 @@ const POST_FROM = `
   JOIN users u ON u.id = p.user_id
 `;
 
+const REPLY_FIELDS = `
+  r.id,
+  r.post_id,
+  r.content,
+  DATE_FORMAT(r.created_at, '%Y-%m-%d %H:%i:%s') AS created_at,
+  u.id       AS author_id,
+  u.nickname AS author
+`;
+
+const REPLY_FROM = `
+  FROM replies r
+  JOIN users u ON u.id = r.user_id
+`;
+
 const asyncHandler = (handler) => (req, res, next) =>
   Promise.resolve(handler(req, res, next)).catch(next);
 
@@ -109,6 +123,77 @@ app.post(
 
     const [rows] = await pool.execute(
       `SELECT ${POST_FIELDS} ${POST_FROM} WHERE p.id = ?`,
+      [result.insertId],
+    );
+
+    res.status(201).json(rows[0]);
+  }),
+);
+
+// GET /api/posts/:id/replies
+app.get(
+  '/api/posts/:id/replies',
+  asyncHandler(async (req, res) => {
+    const postId = Number(req.params.id);
+    if (!Number.isInteger(postId) || postId <= 0) {
+      return res.status(400).json({ error: '帖子 id 不合法' });
+    }
+
+    const [items] = await pool.execute(
+      `SELECT ${REPLY_FIELDS} ${REPLY_FROM}
+       WHERE r.post_id = ?
+       ORDER BY r.created_at ASC, r.id ASC`,
+      [postId],
+    );
+
+    res.json({ items });
+  }),
+);
+
+// POST /api/posts/:id/replies
+// body: { userId, content }
+app.post(
+  '/api/posts/:id/replies',
+  asyncHandler(async (req, res) => {
+    const postId = Number(req.params.id);
+    const body = req.body ?? {};
+    const userId = Number(body.userId);
+    const content =
+      typeof body.content === 'string' ? body.content.trim() : '';
+
+    if (!Number.isInteger(postId) || postId <= 0) {
+      return res.status(400).json({ error: '帖子 id 不合法' });
+    }
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({ error: 'userId 必须是正整数' });
+    }
+    if (!content || content.length > 1000) {
+      return res.status(400).json({ error: 'content 不能为空且不超过 1000 字' });
+    }
+
+    const [posts] = await pool.execute(
+      'SELECT id FROM posts WHERE id = ?',
+      [postId],
+    );
+    if (posts.length === 0) {
+      return res.status(404).json({ error: '帖子不存在' });
+    }
+
+    const [users] = await pool.execute(
+      'SELECT id FROM users WHERE id = ?',
+      [userId],
+    );
+    if (users.length === 0) {
+      return res.status(404).json({ error: '用户不存在' });
+    }
+
+    const [result] = await pool.execute(
+      'INSERT INTO replies (post_id, user_id, content) VALUES (?, ?, ?)',
+      [postId, userId, content],
+    );
+
+    const [rows] = await pool.execute(
+      `SELECT ${REPLY_FIELDS} ${REPLY_FROM} WHERE r.id = ?`,
       [result.insertId],
     );
 
