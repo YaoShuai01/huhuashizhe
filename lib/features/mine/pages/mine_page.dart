@@ -127,7 +127,7 @@ class MinePage extends StatelessWidget {
               context,
               icon: Icons.bookmark_border,
               title: '我的收藏',
-              subtitle: '收藏的帖子都在这里',
+              subtitle: '收藏的帖子与课程都在这里',
               onTap: () => context.push('/forum/favorites'),
             ),
             _buildMenuItem(
