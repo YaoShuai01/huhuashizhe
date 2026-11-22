@@ -170,6 +170,7 @@ class _LoginPageState extends State<LoginPage> {
                   maxLength: 8,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   decoration: _decoration(
+                    context,
                     label: '登录号',
                     hint: '8 位数字登录号',
                     icon: Icons.badge_outlined,
@@ -318,7 +319,6 @@ class _LoginPageState extends State<LoginPage> {
         ),
         const SizedBox(height: 16),
         Text(
-        Text(
           _registerMode ? '设置密码，自动生成登录号' : '欢迎回来',
           style: TextStyle(
             fontSize: 20,
@@ -327,7 +327,6 @@ class _LoginPageState extends State<LoginPage> {
           ),
         ),
         const SizedBox(height: 6),
-        Text(
         Text(
           _registerMode ? '昵称用于展示，登录号由系统分配' : '使用登录号和密码登录',
           textAlign: TextAlign.center,
