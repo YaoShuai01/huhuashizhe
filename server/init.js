@@ -1,24 +1,36 @@
-import { db, initSchema } from './db.js';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-// 建表（幂等）
-initSchema();
+import mysql from 'mysql2/promise';
 
-// 首次初始化时创建一个演示用户，方便直接调用发帖接口
-const { total } = db.prepare('SELECT COUNT(*) AS total FROM users').get();
-if (total === 0) {
-  const info = db
-    .prepare('INSERT INTO users (nickname) VALUES (?)')
-    .run('农友小助手');
-  console.log(`已创建演示用户，id = ${info.lastInsertRowid}`);
+import { dbConfig, pool } from './db.js';
+
+const root = dirname(fileURLToPath(import.meta.url));
+
+// 建库阶段还没有 huhuashizhe，先不指定 database 连接
+const connection = await mysql.createConnection({
+  host: dbConfig.host,
+  port: dbConfig.port,
+  user: dbConfig.user,
+  password: dbConfig.password,
+  charset: 'utf8mb4',
+  multipleStatements: true,
+});
+
+try {
+  await connection.query(readFileSync(join(root, 'mysql', 'schema.sql'), 'utf8'));
+  await connection.query(readFileSync(join(root, 'mysql', 'seed.sql'), 'utf8'));
+  console.log('已执行 mysql/schema.sql 与 mysql/seed.sql');
+} finally {
+  await connection.end();
 }
 
-const counts = db
-  .prepare(
-    `SELECT
-       (SELECT COUNT(*) FROM users)   AS users,
-       (SELECT COUNT(*) FROM posts)   AS posts,
-       (SELECT COUNT(*) FROM replies) AS replies`,
-  )
-  .get();
-
-console.log(`数据库初始化完成：users=${counts.users} posts=${counts.posts} replies=${counts.replies}`);
+const [[counts]] = await pool.query(
+  `SELECT
+     (SELECT COUNT(*) FROM users)   AS users,
+     (SELECT COUNT(*) FROM posts)   AS posts,
+     (SELECT COUNT(*) FROM replies) AS replies`,
+);
+console.log(`MySQL 初始化完成：users=${counts.users} posts=${counts.posts} replies=${counts.replies}`);
+await pool.end();
