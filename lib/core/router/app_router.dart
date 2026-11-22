@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
+import '../../features/auth/pages/login_page.dart';
 import '../../features/home/pages/home_page.dart';
 import '../../features/presets/pages/presets_page.dart';
 import '../../features/classroom/pages/classroom_page.dart';
@@ -167,6 +168,11 @@ final appRouter = GoRouter(
       path: '/speedometer',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const GpsSpeedometerPage(),
+    ),
+    GoRoute(
+      path: '/login',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const LoginPage(),
     ),
     GoRoute(
       path: '/forum',

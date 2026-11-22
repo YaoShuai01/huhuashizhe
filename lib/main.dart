@@ -7,6 +7,7 @@ import 'core/accessibility/elder_care_scope.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'data/local_database.dart';
+import 'features/auth/data/auth_session.dart';
 import 'providers/device_provider.dart';
 import 'providers/update_provider.dart';
 import 'services/ai_suggestion_worker.dart';
@@ -20,6 +21,7 @@ import 'widgets/splash_page.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await LocalDatabase().init(); // 初始化本地数据持久化
+  AuthSession.instance.restore(); // 恢复上次登录的账号
   unawaited(VoiceService.instance.init()); // 语音播报预热（系统TTS，不阻塞启动）
   AiSuggestionWorker().start(); // 生长检测AI建议：启动离线补全监听
   // 模型热更新：联网后静默检查/下载新模型（不阻塞启动，可重入安全）

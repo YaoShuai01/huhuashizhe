@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/accessibility/elder_care_scope.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_version.dart' show appVersion;
+import '../../auth/data/auth_api.dart';
+import '../../auth/data/auth_session.dart';
 
 class MinePage extends StatelessWidget {
   const MinePage({super.key});
@@ -28,7 +30,13 @@ class MinePage extends StatelessWidget {
                     backgroundImage: const AssetImage('assets/images/icom.png'),
                   ),
                   const SizedBox(height: 12),
-                  const Text('未设置昵称', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                  ValueListenableBuilder<AuthUser?>(
+                    valueListenable: AuthSession.instance.user,
+                    builder: (context, account, _) => Text(
+                      account?.nickname ?? '未设置昵称',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                    ),
+                  ),
                   const SizedBox(height: 4),
                   InkWell(
                     onTap: () => context.push('/mine/account'),
@@ -44,6 +52,7 @@ class MinePage extends StatelessWidget {
               subtitle: '本地存储，卸载APP数据会丢失',
               onTap: () => context.push('/mine/account'),
             ),
+            _buildAuthMenuItem(context),
             _buildMenuItem(
               icon: Icons.bluetooth_outlined,
               title: '设备连接',
@@ -118,6 +127,7 @@ class MinePage extends StatelessWidget {
                           TextButton(
                             onPressed: () {
                               Navigator.pop(ctx);
+                              AuthSession.instance.signOut();
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(content: Text('已退出登录')),
                               );
@@ -182,6 +192,26 @@ class MinePage extends StatelessWidget {
                   duration: Duration(seconds: 2),
                 ),
               );
+          }
+        },
+      ),
+    );
+  }
+
+  /// 登录入口：未登录显示「账号登录」，已登录显示「切换账号」
+  Widget _buildAuthMenuItem(BuildContext context) {
+    return ValueListenableBuilder<AuthUser?>(
+      valueListenable: AuthSession.instance.user,
+      builder: (context, account, _) => _buildMenuItem(
+        icon: Icons.login,
+        title: account == null ? '账号登录' : '切换账号',
+        subtitle: account == null ? '昵称 + 密码登录' : '当前账号：${account.nickname}',
+        onTap: () async {
+          final result = await context.push<AuthUser>('/login');
+          if (result != null && context.mounted) {
+            ScaffoldMessenger.of(context)
+              ..hideCurrentSnackBar()
+              ..showSnackBar(SnackBar(content: Text('已登录：${result.nickname}')));
           }
         },
       ),

@@ -128,6 +128,7 @@ class LocalDatabase {
 
   void remove(String key) {
     _cache.remove(key);
+    if (_dataDir == null) return; // 未完成 init 时仅清除内存缓存
     final file = File(_filePath(key));
     unawaited(file.exists().then((exists) { if (exists) file.delete(); }));
   }
