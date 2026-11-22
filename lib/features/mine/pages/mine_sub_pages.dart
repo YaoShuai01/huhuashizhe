@@ -944,6 +944,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.10.5',
+        'date': '2026-11-22',
+        'content': [
+          '云种植气候卡：积温改为「≥10℃年积温」，单位统一为 ℃·d',
+          '新增积温说明：全年日均气温≥10℃ 的累加值，非实时温度',
+          '注明气候数据为所在气候区的多年平均值，便于正确理解',
+        ],
+      },
+      {
         'version': 'v3.10.4',
         'date': '2026-11-22',
         'content': [
