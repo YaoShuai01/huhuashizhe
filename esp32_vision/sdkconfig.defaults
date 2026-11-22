@@ -20,11 +20,77 @@ CONFIG_ESP_MAIN_TASK_STACK_SIZE=6144
 CONFIG_ESP_TASK_WDT_TIMEOUT_S=10
 
 # WiFi 吞吐（图传大流量）
-CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=32
+#
+# ★ STATIC_RX_BUFFER_NUM 的有效范围是 2..25（见 esp-idf/components/esp_wifi/Kconfig）。
+#   曾经写 32，超上限被 Kconfig 静默截断后回退到默认值 16 —— 等于这一行没写，
+#   而且不报任何警告，很难发现。改回 24（官方 iperf 档位推荐值，留了 1 个余量）。
+#   改完务必用 `grep STATIC_RX_BUFFER sdkconfig` 确认真的生效了。
+CONFIG_ESP_WIFI_STATIC_RX_BUFFER_NUM=24
 CONFIG_ESP_WIFI_DYNAMIC_RX_BUFFER_NUM=64
 CONFIG_ESP_WIFI_TX_BA_WIN=16
-CONFIG_LWIP_UDP_RECVMBOX_SIZE=16
+# RX BA 窗口官方建议取 min(2*STATIC, DYNAMIC) 附近，32 足够
+CONFIG_ESP_WIFI_RX_BA_WIN=32
+CONFIG_LWIP_UDP_RECVMBOX_SIZE=32
 
-# 摄像头大帧缓冲
-CONFIG_LWIP_SO_SNDBUF=y
-CONFIG_LWIP_IP_FRAG=y
+# ★ WiFi 发送缓冲：因为开了 SPIRAM_TRY_ALLOCATE_WIFI_LWIP=y，
+#   Kconfig 强制走【静态】TX 缓冲（ESP_WIFI_DYNAMIC_TX_BUFFER 的条件是
+#   !(SPIRAM_TRY_ALLOCATE_WIFI_LWIP && !SPIRAM_IGNORE_NOTFOUND)，不满足时
+#   dynamic 选项根本不会出现在 menuconfig 里）。所以写 DYNAMIC_TX_BUFFER=y
+#   不会生效，会静默退回静态。
+#
+#   ★ 关键约束：静态 TX 缓冲占的是【内部 DRAM】，不是 PSRAM。
+#     ESP32-S3 内部 RAM 启动后只有约 257 KiB 可动态分配
+#     （启动日志: heap_init: At 3FCA92D0 len 00040440 (257 KiB): RAM）。
+#     每个静态缓冲约 1.6KB：
+#        16 个 = 25.6KB
+#        32 个 = 51.2KB  ← 曾改成 32，结果内部 RAM 更紧张，ENOMEM 反而变多
+#     所以这里保持 16，不要因为"图传码率高"就往上加 —— 加的每一 KB 都在
+#     从本就紧张的内部 RAM 里抢，最终表现是 sendto 返回 errno=12 (ENOMEM)。
+#
+#   真正该做的是降低图传码率（分辨率/q 值），而不是堆缓冲。
+CONFIG_ESP_WIFI_STATIC_TX_BUFFER=y
+CONFIG_ESP_WIFI_STATIC_TX_BUFFER_NUM=16
+
+# RX 缓冲同理，占的也是内部 DRAM。24 个已在 Kconfig 上限(25)附近，
+# 但它是"预留"性质：SPIRAM_TRY_ALLOCATE_WIFI_LWIP 开启时部分 RX 缓冲
+# 会尝试放到 PSRAM 里，所以不像 TX 那么吃紧。保持 24。
+
+# 摄像头 DMA / 大帧缓冲
+#
+# ★★ CONFIG_CAMERA_PSRAM_DMA 必须为 y。曾一度被关掉，造成「画面一动就卡死」★★
+#
+# 这个开关控制走 esp32-camera 的哪个 DMA 分支（target/esp32s3/ll_cam.c）：
+#
+#   开启（=y，本配置）：JPEG + psram_mode 分支
+#       dma_half_buffer_size = 1024
+#       buffer_size = recv_size（按分辨率算，QSXGA 约 960KB）
+#       日志: buffer_size: 983040, half_buffer_size: 1024, node_cnt: 960
+#       → DMA 内部有约 960KB 的连续搬运空间，大 JPEG 能完整搬完
+#
+#   关闭（=n）：else 分支
+#       buffer_size = 16 * 1024 = 16384
+#       dma_half_buffer_size = 1024
+#       日志: buffer_size: 16384, half_buffer_size: 1024, node_cnt: 16
+#       → 只有 16KB 搬运空间
+#
+# 为什么必须是 y：关闭后只要单帧 JPEG 超过 16KB，多次搬运之间数据会被
+# 下一帧覆盖，JPEG 结尾的 EOI 标记检测失败。驱动找不到帧尾，就把整个
+# 960KB 帧缓冲当成一帧返回（fb->len ≈ 1.2MB）。后果是：
+#   - 单帧变成 1MB+，切成 700+ 个 UDP 包，链路直接拥塞
+#   - 帧率从 20fps 暴跌到 0.2~0.5fps，表现为「画面一动就卡住」
+#   - 静止时 JPEG 小于 16KB 反而正常 —— 所以这个 bug 只在复杂画面暴露
+#
+# 实测对照（XGA 1024x768 @25fps）：
+#   PSRAM_DMA=n: 均帧 367KB（范围 44~973KB），0.5fps
+#   VGA 640x480 在 n 下正常（8.9KB < 16KB），正是分界线的证据
+#
+# 代价：多占约 1MB PSRAM（8MB 总量，仍剩约 5.2MB 可用）。必须付。
+#
+# 别因为"960 个节点看起来浪费"就关掉它 —— 那不是浪费，是 DDR 搬运缓冲。
+CONFIG_CAMERA_PSRAM_DMA=y
+
+# LWIP_IP_FRAG / IP_REASSEMBLY 在 lwip/opt.h 里默认已是 1，无需配置；
+# LWIP_SO_SNDBUF 不是 ESP-IDF 的 Kconfig 项，写在这里不生效。
+#
+# 这里曾有一行 CONFIG_LWIP_SO_RCVBUF=y —— 代码里根本没有 setsockopt(SO_RCVBUF)，
+# 纯属无效配置且会额外占内存，已删除。别再加回来，除非真的要用它。

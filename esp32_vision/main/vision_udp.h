@@ -42,6 +42,10 @@
 
 #define VISION_UDP_PORT  8889
 
+/// 图传载荷码率目标（KB/s）。码率控制器据此降质量/降帧率。
+/// 定义为宏放头文件，方便 HTTP /status 一起暴露给前端。
+#define RATE_TARGET_KBPS 400
+
 esp_err_t vision_udp_start(void);
 
 /** 当前是否在推流（心跳日志用） */
@@ -49,3 +53,28 @@ bool vision_udp_streaming(void);
 
 /** 设置推流开关，返回设置前的状态（拍照等操作暂停推流用） */
 bool vision_udp_set_streaming(bool on);
+
+/// 运行统计快照，供 HTTP /status 与 PC 端验收脚本查询。
+typedef struct {
+    uint32_t frames_total;      ///< 累计成功入队帧数
+    uint32_t last_kb;           ///< 最近一帧大小（KB）
+    uint32_t avg_kb;            ///< 最近窗口平均帧大小（KB）
+    uint32_t dropped;           ///< 因发送队列满而丢弃的帧数
+    uint32_t null_frames;       ///< 摄像头取帧失败次数
+    uint32_t queue_depth;       ///< 当前发送队列深度
+    uint32_t adapt_down_count;  ///< 码率控制器累计降级次数（降质或降帧率）
+    uint32_t adapt_up_count;    ///< 码率控制器累计恢复次数
+    uint32_t rate_kbps;         ///< 最近 1 秒实测载荷码率（KB/s）
+    int quality;                ///< 当前 JPEG 质量（6 最佳 ~ 25 最差）
+    int quality_base;           ///< 用户设定/期望的质量，-1 表示尚未推流
+    int fps;                    ///< 当前实际推流帧率
+    int fps_ceiling;            ///< 帧率恢复上限（= 用户设定帧率）
+    int res_idx;                ///< 当前推流分辨率档位（k_cam_res 索引）
+    bool streaming;             ///< 是否正在推流
+} vision_udp_stats_t;
+
+void vision_udp_get_stats(vision_udp_stats_t *out);
+
+/// 清空待发送帧队列，把帧缓冲还给摄像头。
+/// 拍照/切分辨率前必须调用，否则队列里的旧帧会被当成拍照结果。
+void vision_udp_drain_fb_queue(void);

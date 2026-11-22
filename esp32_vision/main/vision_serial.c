@@ -64,14 +64,18 @@ static void vs_snapshot(int res_idx)
         vs_write(k_err_need, strlen(k_err_need));
         return;
     }
-    if (res_idx < 0 || res_idx >= 8) res_idx = 5;
+    if (res_idx < 0 || res_idx >= k_cam_res_count) res_idx = 7;
 
     int saved = cam_get_stream_res();
-    cam_set_stream_res(res_idx);
+    const int actual = cam_set_snapshot_res(res_idx);
+    if (actual < 0) {
+        vs_write(k_err_need, strlen(k_err_need));
+        return;
+    }
     vTaskDelay(pdMS_TO_TICKS(120));
 
     char msg[48];
-    int ml = snprintf(msg, sizeof(msg), "SNAP begin res=%d\n", res_idx);
+    int ml = snprintf(msg, sizeof(msg), "SNAP begin res=%d\n", actual);
     vs_write(msg, ml);
 
     // 切分辨率后传感器PLL重启需几百毫秒，首帧可能取空，加重试
@@ -81,14 +85,16 @@ static void vs_snapshot(int res_idx)
         if (!fb) vTaskDelay(pdMS_TO_TICKS(150));
     }
     if (!fb) {
-        ml = snprintf(msg, sizeof(msg), "SNAP null res=%d\n", res_idx);
+        ml = snprintf(msg, sizeof(msg), "SNAP null res=%d\n", actual);
         vs_write(msg, ml);
         cam_set_stream_res(saved);
         return;
     }
+    // ★ 先存长度再 release：release 后 fb 可能被下一帧复用，读 fb->len 是 UB
+    const uint32_t flen = (uint32_t)fb->len;
     vs_send_frame(0x04, fb);
     cam_release(fb);
-    ml = snprintf(msg, sizeof(msg), "SNAP ok len=%u\n", (unsigned)fb->len);
+    ml = snprintf(msg, sizeof(msg), "SNAP ok len=%u\n", (unsigned)flen);
     vs_write(msg, ml);
     cam_set_stream_res(saved);
 }
