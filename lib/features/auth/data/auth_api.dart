@@ -31,11 +31,11 @@ abstract class AuthApi {
   });
 }
 
-/// 默认后端地址：Android 模拟器用 10.0.2.2 指向电脑本机
-/// 真机调试时用 --dart-define=FORUM_API_BASE=http://电脑局域网IP:3000 覆盖
+/// 默认后端地址：阿里云自有服务器 Node 登录/论坛服务（端口 3000）
+/// 本地调试可覆盖：--dart-define=FORUM_API_BASE=http://电脑局域网IP:3000
 const String defaultForumApiBase = String.fromEnvironment(
   'FORUM_API_BASE',
-  defaultValue: 'http://10.0.2.2:3000',
+  defaultValue: 'http://121.199.75.235:3000',
 );
 
 class DioAuthApi implements AuthApi {

@@ -944,6 +944,16 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.9.0',
+        'date': '2026-11-22',
+        'content': [
+          '新增账号登录：昵称 + 密码注册/登录，登录态保存在本机，重启自动恢复',
+          '「我的」页新增账号入口，显示当前昵称，支持切换账号与退出登录',
+          '新增 Node/SQLite 账号后端（server/），密码使用 scrypt 加盐哈希存储',
+          '修复本地数据库在初始化前调用 remove() 可能导致的空指针异常',
+        ],
+      },
+      {
         'version': 'v3.8.1',
         'date': '2026-11-22',
         'content': [
