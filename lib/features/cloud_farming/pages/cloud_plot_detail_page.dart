@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../models/cloud_models.dart';
 import '../services/cloud_engine.dart';
@@ -458,7 +459,14 @@ class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
         imageQuality: 85,
       );
       if (file == null) return; // 用户取消
-      controller.setPlotPhoto(plotId, file.path);
+      // 相册/相机返回的是缓存文件，复制到 documents 目录避免被系统清理
+      final docs = await getApplicationDocumentsDirectory();
+      final photosDir = Directory('${docs.path}/huhuashizhe_data/photos');
+      await photosDir.create(recursive: true);
+      final saved = '${photosDir.path}/${plotId}_'
+          '${DateTime.now().millisecondsSinceEpoch}.jpg';
+      await file.saveTo(saved);
+      controller.setPlotPhoto(plotId, saved);
       if (!mounted) return;
       setState(() {
         _photo = true;
