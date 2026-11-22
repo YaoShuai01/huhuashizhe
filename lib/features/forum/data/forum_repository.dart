@@ -2,6 +2,16 @@ import 'package:flutter/foundation.dart';
 
 import 'forum_models.dart';
 
+/// 论坛操作失败，[message] 可直接展示给用户
+class ForumException implements Exception {
+  const ForumException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 /// 论坛数据与交互的统一接口。
 ///
 /// 页面只依赖该接口，不关心数据来自内存、本地数据库还是后端。
@@ -22,7 +32,7 @@ abstract class ForumRepository extends ChangeNotifier {
 
   int countOf(String section);
 
-  ForumPost publish({
+  Future<ForumPost> publish({
     required String section,
     required String title,
     required String content,
@@ -34,10 +44,13 @@ abstract class ForumRepository extends ChangeNotifier {
   /// 当前用户是否已给该帖点赞
   bool isLiked(ForumPost post);
 
-  /// 帖子评论（按时间正序）
+  /// 帖子评论（按时间正序，来自本地缓存）
   List<ForumComment> commentsOf(String postId);
 
-  ForumComment addComment({
+  /// 从远端加载某帖的评论，内存实现无需处理
+  Future<void> loadComments(String postId) async {}
+
+  Future<ForumComment> addComment({
     required ForumPost post,
     required String content,
   });
@@ -147,13 +160,33 @@ class InMemoryForumRepository extends ForumRepository {
   int countOf(String section) =>
       _posts.where((p) => p.section == section).length;
 
+  /// 供远端实现读取当前缓存
+  @protected
+  List<ForumPost> get cachedPosts => List.unmodifiable(_posts);
+
+  /// 用远端结果替换帖子缓存
+  @protected
+  void replacePosts(Iterable<ForumPost> posts) {
+    _posts
+      ..clear()
+      ..addAll(posts);
+    notifyListeners();
+  }
+
+  /// 用远端结果替换某帖评论缓存
+  @protected
+  void replaceComments(String postId, Iterable<ForumComment> comments) {
+    _comments[postId] = [...comments];
+    notifyListeners();
+  }
+
   @override
-  ForumPost publish({
+  Future<ForumPost> publish({
     required String section,
     required String title,
     required String content,
     bool pendingReview = false,
-  }) {
+  }) async {
     final post = ForumPost(
       id: 'local_${DateTime.now().microsecondsSinceEpoch}_${_idSeed++}',
       section: section,
@@ -196,10 +229,10 @@ class InMemoryForumRepository extends ForumRepository {
   }
 
   @override
-  ForumComment addComment({
+  Future<ForumComment> addComment({
     required ForumPost post,
     required String content,
-  }) {
+  }) async {
     final comment = ForumComment(
       id: 'comment_${DateTime.now().microsecondsSinceEpoch}_${_idSeed++}',
       postId: post.id,
@@ -407,5 +440,7 @@ class InMemoryForumRepository extends ForumRepository {
   }
 }
 
-/// 默认数据源：App 内直接使用，也可被外部替换
-final ForumRepository defaultForumRepository = InMemoryForumRepository();
+/// 默认数据源：App 内直接使用，也可被外部替换。
+/// 不加载内置示例，论坛初始为空，帖子全部由用户发布。
+final ForumRepository defaultForumRepository =
+    InMemoryForumRepository(seed: false);

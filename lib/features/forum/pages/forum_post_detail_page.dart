@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../../../core/accessibility/elder_care_reader.dart';
 import '../../../core/theme/app_theme.dart';
@@ -49,6 +49,26 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
     super.initState();
     // 以输入框内容为准同步发送按钮状态，语音输入等直接改文本也能发送
     _controller.addListener(_syncCanSend);
+  }
+
+  bool _commentsRequested = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_commentsRequested) return;
+    _commentsRequested = true;
+    _loadComments();
+  }
+
+  /// 打开详情时从服务器拉取该帖评论
+  Future<void> _loadComments() async {
+    final repository = widget.repository ?? ForumScope.of(context);
+    try {
+      await repository.loadComments(widget.post.id);
+    } on ForumException catch (error) {
+      if (mounted) _toast(error.message);
+    }
   }
 
   void _syncCanSend() {
@@ -117,10 +137,15 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
       return;
     }
 
-    repository.addComment(
-      post: widget.post,
-      content: text,
-    );
+    try {
+      await repository.addComment(
+        post: widget.post,
+        content: text,
+      );
+    } on ForumException catch (error) {
+      if (mounted) _toast(error.message);
+      return;
+    }
     _controller.clear();
     _focusNode.unfocus();
     if (result.needsManualReview) {

@@ -152,10 +152,5 @@ INSERT IGNORE INTO app_releases (version_name, version_code, release_notes, down
 
 -- Node 论坛/登录服务演示数据（幂等）
 -- 演示账号：农友小助手，固定登录号 10000001（初始无密码）
-INSERT IGNORE INTO users (login_id, nickname) VALUES ('10000001', '农友小助手');
-
-INSERT INTO posts (user_id, section, title, content)
-SELECT u.id, '农友留言区', '飞防作业时段怎么选', '上午露水大，下午风大，大家一般几点起飞？'
-FROM users u
-LEFT JOIN posts p ON p.title = '飞防作业时段怎么选'
-WHERE u.nickname = '农友小助手' AND p.id IS NULL;
+INSERT INTO users (login_id, nickname) VALUES ('10000001', '农友小助手')
+ON DUPLICATE KEY UPDATE nickname = VALUES(nickname);

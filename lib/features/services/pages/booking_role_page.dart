@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/accessibility/elder_care_reader.dart';
 import '../../../core/theme/app_theme.dart';
+import '../data/booking_role.dart';
 
 /// 预约入口：先选择身份，再进入农户预约或飞手工作台
 class BookingRolePage extends StatelessWidget {
@@ -31,7 +32,10 @@ class BookingRolePage extends StatelessWidget {
             title: '我是农户',
             desc: '预约飞手上门\n喷洒农药',
             color: AppColors.primary,
-            onTap: () => context.push('/services/booking/farmer'),
+            onTap: () {
+              saveBookingRole(bookingRoleFarmer);
+              context.push(bookingRolePath(bookingRoleFarmer));
+            },
           );
           final pilotCard = _roleCard(
             context,
@@ -39,7 +43,10 @@ class BookingRolePage extends StatelessWidget {
             title: '我是飞手',
             desc: '查看附近订单\n接单上门作业',
             color: AppColors.accent,
-            onTap: () => context.push('/services/booking/pilot'),
+            onTap: () {
+              saveBookingRole(bookingRolePilot);
+              context.push(bookingRolePath(bookingRolePilot));
+            },
           );
 
           final cards = Row(

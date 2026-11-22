@@ -347,7 +347,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
   ForumRepository get _repository =>
       widget.repository ?? ForumScope.of(context);
 
-  void _submit() {
+  Future<void> _submit() async {
     final text = _ctrl.text.trim();
     if (text.isEmpty) {
       ScaffoldMessenger.of(context)
@@ -356,11 +356,20 @@ class _FeedbackPageState extends State<FeedbackPage> {
       return;
     }
     final summary = text.length > 20 ? '${text.substring(0, 20)}…' : text;
-    _repository.publish(
-      section: _section,
-      title: '意见反馈：$summary',
-      content: text,
-    );
+    try {
+      await _repository.publish(
+        section: _section,
+        title: '意见反馈：$summary',
+        content: text,
+      );
+    } on ForumException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(error.message)));
+      return;
+    }
+    if (!mounted) return;
     _ctrl.clear();
     FocusScope.of(context).unfocus();
     ScaffoldMessenger.of(context)
@@ -943,6 +952,16 @@ class VersionInfoPage extends ConsumerWidget {
 
   List<Widget> _buildUpdateHistory() {
     final histories = [
+      {
+        'version': 'v3.10.6',
+        'date': '2026-11-22',
+        'content': [
+          '论坛帖子与评论接入服务器，登录用户之间共享内容，启动自动拉取',
+          '登录页默认展示设置密码（注册），登录号可在「我的」页点击复制',
+          '预约飞防记住上次身份，农户/飞手页右上角可随时转换',
+          '农户预约页整体字体放大，更方便中老年用户阅读',
+        ],
+      },
       {
         'version': 'v3.10.5',
         'date': '2026-11-22',
