@@ -944,6 +944,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.10.4',
+        'date': '2026-11-22',
+        'content': [
+          '账号登录默认直连公网服务器（Tomcat /forum 反向代理），任意网络均可登录',
+          '无需再与电脑处于同一 Wi-Fi；本地联调仍可用 --dart-define 覆盖地址',
+          '公网接口已实测：帖子列表 200、登录号鉴权 401 正常',
+        ],
+      },
+      {
         'version': 'v3.10.3',
         'date': '2026-11-22',
         'content': [
