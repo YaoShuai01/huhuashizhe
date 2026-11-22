@@ -23,6 +23,7 @@ class _CloudPlotCreatePageState extends ConsumerState<CloudPlotCreatePage> {
   final List<List<double>> _points = [];
   String _soil = 'loam';
   String _irrigation = 'drip';
+  bool _locating = false;
 
   @override
   void dispose() {
@@ -53,6 +54,22 @@ class _CloudPlotCreatePageState extends ConsumerState<CloudPlotCreatePage> {
       if (_name.text.isEmpty) _name.text = '新田块 ${c.plots.length + 1}';
     });
     _map.move(centroidOf(pts), 17);
+    _toast('已生成示例边界，请拖动或用定位校正');
+  }
+
+  Future<void> _locate() async {
+    if (_locating) return;
+    setState(() => _locating = true);
+    final c = ref.read(cloudFarmProvider);
+    final result = await c.locate();
+    if (!mounted) return;
+    setState(() => _locating = false);
+    if (result.ok) {
+      _map.move(LatLng(c.location.lat, c.location.lng), 16);
+      _toast(result.message ?? '已回到当前位置');
+    } else {
+      _toast(result.message ?? '定位失败，可在农场页手动修改位置');
+    }
   }
 
   void _save() {
@@ -76,15 +93,23 @@ class _CloudPlotCreatePageState extends ConsumerState<CloudPlotCreatePage> {
   @override
   Widget build(BuildContext context) {
     final hasArea = _points.length >= 3;
+    final location = ref.watch(cloudFarmProvider).location;
     return Scaffold(
       appBar: AppBar(
         title: Column(
           mainAxisSize: MainAxisSize.min,
-          children: const [
-            Text('圈地建模'),
-            SizedBox(height: 2),
-            Text('GPS 边界 · 面积与周长自动计算',
-                style: TextStyle(fontSize: 10, color: Colors.white70)),
+          children: [
+            const Text('圈地建模'),
+            const SizedBox(height: 2),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 210),
+              child: Text(
+                _locationStatus(location),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 10, color: Colors.white70),
+              ),
+            ),
           ],
         ),
         actions: [
@@ -106,6 +131,7 @@ class _CloudPlotCreatePageState extends ConsumerState<CloudPlotCreatePage> {
                     plots: ref.watch(cloudFarmProvider).plots,
                     drawPoints: _points,
                     mapController: _map,
+                    center: LatLng(location.lat, location.lng),
                     zoom: 16,
                     onAddPoint: _addPoint,
                   ),
@@ -184,12 +210,9 @@ class _CloudPlotCreatePageState extends ConsumerState<CloudPlotCreatePage> {
                       const SizedBox(width: 6),
                       _toolBtn(
                         icon: Icons.my_location,
-                        label: '定位',
-                        enabled: true,
-                        onTap: () => _map.move(
-                          LatLng(CloudSeed.region.lat, CloudSeed.region.lng),
-                          16,
-                        ),
+                        label: _locating ? '定位中' : '定位',
+                        enabled: !_locating,
+                        onTap: _locate,
                       ),
                     ],
                   ),
@@ -308,6 +331,12 @@ class _CloudPlotCreatePageState extends ConsumerState<CloudPlotCreatePage> {
         ],
       ),
     );
+  }
+
+  String _locationStatus(CloudLocation loc) {
+    if (loc.isSeed) return '未定位 · 示例位置';
+    final name = loc.name.isEmpty ? '未定位' : loc.name;
+    return '$name · ${loc.fromGps ? '已定位' : '手动位置'}';
   }
 
   Widget _toolBtn({

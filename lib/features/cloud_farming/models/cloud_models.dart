@@ -103,6 +103,138 @@ class CloudWeather {
   });
 }
 
+/// 真实预报日（中国天气网），最多保留 4 天用于云种植展示
+class CloudForecastDay {
+  final String label;
+  final String date;
+  final String desc;
+  final int high;
+  final int low;
+  final int rain;
+  final String icon;
+  final String wind;
+
+  const CloudForecastDay({
+    required this.label,
+    required this.date,
+    required this.desc,
+    required this.high,
+    required this.low,
+    required this.rain,
+    this.icon = 'cloud',
+    this.wind = '',
+  });
+
+  Map<String, dynamic> toJson() => {
+        'label': label,
+        'date': date,
+        'desc': desc,
+        'high': high,
+        'low': low,
+        'rain': rain,
+        'icon': icon,
+        'wind': wind,
+      };
+
+  factory CloudForecastDay.fromJson(Map<String, dynamic> json) =>
+      CloudForecastDay(
+        label: '${json['label'] ?? ''}',
+        date: '${json['date'] ?? ''}',
+        desc: '${json['desc'] ?? ''}',
+        high: (json['high'] as num?)?.toInt() ?? 0,
+        low: (json['low'] as num?)?.toInt() ?? 0,
+        rain: (json['rain'] as num?)?.toInt() ?? 0,
+        icon: '${json['icon'] ?? 'cloud'}',
+        wind: '${json['wind'] ?? ''}',
+      );
+}
+
+/// 中国天气网真实天气快照（实况 + 预报），持久化在 CloudState 中
+class CloudWeatherSnapshot {
+  final double temp;
+  final int low;
+  final String desc;
+  final int humidity;
+  final double wind;
+  final String windDir;
+  final int rainProb;
+  final double? rainLast3mm;
+  final List<CloudForecastDay> forecast;
+  final DateTime? updatedAt;
+  final String source;
+  final bool offline;
+
+  const CloudWeatherSnapshot({
+    required this.temp,
+    required this.low,
+    required this.desc,
+    required this.humidity,
+    required this.wind,
+    required this.windDir,
+    required this.rainProb,
+    this.rainLast3mm,
+    this.forecast = const [],
+    this.updatedAt,
+    this.source = '中国天气网',
+    this.offline = false,
+  });
+
+  int? forecastRainAt(int index) =>
+      index >= 0 && index < forecast.length ? forecast[index].rain : null;
+
+  CloudWeatherSnapshot copyWith({bool? offline}) => CloudWeatherSnapshot(
+        temp: temp,
+        low: low,
+        desc: desc,
+        humidity: humidity,
+        wind: wind,
+        windDir: windDir,
+        rainProb: rainProb,
+        rainLast3mm: rainLast3mm,
+        forecast: forecast,
+        updatedAt: updatedAt,
+        source: source,
+        offline: offline ?? this.offline,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'temp': temp,
+        'low': low,
+        'desc': desc,
+        'humidity': humidity,
+        'wind': wind,
+        'windDir': windDir,
+        'rainProb': rainProb,
+        'rainLast3mm': rainLast3mm,
+        'forecast': forecast.map((e) => e.toJson()).toList(),
+        'updatedAt': updatedAt?.toIso8601String(),
+        'source': source,
+        'offline': offline,
+      };
+
+  factory CloudWeatherSnapshot.fromJson(Map<String, dynamic> json) {
+    final rawForecast = (json['forecast'] as List?) ?? const [];
+    return CloudWeatherSnapshot(
+      temp: (json['temp'] as num?)?.toDouble() ?? 0,
+      low: (json['low'] as num?)?.toInt() ?? 0,
+      desc: '${json['desc'] ?? '未知'}',
+      humidity: (json['humidity'] as num?)?.toInt() ?? 0,
+      wind: (json['wind'] as num?)?.toDouble() ?? 0,
+      windDir: '${json['windDir'] ?? '风向未知'}',
+      rainProb: (json['rainProb'] as num?)?.toInt() ?? 0,
+      rainLast3mm: (json['rainLast3mm'] as num?)?.toDouble(),
+      forecast: rawForecast
+          .whereType<Map>()
+          .map((e) =>
+              CloudForecastDay.fromJson(Map<String, dynamic>.from(e)))
+          .toList(),
+      updatedAt: DateTime.tryParse('${json['updatedAt']}'),
+      source: '${json['source'] ?? '中国天气网'}',
+      offline: json['offline'] == true,
+    );
+  }
+}
+
 class SoilInfo {
   final String key;
   final String name;
@@ -221,6 +353,8 @@ class CloudPlot {
   List<PlotLog> logs;
   bool harvested;
   double pctOffset;
+  /// 本机实景照片路径（拍照 / 相册选图后写入，旧数据为 null）
+  String? photoPath;
 
   CloudPlot({
     required this.id,
@@ -242,6 +376,7 @@ class CloudPlot {
     required this.logs,
     this.harvested = false,
     this.pctOffset = 0,
+    this.photoPath,
   });
 
   Map<String, dynamic> toJson() => {
@@ -264,6 +399,7 @@ class CloudPlot {
         'logs': logs.map((e) => e.toJson()).toList(),
         'harvested': harvested,
         'pctOffset': pctOffset,
+        'photoPath': photoPath,
       };
 
   factory CloudPlot.fromJson(Map<String, dynamic> json) {
@@ -292,6 +428,9 @@ class CloudPlot {
           .toList(),
       harvested: json['harvested'] == true,
       pctOffset: (json['pctOffset'] as num?)?.toDouble() ?? 0,
+      photoPath: json['photoPath'] is String
+          ? (json['photoPath'] as String).trim()
+          : null,
     );
   }
 
@@ -351,12 +490,66 @@ class CloudChatMessage {
       );
 }
 
+/// 云种植位置（GPS / 手动 / 示例）
+class CloudLocation {
+  final double lat;
+  final double lng;
+  final String name;
+  final double? accuracy;
+  final String source; // gps / manual / seed
+  final DateTime? updatedAt;
+
+  const CloudLocation({
+    required this.lat,
+    required this.lng,
+    this.name = '',
+    this.accuracy,
+    this.source = 'seed',
+    this.updatedAt,
+  });
+
+  bool get isSeed => source == 'seed';
+
+  bool get isManual => source == 'manual';
+
+  bool get fromGps => source == 'gps';
+
+  Map<String, dynamic> toJson() => {
+        'lat': lat,
+        'lng': lng,
+        'name': name,
+        'accuracy': accuracy,
+        'source': source,
+        'updatedAt': updatedAt?.toIso8601String(),
+      };
+
+  factory CloudLocation.fromJson(Map<String, dynamic> json) => CloudLocation(
+        lat: (json['lat'] as num?)?.toDouble() ?? CloudSeed.region.lat,
+        lng: (json['lng'] as num?)?.toDouble() ?? CloudSeed.region.lng,
+        name: '${json['name'] ?? CloudSeed.region.short}',
+        accuracy: (json['accuracy'] as num?)?.toDouble(),
+        source: '${json['source'] ?? 'seed'}',
+        updatedAt: DateTime.tryParse('${json['updatedAt']}'),
+      );
+
+  /// 无定位数据时的兜底：使用示例区域坐标（精度未知，UI 需标注示例位置）
+  static CloudLocation seed() => CloudLocation(
+        lat: CloudSeed.region.lat,
+        lng: CloudSeed.region.lng,
+        name: CloudSeed.region.short,
+        accuracy: null,
+        source: 'seed',
+      );
+}
+
 class CloudState {
   int version;
   List<CloudPlot> plots;
   CloudSettings settings;
   Map<String, DateTime> snoozed;
   List<CloudChatMessage> chat;
+  CloudLocation location;
+  CloudWeatherSnapshot? weather;
 
   CloudState({
     this.version = 1,
@@ -364,8 +557,11 @@ class CloudState {
     required this.settings,
     Map<String, DateTime>? snoozed,
     List<CloudChatMessage>? chat,
+    CloudLocation? location,
+    this.weather,
   })  : snoozed = snoozed ?? {},
-        chat = chat ?? [];
+        chat = chat ?? [],
+        location = location ?? CloudLocation.seed();
 
   Map<String, dynamic> toJson() => {
         'version': version,
@@ -373,11 +569,15 @@ class CloudState {
         'settings': settings.toJson(),
         'snoozed': snoozed.map((k, v) => MapEntry(k, v.toIso8601String())),
         'chat': chat.map((e) => e.toJson()).toList(),
+        'location': location.toJson(),
+        'weather': weather?.toJson(),
       };
 
   factory CloudState.fromJson(Map<String, dynamic> json) {
     final rawPlots = (json['plots'] as List?) ?? const [];
     final rawSnoozed = (json['snoozed'] as Map?) ?? const {};
+    final rawLocation = json['location'] as Map?;
+    final rawWeather = json['weather'] as Map?;
     return CloudState(
       version: (json['version'] as num?)?.toInt() ?? 1,
       plots: rawPlots
@@ -392,6 +592,13 @@ class CloudState {
       chat: ((json['chat'] as List?) ?? const [])
           .map((e) => CloudChatMessage.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList(),
+      location: rawLocation == null
+          ? CloudLocation.seed()
+          : CloudLocation.fromJson(Map<String, dynamic>.from(rawLocation)),
+      weather: rawWeather == null
+          ? null
+          : CloudWeatherSnapshot.fromJson(
+              Map<String, dynamic>.from(rawWeather)),
     );
   }
 }
@@ -422,6 +629,7 @@ class CloudSeed {
     ),
   );
 
+  /// 仅用于首次无网络时的占位展示，UI 必须明确标注“示例天气”，不得当作实测数据。
   static const CloudWeather weather = CloudWeather(
     temp: 26,
     low: 17,

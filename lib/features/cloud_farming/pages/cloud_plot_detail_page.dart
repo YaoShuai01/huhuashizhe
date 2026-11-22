@@ -1,6 +1,12 @@
+import 'dart:async';
+import 'dart:io';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../models/cloud_models.dart';
 import '../services/cloud_engine.dart';
@@ -19,6 +25,17 @@ class CloudPlotDetailPage extends ConsumerStatefulWidget {
 
 class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
   bool _photo = false;
+  /// 模拟植株叠加比例：0 = 纯照片，100 = 完整模拟层（默认 100% 照片）
+  int _simMix = 0;
+  int? _simDay;
+  bool _playing = false;
+  Timer? _playTimer;
+
+  @override
+  void dispose() {
+    _playTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,11 +47,27 @@ class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
         body: const Center(child: Text('田块不存在')),
       );
     }
-    final g = c.growth(plot);
+    final baseGrowth = c.growth(plot);
     final crop = CloudSeed.cropOf(plot.cropId);
-    final moisture = c.moisture(plot);
-    final advice = c.waterAdvice(plot);
+    final simDay = _simDay;
+    final g = (baseGrowth != null && crop != null && simDay != null)
+        ? _growthAt(plot, crop, simDay)
+        : baseGrowth;
+    final preview =
+        simDay != null && baseGrowth != null && simDay.round() != baseGrowth.day;
+    final moisture = (g != null && preview)
+        ? CloudEngine.moistureFor(
+            soilKey: plot.soil,
+            irrigationKey: plot.irrigation,
+            lastWaterAt: plot.lastWaterAt,
+            stageIdx: g.idx,
+          )
+        : c.moisture(plot);
+    final advice = preview
+        ? CloudEngine.waterAdvice(moisture, c.state.settings.moistureThreshold)
+        : c.waterAdvice(plot);
     final alerts = c.alertsFor(plot.id);
+    final hasPhoto = _hasPhoto(plot);
 
     return Scaffold(
       appBar: AppBar(
@@ -67,18 +100,24 @@ class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
       body: ListView(
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 26),
         children: [
-          _scene(plot, g, crop),
+          _scene(plot, g, crop, preview, hasPhoto),
+          if (_photo) _photoToolbar(plot, hasPhoto),
+          if (_photo && g != null && hasPhoto) _simMixRow(),
+          if (g != null) ...[
+            const SizedBox(height: 10),
+            _timelineCard(plot, g),
+          ],
           const SizedBox(height: 12),
           if (g == null)
-            _emptyPlanting(context, plot)
+            _emptyPlanting(context, plot, c.location)
           else ...[
-            _summaryCard(plot, g),
+            _summaryCard(plot, g, preview),
             const SizedBox(height: 12),
             _metricsGrid(plot, g),
             const SizedBox(height: 12),
-            _moistureCard(c, plot, moisture, advice),
+            _moistureCard(c, plot, moisture, advice, g, preview),
             const SizedBox(height: 12),
-            _modelCard(plot),
+            _modelCard(plot, c.location),
             const SizedBox(height: 14),
             _actions(c, plot),
             if (alerts.isNotEmpty) ...[
@@ -109,7 +148,15 @@ class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
     );
   }
 
-  Widget _scene(CloudPlot plot, GrowthInfo? g, CropInfo? crop) {
+  Widget _scene(
+    CloudPlot plot,
+    GrowthInfo? g,
+    CropInfo? crop,
+    bool preview,
+    bool hasPhoto,
+  ) {
+    final stageIdx = g?.idx ?? 0;
+    final photoPath = plot.photoPath;
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
       child: SizedBox(
@@ -117,10 +164,30 @@ class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
         child: Stack(
           children: [
             Positioned.fill(
-              child: _photo
-                  ? MiniPlotMap(polygon: plot.polygon, zoom: 17)
-                  : CropScene(stageIdx: g?.idx ?? 0, height: 188),
+              child: !_photo
+                  ? CropScene(stageIdx: stageIdx, height: 188)
+                  : hasPhoto
+                      ? Image.file(
+                          File(photoPath!),
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => MiniPlotMap(
+                            polygon: plot.polygon,
+                            zoom: 18,
+                          ),
+                        )
+                      : MiniPlotMap(polygon: plot.polygon, zoom: 18),
             ),
+            if (_photo && hasPhoto && g != null && _simMix > 0)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: Opacity(
+                    opacity: (_simMix / 100).clamp(0.0, 1.0),
+                    child: CustomPaint(
+                      painter: _SceneOverlayPainter(stageIdx: stageIdx),
+                    ),
+                  ),
+                ),
+              ),
             Positioned(
               top: 10,
               left: 10,
@@ -133,19 +200,61 @@ class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(_photo ? Icons.photo_camera_outlined : Icons.animation,
+                    Icon(_photo ? Icons.photo_camera_outlined : Icons.eco,
                         size: 12, color: Colors.white),
                     const SizedBox(width: 4),
                     Text(
-                      _photo
-                          ? '实景卫星影像'
-                          : '动态模拟 · 第 ${g?.day ?? 0} 天',
+                      g == null
+                          ? '尚未选择作物'
+                          : '${g.stage.name}期 · 第 ${g.day} 天',
                       style: const TextStyle(fontSize: 10, color: Colors.white),
                     ),
                   ],
                 ),
               ),
             ),
+            if (_photo)
+              Positioned(
+                left: 10,
+                bottom: 38,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.42),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    !hasPhoto
+                        ? '拍一张田里实景，叠到云田上比对长势'
+                        : _simMix > 0
+                            ? '我的实景照片 · 生长模拟已叠加'
+                            : '我的实景照片 · 拖动滑杆叠加模拟',
+                    style: const TextStyle(fontSize: 9, color: Colors.white),
+                  ),
+                ),
+              ),
+            if (preview)
+              Positioned(
+                right: 10,
+                bottom: 38,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.92),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    '预览 · 第 ${g?.day ?? 0} 天',
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w600,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ),
+              ),
             Positioned(
               top: 8,
               right: 8,
@@ -209,7 +318,517 @@ class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
     );
   }
 
-  Widget _emptyPlanting(BuildContext context, CloudPlot plot) {
+  /// 按指定天数推算阶段 / 进度 / 剩余天数（仅本页预览用）
+  GrowthInfo _growthAt(CloudPlot plot, CropInfo crop, int day) {
+    final d = day.clamp(0, crop.cycle).toInt();
+    var idx = 0;
+    for (var i = 0; i < crop.stages.length; i++) {
+      if (d >= crop.stages[i].s) idx = i;
+    }
+    final stage = crop.stages[idx];
+    final span = math.max(1, stage.e - stage.s);
+    final inner = ((d - stage.s) / span).clamp(0.0, 1.0);
+    final pct = plot.harvested
+        ? 100.0
+        : (stage.sp + (stage.ep - stage.sp) * inner + plot.pctOffset)
+            .clamp(0.0, 100.0);
+    final next = idx + 1 < crop.stages.length ? crop.stages[idx + 1] : null;
+    return GrowthInfo(
+      rawDay: d,
+      day: d,
+      cycle: crop.cycle,
+      idx: idx,
+      stage: stage,
+      stages: crop.stages,
+      crop: crop,
+      pct: pct,
+      next: next,
+      daysLeft: math.max(0, crop.cycle - d),
+      daysToNext: next == null ? 0 : math.max(0, next.s - d),
+      stagePct: (inner * 100).round(),
+    );
+  }
+
+  void _togglePlay(GrowthInfo g) {
+    if (_playing) {
+      _stopPlay();
+      return;
+    }
+    var start = _simDay ?? g.day;
+    if (start >= g.cycle) start = 0;
+    setState(() {
+      _simDay = start;
+      _playing = true;
+    });
+    _playTimer = Timer.periodic(const Duration(milliseconds: 130), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      final current = _simDay ?? 0;
+      if (current >= g.cycle) {
+        _stopPlay();
+        return;
+      }
+      final next = current + 1;
+      setState(() => _simDay = next);
+      if (next >= g.cycle) _stopPlay();
+    });
+  }
+
+  void _stopPlay() {
+    _playTimer?.cancel();
+    _playTimer = null;
+    if (_playing) setState(() => _playing = false);
+  }
+
+  void _resetDay() {
+    _stopPlay();
+    setState(() => _simDay = null);
+    _toast('已回到今天');
+  }
+
+  bool _hasPhoto(CloudPlot plot) {
+    final path = plot.photoPath;
+    if (path == null || path.isEmpty) return false;
+    try {
+      return File(path).existsSync();
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 实景模式下的照片入口：无照片时拍照 / 相册，有照片时更换 / 移除
+  Widget _photoToolbar(CloudPlot plot, bool hasPhoto) {
+    final primary = Theme.of(context).colorScheme.primary;
+    final style = OutlinedButton.styleFrom(
+      minimumSize: const Size(0, 34),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      foregroundColor: primary,
+    );
+    final buttons = hasPhoto
+        ? [
+            OutlinedButton.icon(
+              onPressed: () => _openShot(plot),
+              icon: const Icon(Icons.swap_horiz, size: 15),
+              label: const Text('更换照片', style: TextStyle(fontSize: 11.5)),
+              style: style,
+            ),
+            OutlinedButton.icon(
+              onPressed: () => _removePhoto(plot),
+              icon: const Icon(Icons.delete_outline, size: 15),
+              label: const Text('移除照片', style: TextStyle(fontSize: 11.5)),
+              style: style,
+            ),
+          ]
+        : [
+            OutlinedButton.icon(
+              onPressed: () => _pickPhoto(plot.id, ImageSource.camera),
+              icon: const Icon(Icons.photo_camera_outlined, size: 15),
+              label: const Text('拍照', style: TextStyle(fontSize: 11.5)),
+              style: style,
+            ),
+            OutlinedButton.icon(
+              onPressed: () => _pickPhoto(plot.id, ImageSource.gallery),
+              icon: const Icon(Icons.photo_library_outlined, size: 15),
+              label: const Text('从相册选择', style: TextStyle(fontSize: 11.5)),
+              style: style,
+            ),
+          ];
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        children: [
+          for (var i = 0; i < buttons.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(child: buttons[i]),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Future<void> _pickPhoto(String plotId, ImageSource source) async {
+    final fromCamera = source == ImageSource.camera;
+    final controller = ref.read(cloudFarmProvider);
+    try {
+      final file = await ImagePicker().pickImage(
+        source: source,
+        maxWidth: 1600,
+        imageQuality: 85,
+      );
+      if (file == null) return; // 用户取消
+      controller.setPlotPhoto(plotId, file.path);
+      if (!mounted) return;
+      setState(() {
+        _photo = true;
+        _simMix = 0;
+      });
+      _toast('实景照片已保存，可拖动滑杆叠加模拟');
+    } on PlatformException {
+      _toast(fromCamera ? '未获得相机权限，可改用相册' : '相册暂不可用，请稍后重试');
+    } catch (_) {
+      _toast(fromCamera ? '未获得相机权限，可改用相册' : '照片读取失败，请重试');
+    }
+  }
+
+  void _removePhoto(CloudPlot plot) {
+    ref.read(cloudFarmProvider).setPlotPhoto(plot.id, null);
+    _toast('已移除实景照片');
+  }
+
+  Widget _simMixRow() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(2, 4, 2, 0),
+      child: Row(
+        children: [
+          Text('照片',
+              style: TextStyle(fontSize: 10, color: cloudHint(context))),
+          Expanded(
+            child: SliderTheme(
+              data: SliderTheme.of(context).copyWith(
+                trackHeight: 3,
+                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
+                overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
+              ),
+              child: Slider(
+                value: _simMix.toDouble(),
+                min: 0,
+                max: 100,
+                onChanged: (v) => setState(() => _simMix = v.round()),
+              ),
+            ),
+          ),
+          Text('模拟',
+              style: TextStyle(fontSize: 10, color: cloudHint(context))),
+        ],
+      ),
+    );
+  }
+
+  Widget _timelineCard(CloudPlot plot, GrowthInfo g) {
+    final day = g.day;
+    final cycle = g.cycle;
+    return CloudCard(
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CloudPillButton(
+                text: _playing ? '暂停' : '播放',
+                active: _playing,
+                icon: _playing ? Icons.pause : Icons.play_arrow,
+                onTap: () => _togglePlay(g),
+              ),
+              const SizedBox(width: 10),
+              Text('第 $day 天',
+                  style: const TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w700)),
+              Text(' / 共 $cycle 天',
+                  style: TextStyle(fontSize: 10, color: cloudHint(context))),
+              const Spacer(),
+              CloudPillButton(
+                text: '今天',
+                active: _simDay == null,
+                icon: Icons.today_outlined,
+                onTap: _resetDay,
+              ),
+            ],
+          ),
+          SliderTheme(
+            data: SliderTheme.of(context).copyWith(
+              trackHeight: 4,
+              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+              overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+            ),
+            child: Slider(
+              value: day.toDouble().clamp(0, cycle.toDouble()).toDouble(),
+              min: 0,
+              max: cycle.toDouble(),
+              label: '第 $day 天',
+              onChanged: (v) {
+                _stopPlay();
+                setState(() => _simDay = v.round());
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Row(
+              children: [
+                Text('播种 0 天',
+                    style: TextStyle(fontSize: 9.5, color: cloudHint(context))),
+                const Spacer(),
+                Text('成熟 $cycle 天',
+                    style: TextStyle(fontSize: 9.5, color: cloudHint(context))),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _openCloseup(plot, g),
+                  icon: const Icon(Icons.eco_outlined, size: 15),
+                  label: const Text('幼苗特写', style: TextStyle(fontSize: 11.5)),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 34),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    foregroundColor: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _openShot(plot),
+                  icon: const Icon(Icons.photo_camera_outlined, size: 15),
+                  label: const Text('拍实景', style: TextStyle(fontSize: 11.5)),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size(0, 34),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    foregroundColor: Theme.of(context).colorScheme.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.info_outline, size: 12, color: cloudHint(context)),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  '拖动时间轴可查看任意一天，场景、阶段、进度与墒情按该天重算',
+                  style: TextStyle(
+                      fontSize: 9.5, height: 1.45, color: cloudHint(context)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openShot(CloudPlot plot) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => _Sheet(
+        title: '拍一张田地实景',
+        subtitle: '云田会把发芽、长叶、开花的过程直接叠加到你的照片上',
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: cloudSoft(
+                  Theme.of(ctx).colorScheme.primary, ctx,
+                  light: 0.06, dark: 0.14),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.photo_camera_outlined,
+                    size: 20, color: Theme.of(ctx).colorScheme.primary),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('建议站在田边、顺垄拍摄',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w700)),
+                      SizedBox(height: 3),
+                      Text(
+                        '保持地平线在画面下三分之一，包含天空与土壤，叠加效果更自然。',
+                        style: TextStyle(fontSize: 10.5, height: 1.5),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.info_outline, size: 13, color: cloudHint(ctx)),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  '照片仅保存在本机，不会上传服务器，可随时更换或移除。',
+                  style: TextStyle(
+                      fontSize: 10.5, height: 1.5, color: cloudHint(ctx)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _pickPhoto(plot.id, ImageSource.camera);
+                  },
+                  icon: const Icon(Icons.photo_camera_outlined, size: 16),
+                  label: const Text('拍照', style: TextStyle(fontSize: 12.5)),
+                  style: OutlinedButton.styleFrom(
+                      minimumSize: const Size(0, 40)),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: FilledButton.icon(
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    _pickPhoto(plot.id, ImageSource.gallery);
+                  },
+                  icon: const Icon(Icons.photo_library_outlined, size: 16),
+                  label:
+                      const Text('从相册选择', style: TextStyle(fontSize: 12.5)),
+                  style: FilledButton.styleFrom(
+                      minimumSize: const Size(0, 40)),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _openCloseup(CloudPlot plot, GrowthInfo g) {
+    final early = g.idx <= 2;
+    final crop = g.crop;
+    final labels = early
+        ? const [
+            ('子叶', '供幼苗初期光合，遇光后展开'),
+            ('真叶', '带叶脉，决定后续长势'),
+            ('根', '向下扎根吸收水分'),
+            ('茎', '连接根与叶，逐日增高'),
+          ]
+        : [
+            ('茎', '随生长加粗、拔高'),
+            ('叶片', '叶脉清晰，叶色反映氮素'),
+            (g.idx >= 5 ? '花果' : '新叶', g.idx >= 5 ? '进入生殖生长' : '持续分化'),
+            ('根际', '土壤湿度影响吸收'),
+          ];
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => _Sheet(
+        title: '幼苗特写',
+        subtitle: '${plot.name} · ${crop.name} · ${g.stage.name}期 · 第 ${g.day} 天',
+        children: [
+          AspectRatio(
+            aspectRatio: 4 / 3,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: LayoutBuilder(
+                builder: (ctx, box) => Stack(
+                  children: [
+                    Positioned.fill(
+                      child: CustomPaint(
+                        painter: _CloseupPainter(stageIdx: g.idx),
+                      ),
+                    ),
+                    _closeupLabel(
+                        ctx,
+                        box,
+                        early ? '子叶' : '叶片',
+                        early ? 0.12 : 0.10,
+                        early ? 0.52 : 0.30),
+                    _closeupLabel(
+                        ctx,
+                        box,
+                        early ? '真叶' : (g.idx >= 5 ? '花果' : '新叶'),
+                        early ? 0.62 : 0.64,
+                        early ? 0.44 : 0.18),
+                    _closeupLabel(
+                        ctx, box, '茎', 0.46, early ? 0.68 : 0.52),
+                    _closeupLabel(
+                        ctx, box, early ? '根' : '根际', 0.54, 0.86),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          for (var i = 0; i < labels.length; i += 2)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _closeupNote(ctx, labels[i])),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: i + 1 < labels.length
+                        ? _closeupNote(ctx, labels[i + 1])
+                        : const SizedBox.shrink(),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _closeupLabel(
+      BuildContext ctx, BoxConstraints box, String text, double dx, double dy) {
+    return Positioned(
+      left: box.maxWidth * dx,
+      top: box.maxHeight * dy,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.42),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(text,
+            style: const TextStyle(fontSize: 9, color: Colors.white)),
+      ),
+    );
+  }
+
+  Widget _closeupNote(BuildContext ctx, (String, String) item) {
+    final primary = Theme.of(ctx).colorScheme.primary;
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: cloudSoft(primary, ctx, light: 0.05, dark: 0.12),
+        borderRadius: BorderRadius.circular(9),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(item.$1,
+              style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w700,
+                  color: primary)),
+          const SizedBox(height: 2),
+          Text(item.$2,
+              style: TextStyle(
+                  fontSize: 9.5, height: 1.45, color: cloudSubtle(ctx))),
+        ],
+      ),
+    );
+  }
+
+  Widget _emptyPlanting(
+      BuildContext context, CloudPlot plot, CloudLocation location) {
     return Column(
       children: [
         CloudCard(
@@ -238,14 +857,14 @@ class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
           ),
         ),
         const SizedBox(height: 12),
-        _modelCard(plot),
+        _modelCard(plot, location),
         const SizedBox(height: 12),
         _logs(plot),
       ],
     );
   }
 
-  Widget _summaryCard(CloudPlot plot, GrowthInfo g) {
+  Widget _summaryCard(CloudPlot plot, GrowthInfo g, bool preview) {
     final stage = g.stage;
     return CloudCard(
       child: Column(
@@ -276,7 +895,7 @@ class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '播种 ${CloudEngine.fmtDate(plot.plantedAt ?? DateTime.now())} · 第 ${g.day} 天 / 共 ${g.cycle} 天',
+                      '播种 ${CloudEngine.fmtDate(plot.plantedAt ?? DateTime.now())} · 第 ${g.day} 天 / 共 ${g.cycle} 天${preview ? ' · 预览中' : ''}',
                       style: TextStyle(fontSize: 10.5, color: cloudSubtle(context)),
                     ),
                     const SizedBox(height: 4),
@@ -397,6 +1016,8 @@ class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
     CloudPlot plot,
     MoistureInfo m,
     WaterAdvice advice,
+    GrowthInfo g,
+    bool preview,
   ) {
     final tone = CloudEngine.toneColor(advice.tone);
     return CloudCard(
@@ -411,6 +1032,12 @@ class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
               const Text('墒情推断',
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
               const Spacer(),
+              if (preview) ...[
+                Text('第 ${g.day} 天',
+                    style:
+                        TextStyle(fontSize: 10, color: cloudHint(context))),
+                const SizedBox(width: 8),
+              ],
               CloudTag('AI 模型', color: Theme.of(context).colorScheme.primary),
             ],
           ),
@@ -503,7 +1130,7 @@ class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
     );
   }
 
-  Widget _modelCard(CloudPlot plot) {
+  Widget _modelCard(CloudPlot plot, CloudLocation location) {
     final size = CloudEngine.sizeM(plot.polygon);
     return CloudCard(
       child: Column(
@@ -538,6 +1165,33 @@ class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
           Text(
             '${plot.buildSource} · 土壤 ${CloudSeed.soilOf(plot.soil).name} · ${CloudSeed.irrigationOf(plot.irrigation).name}',
             style: TextStyle(fontSize: 10, color: cloudHint(context)),
+          ),
+          const SizedBox(height: 7),
+          Row(
+            children: [
+              Icon(Icons.place_outlined,
+                  size: 12, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 3),
+              Expanded(
+                child: Text(
+                  location.name.isEmpty ? '位置未设置' : location.name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 10, color: cloudSubtle(context)),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                cloudAccuracyText(location.accuracy),
+                style: TextStyle(fontSize: 9.5, color: cloudHint(context)),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                '${CloudEngine.fmtAgo(plot.lastCalibratedAt)}校准',
+                style: TextStyle(fontSize: 9.5, color: cloudHint(context)),
+              ),
+            ],
           ),
         ],
       ),
@@ -948,4 +1602,272 @@ class _Sheet extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 实景底图上的透明植株层（照片 ↔ 模拟混合）
+class _SceneOverlayPainter extends CustomPainter {
+  final int stageIdx;
+
+  _SceneOverlayPainter({required this.stageIdx});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    for (var i = 0; i < 8; i++) {
+      _paintPlant(
+        canvas,
+        Offset(size.width * (0.04 + i * 0.13), size.height * 0.86),
+        size.height * (0.55 + (i % 3) * 0.025),
+        stageIdx,
+        0,
+      );
+    }
+    for (var i = 0; i < 6; i++) {
+      _paintPlant(
+        canvas,
+        Offset(size.width * (0.10 + i * 0.16), size.height * 0.98),
+        size.height * (0.82 + (i % 2) * 0.05),
+        stageIdx,
+        0,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _SceneOverlayPainter old) =>
+      old.stageIdx != stageIdx;
+}
+
+/// 幼苗特写：单株放大 + 土壤剖面
+class _CloseupPainter extends CustomPainter {
+  final int stageIdx;
+
+  _CloseupPainter({required this.stageIdx});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final soilTop = size.height * 0.80;
+    final skyRect = Rect.fromLTWH(0, 0, size.width, soilTop);
+    canvas.drawRect(
+      skyRect,
+      Paint()
+        ..shader = const LinearGradient(
+          colors: [Color(0xFFEAF6EA), Color(0xFFF7FBF4)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ).createShader(skyRect),
+    );
+
+    final soilRect =
+        Rect.fromLTWH(0, soilTop, size.width, size.height - soilTop);
+    canvas.drawRect(
+      soilRect,
+      Paint()
+        ..shader = const LinearGradient(
+          colors: [Color(0xFF6B4D32), Color(0xFF4A3421)],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ).createShader(soilRect),
+    );
+    final furrow = Paint()
+      ..color = const Color(0xFF3F2E1D).withValues(alpha: 0.30)
+      ..strokeWidth = 1;
+    for (var i = 1; i <= 2; i++) {
+      final y = soilTop + soilRect.height * i / 3;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), furrow);
+    }
+
+    final base = Offset(size.width * 0.5, soilTop + size.height * 0.04);
+    final rootPaint = Paint()
+      ..color = const Color(0xFF8A6A44).withValues(alpha: 0.55)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.1
+      ..strokeCap = StrokeCap.round;
+    for (final dx in [-14.0, -6.0, 6.0, 14.0]) {
+      final path = Path()
+        ..moveTo(base.dx, base.dy)
+        ..quadraticBezierTo(
+          base.dx + dx * 0.6,
+          base.dy + size.height * 0.07,
+          base.dx + dx,
+          base.dy + size.height * 0.12,
+        );
+      canvas.drawPath(path, rootPaint);
+    }
+
+    _paintPlant(canvas, base, size.height * 1.10, stageIdx, 0);
+  }
+
+  @override
+  bool shouldRepaint(covariant _CloseupPainter old) =>
+      old.stageIdx != stageIdx;
+}
+
+void _paintPlant(
+    Canvas canvas, Offset base, double unit, int stageIdx, double sway) {
+  final gold = stageIdx >= 7;
+  final stemColor = gold ? const Color(0xFFB3924F) : const Color(0xFF3F8F3F);
+  final leafColor = gold ? const Color(0xFFC0A052) : const Color(0xFF4C9B45);
+  final leafColor2 = gold ? const Color(0xFFB8974A) : const Color(0xFF5FAE52);
+
+  canvas.save();
+  canvas.translate(base.dx, base.dy);
+  canvas.rotate(sway);
+
+  if (stageIdx <= 0) {
+    canvas.drawOval(
+      Rect.fromCenter(
+          center: const Offset(0, -1.5),
+          width: unit * 0.11,
+          height: unit * 0.06),
+      Paint()..color = const Color(0xFF6B4D32),
+    );
+    canvas.drawPath(
+      Path()
+        ..moveTo(0, -3)
+        ..quadraticBezierTo(
+            unit * 0.02, -unit * 0.10, unit * 0.10, -unit * 0.14),
+      Paint()
+        ..color = const Color(0xFF8BC34A)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.3
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawOval(
+      Rect.fromCenter(
+          center: Offset(unit * 0.11, -unit * 0.15),
+          width: unit * 0.09,
+          height: unit * 0.05),
+      Paint()..color = const Color(0xFFA5D16A),
+    );
+  } else {
+    final stemHeight = stageIdx == 1
+        ? unit * 0.10
+        : stageIdx == 2
+            ? unit * 0.22
+            : stageIdx == 3
+                ? unit * 0.10
+                : stageIdx == 4
+                    ? unit * 0.52
+                    : unit * 0.62;
+    if (stageIdx != 3) {
+      canvas.drawLine(
+        Offset.zero,
+        Offset(0, -stemHeight),
+        Paint()
+          ..color = stemColor
+          ..strokeWidth = 2.2
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+    if (stageIdx == 1 || stageIdx == 2) {
+      _paintLeaf(canvas, Offset(0, -stemHeight * 0.9), -0.8, unit * 0.16,
+          leafColor);
+      _paintLeaf(canvas, Offset(0, -stemHeight * 0.9), 0.8, unit * 0.16,
+          leafColor2);
+      if (stageIdx == 2) {
+        _paintLeaf(canvas, Offset(0, -stemHeight * 0.6), -0.35, unit * 0.13,
+            leafColor2);
+        _paintLeaf(canvas, Offset(0, -stemHeight * 0.6), 0.35, unit * 0.13,
+            leafColor);
+      }
+    } else if (stageIdx == 3) {
+      for (final a in [-1.2, -0.6, 0.0, 0.6, 1.2]) {
+        _paintLeaf(
+          canvas,
+          const Offset(0, -2),
+          a,
+          unit * (a.abs() > 1 ? 0.20 : 0.25),
+          a == 0 ? leafColor2 : leafColor,
+        );
+      }
+    } else {
+      _paintLeaf(canvas, Offset(0, -stemHeight * 0.25), -1.05, unit * 0.2,
+          leafColor);
+      _paintLeaf(canvas, Offset(0, -stemHeight * 0.5), 0.95, unit * 0.17,
+          leafColor2);
+      _paintLeaf(canvas, Offset(0, -stemHeight * 0.72), -0.8, unit * 0.13,
+          leafColor);
+      if (stageIdx == 4) {
+        final budPaint = Paint()..color = const Color(0xFF8ECF72);
+        canvas.drawOval(
+          Rect.fromCenter(
+              center: Offset(-unit * 0.03, -stemHeight - unit * 0.02),
+              width: unit * 0.06,
+              height: unit * 0.09),
+          budPaint,
+        );
+        canvas.drawOval(
+          Rect.fromCenter(
+              center: Offset(unit * 0.02, -stemHeight - unit * 0.04),
+              width: unit * 0.055,
+              height: unit * 0.08),
+          budPaint,
+        );
+      } else if (stageIdx == 5) {
+        _paintFlower(canvas, Offset(-unit * 0.09, -stemHeight * 0.95),
+            unit * 0.055);
+        _paintFlower(canvas, Offset(unit * 0.08, -stemHeight * 1.05),
+            unit * 0.05);
+        _paintFlower(canvas, Offset(0, -stemHeight * 1.15), unit * 0.045);
+      } else if (stageIdx >= 6) {
+        final podColor =
+            stageIdx >= 7 ? const Color(0xFFB3924F) : const Color(0xFF8BC34A);
+        _paintPod(canvas, Offset(-unit * 0.05, -stemHeight * 0.85), -0.4,
+            unit * 0.24, podColor);
+        _paintPod(canvas, Offset(unit * 0.05, -stemHeight * 0.98), 0.35,
+            unit * 0.26, podColor);
+        _paintPod(canvas, Offset(-unit * 0.03, -stemHeight * 1.08), -0.3,
+            unit * 0.23, podColor);
+      }
+    }
+  }
+  canvas.restore();
+}
+
+void _paintLeaf(
+    Canvas canvas, Offset origin, double angle, double length, Color color) {
+  canvas.save();
+  canvas.translate(origin.dx, origin.dy);
+  canvas.rotate(angle);
+  final w = length * 0.46;
+  final path = Path()
+    ..moveTo(0, 0)
+    ..cubicTo(-w, -length * 0.28, -w, -length * 0.92, 0, -length)
+    ..cubicTo(w, -length * 0.92, w, -length * 0.28, 0, 0)
+    ..close();
+  canvas.drawPath(path, Paint()..color = color);
+  canvas.restore();
+}
+
+void _paintFlower(Canvas canvas, Offset center, double radius) {
+  canvas.save();
+  canvas.translate(center.dx, center.dy);
+  final petal = Paint()..color = const Color(0xFFFDD835).withValues(alpha: 0.96);
+  for (var i = 0; i < 5; i++) {
+    final angle = i * 72 * math.pi / 180;
+    canvas.drawCircle(
+      Offset(math.sin(angle) * radius, -math.cos(angle) * radius),
+      radius * 0.62,
+      petal,
+    );
+  }
+  canvas.drawCircle(
+      Offset.zero, radius * 0.4, Paint()..color = const Color(0xFFF7A600));
+  canvas.restore();
+}
+
+void _paintPod(
+    Canvas canvas, Offset center, double angle, double length, Color color) {
+  canvas.save();
+  canvas.translate(center.dx, center.dy);
+  canvas.rotate(angle);
+  canvas.drawOval(
+    Rect.fromCenter(
+      center: Offset(0, -length / 2),
+      width: length * 0.30,
+      height: length,
+    ),
+    Paint()..color = color,
+  );
+  canvas.restore();
 }

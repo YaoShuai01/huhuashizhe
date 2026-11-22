@@ -1,25 +1,193 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/local_database.dart';
+import '../../../services/gps_location_service.dart';
 import '../models/cloud_models.dart';
 import 'cloud_engine.dart';
+import 'cloud_weather_service.dart';
+
+/// 定位结果（失败时给出可展示的原因）
+class CloudLocateResult {
+  final bool ok;
+  final String? message;
+
+  const CloudLocateResult._(this.ok, this.message);
+
+  const CloudLocateResult.success([String? message]) : this._(true, message);
+
+  const CloudLocateResult.failure(String message) : this._(false, message);
+}
 
 /// 云种植状态管理（本地持久化 key: cloud_farm_v1）
 class CloudFarmController extends ChangeNotifier {
   static const String storageKey = 'cloud_farm_v1';
+  static const String guideSeenKey = 'cloud_farm_guide_seen_v1';
 
   late CloudState state;
   final LocalDatabase _db = LocalDatabase();
+  final CloudWeatherService _weatherService = CloudWeatherService();
 
   CloudFarmController() {
     _load();
+    if (!state.location.isSeed) {
+      unawaited(refreshWeather());
+    }
   }
 
   bool _loaded = false;
   bool get loaded => _loaded;
+
+  bool _locating = false;
+  bool get locating => _locating;
+
+  bool _refreshingWeather = false;
+  bool get refreshingWeather => _refreshingWeather;
+
+  String? _lastLocateError;
+  String? get lastLocateError => _lastLocateError;
+
+  String? _weatherError;
+  String? get weatherError => _weatherError;
+
+  CloudLocation get location => state.location;
+
+  CloudWeatherSnapshot? get weather => state.weather;
+
+  bool get guideSeen => _db.getBool(guideSeenKey);
+
+  void markGuideSeen() {
+    if (!guideSeen) _db.setBool(guideSeenKey, true);
+  }
+
+  /// 重新获取 GPS 定位并反查地名，失败时返回可展示的原因
+  Future<CloudLocateResult> locate() async {
+    if (_locating) {
+      return const CloudLocateResult.failure('定位进行中，请稍候');
+    }
+    _locating = true;
+    _lastLocateError = null;
+    notifyListeners();
+    try {
+      GpsLocation? gps;
+      try {
+        gps = await GpsLocationService.getCurrentLocation()
+            .timeout(const Duration(seconds: 15));
+      } on TimeoutException {
+        return _failLocate('定位超时，请到空旷处重试或手动修改位置');
+      } catch (e) {
+        debugPrint('cloud farm locate failed: $e');
+        return _failLocate('定位不可用，请检查定位权限与 GPS 是否开启');
+      }
+      if (gps == null || gps.lat == 0 || gps.lng == 0) {
+        return _failLocate('未获取到定位，请确认已开启定位权限与 GPS');
+      }
+      String? geo;
+      try {
+        geo = await GpsLocationService.reverseGeocode(gps.lat, gps.lng)
+            .timeout(const Duration(seconds: 8));
+      } catch (_) {
+        geo = null;
+      }
+      final name = (geo != null && geo.trim().isNotEmpty)
+          ? geo.trim()
+          : '已定位（${gps.lat.toStringAsFixed(4)}, ${gps.lng.toStringAsFixed(4)}）';
+      state.location = CloudLocation(
+        lat: gps.lat,
+        lng: gps.lng,
+        name: name,
+        accuracy: gps.accuracy > 0 ? gps.accuracy : null,
+        source: 'gps',
+        updatedAt: DateTime.now(),
+      );
+      _save();
+      unawaited(refreshWeather());
+      return CloudLocateResult.success('已定位：$name');
+    } finally {
+      _locating = false;
+      notifyListeners();
+    }
+  }
+
+  CloudLocateResult _failLocate(String message) {
+    _lastLocateError = message;
+    return CloudLocateResult.failure(message);
+  }
+
+  /// 手动修改位置（经纬度 + 可选名称）
+  void setManualLocation({
+    required double lat,
+    required double lng,
+    String? name,
+  }) {
+    final custom = (name ?? '').trim();
+    state.location = CloudLocation(
+      lat: lat,
+      lng: lng,
+      name: custom.isEmpty
+          ? '手动位置（${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}）'
+          : custom,
+      accuracy: null,
+      source: 'manual',
+      updatedAt: DateTime.now(),
+    );
+    _lastLocateError = null;
+    _save();
+    notifyListeners();
+    unawaited(refreshWeather());
+  }
+
+  /// 刷新真实天气（中国天气网实况 + 预报）
+  /// 失败时保留上一份快照并标记 offline，不生成任何假预报。
+  Future<bool> refreshWeather() async {
+    if (_refreshingWeather) return false;
+    final loc = state.location;
+    if (loc.isSeed) {
+      _weatherError = '未定位，天气暂不可用';
+      notifyListeners();
+      return false;
+    }
+
+    _refreshingWeather = true;
+    _weatherError = null;
+    notifyListeners();
+    try {
+      final result = await _weatherService.fetch(
+        lat: loc.lat,
+        lng: loc.lng,
+        locationName: loc.name,
+      );
+      final snapshot = result.snapshot;
+      if (snapshot != null) {
+        state.weather = snapshot;
+        _weatherError = null;
+        _save();
+        return true;
+      }
+      _weatherError = result.error ?? '天气获取失败，请检查网络';
+      final previous = state.weather;
+      if (previous != null) {
+        state.weather = previous.copyWith(offline: true);
+        _save();
+      }
+      return false;
+    } catch (e) {
+      debugPrint('cloud weather refresh failed: $e');
+      _weatherError = '天气获取失败，请检查网络';
+      final previous = state.weather;
+      if (previous != null) {
+        state.weather = previous.copyWith(offline: true);
+        _save();
+      }
+      return false;
+    } finally {
+      _refreshingWeather = false;
+      notifyListeners();
+    }
+  }
 
   void _load() {
     try {
@@ -57,8 +225,9 @@ class CloudFarmController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 下拉刷新：按当前时间重新计算墒情与长势
-  void refresh() {
+  /// 下拉刷新：重新获取真实天气并按当前时间重算墒情与长势
+  Future<void> refresh() async {
+    await refreshWeather();
     notifyListeners();
   }
 
@@ -76,7 +245,8 @@ class CloudFarmController extends ChangeNotifier {
   GrowthInfo? growth(CloudPlot? plot) =>
       plot == null ? null : CloudEngine.growth(plot);
 
-  MoistureInfo moisture(CloudPlot plot) => CloudEngine.moisture(plot);
+  MoistureInfo moisture(CloudPlot plot) =>
+      CloudEngine.moisture(plot, weather: state.weather);
 
   WaterAdvice waterAdvice(CloudPlot plot) =>
       CloudEngine.waterAdvice(moisture(plot), state.settings.moistureThreshold);
@@ -245,6 +415,17 @@ class CloudFarmController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 保存 / 移除田块实景照片（只记录本机路径，不上传）
+  void setPlotPhoto(String plotId, String? path) {
+    final plot = plotById(plotId);
+    if (plot == null) return;
+    final trimmed = path?.trim();
+    plot.photoPath =
+        (trimmed == null || trimmed.isEmpty) ? null : trimmed;
+    _save();
+    notifyListeners();
+  }
+
   void calibrate(CloudPlot plot, int value) {
     final now = DateTime.now();
     plot
@@ -345,8 +526,10 @@ class CloudFarmController extends ChangeNotifier {
   String greetingText() {
     final planted = plantedPlots;
     final al = alerts;
+    final humidity = state.weather?.humidity;
     return '你好，我是云种植 AI 助手。已接入 GPS 天气、田块边界、墒情模型与农事记录。\n'
-        '在线田块 ${planted.length} 块 · 待办提醒 ${al.length} 项 · 空气湿度 ${CloudSeed.weather.humidity}%\n'
+        '在线田块 ${planted.length} 块 · 待办提醒 ${al.length} 项 · '
+        '${humidity == null ? '真实天气暂未获取' : '空气湿度 $humidity%'}\n'
         '可以问我：今天要不要浇水、什么时候施肥、作物长到哪个阶段。\n'
         '所有回答基于当前数据实时计算。';
   }
@@ -375,8 +558,9 @@ class CloudFarmController extends ChangeNotifier {
     if (RegExp('提醒|待办|要做|农事').hasMatch(text)) return _replyAlerts();
     if (RegExp('种什么|作物|推荐|几熟|轮作|品种').hasMatch(text)) return _replyCrops();
     if (RegExp('异地|远程|查看|巡田|无人机|摄像头').hasMatch(text)) return _replyRemote();
+    final humidity = state.weather?.humidity;
     return '我可以结合当前数据回答农事问题。目前有 ${state.plots.length} 块田、${alerts.length} 项待办，'
-        '空气湿度 ${CloudSeed.weather.humidity}%。\n'
+        '${humidity == null ? '真实天气暂未获取' : '空气湿度 $humidity%'}。\n'
         '试试问我：今天要浇水吗？什么时候施肥？作物长到哪个阶段？';
   }
 
@@ -416,9 +600,10 @@ class CloudFarmController extends ChangeNotifier {
     final g = growth(target)!;
     final plan = _fertPlan(g.idx);
     final days = CloudEngine.daysBetween(target.lastFertAt, DateTime.now()).floor();
+    final rain48 = state.weather?.forecastRainAt(2);
     return '「${target.name}」处于${g.stage.name}期（第 ${g.day} 天），距上次施肥 $days 天。\n'
         '建议${plan.$1}：${plan.$2}。${plan.$3}。\n'
-        '未来 48h 降水概率 ${CloudSeed.weather.forecast[2].rain}%，建议雨前 1 天或雨后抢晴施用。';
+        '${rain48 == null ? '暂未获取到未来 48 小时预报，建议结合当地天气安排施肥。' : '未来 48h 降水概率 $rain48%，建议雨前 1 天或雨后抢晴施用。'}';
   }
 
   (String, String, String) _fertPlan(int idx) {
@@ -429,11 +614,24 @@ class CloudFarmController extends ChangeNotifier {
   }
 
   String _replyWeather() {
-    final w = CloudSeed.weather;
+    final w = state.weather;
+    if (w == null) {
+      return '暂未获取到真实天气数据。请确认已定位并联网，然后在农场页下拉刷新。';
+    }
     final f = w.forecast;
-    return '${CloudSeed.region.short} 当前 ${w.temp}℃，${w.desc}，空气湿度 ${w.humidity}%，${w.windDir} ${w.wind}m/s。\n'
-        '明天降水 ${f[1].rain}% · 后天降水 ${f[2].rain}% · 周五降水 ${f[3].rain}%\n'
-        '${f[2].rain >= 60 ? '48 小时内降雨概率较高，建议暂缓灌溉；追肥抢在雨前完成，雨后及时复测墒情。' : '近期降水偏少，可按阶段需水小水勤浇，优先傍晚作业。'}';
+    final rain48 = w.forecastRainAt(2);
+    final forecastText = f.length >= 2
+        ? '${f[1].label}降水 ${f[1].rain}%${f.length >= 3 ? ' · ${f[2].label}降水 ${f[2].rain}%' : ''}'
+        : '暂无逐日预报数据';
+    final advice = rain48 == null
+        ? '暂未获取到 48 小时预报，建议结合当地实况安排灌溉与施肥。'
+        : (rain48 >= 60
+            ? '48 小时内降雨概率较高，建议暂缓灌溉；追肥抢在雨前完成，雨后及时复测墒情。'
+            : '近期降水偏少，可按阶段需水小水勤浇，优先傍晚作业。');
+    return '${location.name.isEmpty ? '当前位置' : location.name} 当前 ${w.temp.round()}℃，${w.desc}，'
+        '空气湿度 ${w.humidity}%，${w.windDir} ${w.wind}m/s。\n'
+        '$forecastText\n'
+        '$advice';
   }
 
   String _replyGrowth() {
