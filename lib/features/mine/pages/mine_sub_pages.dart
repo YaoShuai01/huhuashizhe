@@ -944,6 +944,16 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.10.3',
+        'date': '2026-11-22',
+        'content': [
+          '云田地图新增道路/地名注记层，与卫星图叠加显示',
+          '新建田块支持按住边界顶点拖动微调，面积周长实时更新',
+          '云田详情支持实景照片与生长阶段叠加查看',
+          '补齐 WGS-84 → GCJ-02 坐标转换，定位与地图标记更准确',
+        ],
+      },
+      {
         'version': 'v3.10.2',
         'date': '2026-11-22',
         'content': [

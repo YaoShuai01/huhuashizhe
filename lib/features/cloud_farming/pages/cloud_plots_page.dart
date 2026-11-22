@@ -25,6 +25,8 @@ class _CloudPlotsTabState extends ConsumerState<CloudPlotsTab> {
 
   String? _selectedId;
   bool _legend = true;
+  bool _showAnnotations = true;
+  bool _layerPanel = false;
   bool _mapReady = false;
   bool _locating = false;
   String _plotSignature = '';
@@ -47,7 +49,7 @@ class _CloudPlotsTabState extends ConsumerState<CloudPlotsTab> {
     final points = <LatLng>[];
     for (final plot in plots) {
       if (plot.polygon.length >= 3) {
-        points.addAll(latLngsOf(plot.polygon));
+        points.addAll(displayLatLngsOf(plot.polygon));
       }
     }
     return points;
@@ -75,7 +77,7 @@ class _CloudPlotsTabState extends ConsumerState<CloudPlotsTab> {
     setState(() => _selectedId = plot.id);
     if (!_mapReady || plot.polygon.length < 3) return;
     _map.fitCamera(CameraFit.coordinates(
-      coordinates: latLngsOf(plot.polygon),
+      coordinates: displayLatLngsOf(plot.polygon),
       padding: const EdgeInsets.all(48),
       maxZoom: 18,
     ));
@@ -227,6 +229,7 @@ class _CloudPlotsTabState extends ConsumerState<CloudPlotsTab> {
               onMapReady: _handleMapReady,
               onZoomChanged: (zoom) => _zoom.value = zoom,
               onSelectPlot: (id) => setState(() => _selectedId = id),
+              showLabels: _showAnnotations,
             ),
           ),
           Positioned(
@@ -272,6 +275,12 @@ class _CloudPlotsTabState extends ConsumerState<CloudPlotsTab> {
                     _legendRow(const Color(0xFFFFD166), '当前选中'),
                     const SizedBox(height: 4),
                     _legendRow(const Color(0xFF9E9E9E), '待种植'),
+                    if (_showAnnotations) ...[
+                      const SizedBox(height: 4),
+                      const Text('含道路与地名注记',
+                          style:
+                              TextStyle(fontSize: 9, color: Colors.white70)),
+                    ],
                   ],
                 ),
               ),
@@ -285,6 +294,13 @@ class _CloudPlotsTabState extends ConsumerState<CloudPlotsTab> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  if (_layerPanel) ...[
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: _layerPanelWidget(),
+                    ),
+                    const SizedBox(height: 8),
+                  ],
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
@@ -415,8 +431,8 @@ class _CloudPlotsTabState extends ConsumerState<CloudPlotsTab> {
           _controlButton(
             icon: Icons.layers_outlined,
             tooltip: '图层',
-            active: _legend,
-            onTap: () => setState(() => _legend = !_legend),
+            active: _layerPanel,
+            onTap: () => setState(() => _layerPanel = !_layerPanel),
           ),
           _controlDivider(),
           _controlButton(
@@ -431,6 +447,80 @@ class _CloudPlotsTabState extends ConsumerState<CloudPlotsTab> {
             onTap: () => _zoomBy(-1),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _layerPanelWidget() {
+    return Material(
+      color: Colors.black.withValues(alpha: 0.72),
+      borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '地图图层',
+              style: TextStyle(
+                  fontSize: 9.5,
+                  color: Colors.white70,
+                  fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 4),
+            _layerToggleRow(
+              label: '地点注记',
+              value: _showAnnotations,
+              onTap: () =>
+                  setState(() => _showAnnotations = !_showAnnotations),
+            ),
+            const SizedBox(height: 2),
+            _layerToggleRow(
+              label: '图例',
+              value: _legend,
+              onTap: () => setState(() => _legend = !_legend),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _layerToggleRow({
+    required String label,
+    required bool value,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 15,
+              height: 15,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: value ? const Color(0xFF2E7D32) : Colors.transparent,
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(
+                  color: value ? const Color(0xFF9BE7A4) : Colors.white54,
+                  width: 1.2,
+                ),
+              ),
+              child: value
+                  ? const Icon(Icons.check, size: 11, color: Colors.white)
+                  : null,
+            ),
+            const SizedBox(width: 7),
+            Text(label,
+                style: const TextStyle(fontSize: 10.5, color: Colors.white)),
+          ],
+        ),
       ),
     );
   }

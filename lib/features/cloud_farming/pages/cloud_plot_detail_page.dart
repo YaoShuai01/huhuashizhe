@@ -26,8 +26,8 @@ class CloudPlotDetailPage extends ConsumerStatefulWidget {
 
 class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
   bool _photo = false;
-  /// 模拟植株叠加比例：0 = 纯照片，100 = 完整模拟层（默认 100% 照片）
-  int _simMix = 0;
+  /// 模拟植株叠加比例：0 = 纯照片，100 = 完整模拟层（默认 42%，打开即可见生长层）
+  int _simMix = 42;
   int? _simDay;
   bool _playing = false;
   Timer? _playTimer;
@@ -113,7 +113,7 @@ class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
         children: [
           _scene(plot, g, crop, preview, hasPhoto),
           if (_photo) _photoToolbar(plot, hasPhoto),
-          if (_photo && g != null && hasPhoto) _simMixRow(),
+          if (_photo && g != null) _simMixRow(),
           if (g != null) ...[
             const SizedBox(height: 10),
             _timelineCard(plot, g),
@@ -167,6 +167,9 @@ class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
     bool hasPhoto,
   ) {
     final stageIdx = g?.idx ?? 0;
+    // 当前阶段对应的植株形态 + 阶段内进度（让叠层随日期逐日生长）
+    final form = g == null ? 0 : _growthForm(g.stage.name);
+    final inner = ((g?.stagePct ?? 0) / 100).clamp(0.0, 1.0);
     final photoPath = plot.photoPath;
     return ClipRRect(
       borderRadius: BorderRadius.circular(16),
@@ -188,13 +191,16 @@ class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
                         )
                       : MiniPlotMap(polygon: plot.polygon, zoom: 18),
             ),
-            if (_photo && hasPhoto && g != null && _simMix > 0)
+            if (_photo && g != null && _simMix > 0)
               Positioned.fill(
                 child: IgnorePointer(
                   child: Opacity(
                     opacity: (_simMix / 100).clamp(0.0, 1.0),
                     child: CustomPaint(
-                      painter: _SceneOverlayPainter(stageIdx: stageIdx),
+                      painter: _SceneOverlayPainter(
+                        stageIdx: form,
+                        inner: inner,
+                      ),
                     ),
                   ),
                 ),
@@ -202,25 +208,37 @@ class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
             Positioned(
               top: 10,
               left: 10,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.45),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(_photo ? Icons.photo_camera_outlined : Icons.eco,
-                        size: 12, color: Colors.white),
-                    const SizedBox(width: 4),
-                    Text(
-                      g == null
-                          ? '尚未选择作物'
-                          : '${g.stage.name}期 · 第 ${g.day} 天',
-                      style: const TextStyle(fontSize: 10, color: Colors.white),
-                    ),
-                  ],
+              right: 118,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: 0.45),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(_photo ? Icons.layers_outlined : Icons.eco,
+                          size: 12, color: Colors.white),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          g == null
+                              ? '尚未选择作物'
+                              : _photo
+                                  ? '实景叠加 · 模拟${g.stage.name}期 · 第 ${g.day} 天'
+                                  : '${g.stage.name}期 · 第 ${g.day} 天',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              const TextStyle(fontSize: 10, color: Colors.white),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -237,7 +255,9 @@ class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
                   ),
                   child: Text(
                     !hasPhoto
-                        ? '拍一张田里实景，叠到云田上比对长势'
+                        ? (_simMix > 0
+                            ? '卫星底图 · 已叠加生长模拟，拍实景更直观'
+                            : '卫星底图 · 拍照后在实景上叠加模拟')
                         : _simMix > 0
                             ? '我的实景照片 · 生长模拟已叠加'
                             : '我的实景照片 · 拖动滑杆叠加模拟',
@@ -245,7 +265,7 @@ class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
                   ),
                 ),
               ),
-            if (preview)
+            if (preview || (_photo && g != null))
               Positioned(
                 right: 10,
                 bottom: 38,
@@ -257,7 +277,9 @@ class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
-                    '预览 · 第 ${g?.day ?? 0} 天',
+                    preview
+                        ? '预览 · 第 ${g?.day ?? 0} 天'
+                        : '生长 ${g?.pct.round() ?? 0}%',
                     style: TextStyle(
                       fontSize: 9,
                       fontWeight: FontWeight.w600,
@@ -480,9 +502,9 @@ class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
       if (!mounted) return;
       setState(() {
         _photo = true;
-        _simMix = 0;
+        if (_simMix == 0) _simMix = 42; // 拍完即可见模拟叠加
       });
-      _toast('实景照片已保存，可拖动滑杆叠加模拟');
+      _toast('实景照片已保存，已叠加生长模拟，可拖动滑杆调节');
     } on PlatformException {
       _toast(fromCamera ? '未获得相机权限，可改用相册' : '相册暂不可用，请稍后重试');
     } catch (_) {
@@ -563,28 +585,51 @@ class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
 
   Widget _simMixRow() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(2, 4, 2, 0),
-      child: Row(
+      padding: const EdgeInsets.fromLTRB(2, 6, 2, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('照片',
-              style: TextStyle(fontSize: 10, color: cloudHint(context))),
-          Expanded(
-            child: SliderTheme(
-              data: SliderTheme.of(context).copyWith(
-                trackHeight: 3,
-                thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
-                overlayShape: const RoundSliderOverlayShape(overlayRadius: 12),
-              ),
-              child: Slider(
-                value: _simMix.toDouble(),
-                min: 0,
-                max: 100,
-                onChanged: (v) => setState(() => _simMix = v.round()),
-              ),
+          Row(
+            children: [
+              Icon(Icons.layers_outlined,
+                  size: 13, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 4),
+              const Text('照片 ←→ 模拟',
+                  style:
+                      TextStyle(fontSize: 10.5, fontWeight: FontWeight.w600)),
+              const Spacer(),
+              Text('叠加 $_simMix%',
+                  style: TextStyle(fontSize: 10, color: cloudHint(context))),
+            ],
+          ),
+          SizedBox(
+            height: 26,
+            child: Row(
+              children: [
+                Text('照片',
+                    style: TextStyle(fontSize: 10, color: cloudHint(context))),
+                Expanded(
+                  child: SliderTheme(
+                    data: SliderTheme.of(context).copyWith(
+                      trackHeight: 3,
+                      thumbShape:
+                          const RoundSliderThumbShape(enabledThumbRadius: 7),
+                      overlayShape:
+                          const RoundSliderOverlayShape(overlayRadius: 12),
+                    ),
+                    child: Slider(
+                      value: _simMix.toDouble(),
+                      min: 0,
+                      max: 100,
+                      onChanged: (v) => setState(() => _simMix = v.round()),
+                    ),
+                  ),
+                ),
+                Text('模拟',
+                    style: TextStyle(fontSize: 10, color: cloudHint(context))),
+              ],
             ),
           ),
-          Text('模拟',
-              style: TextStyle(fontSize: 10, color: cloudHint(context))),
         ],
       ),
     );
@@ -1688,37 +1733,82 @@ class _Sheet extends StatelessWidget {
   }
 }
 
+/// 把作物阶段名称映射到植株绘制形态（0 播种/发芽 … 7 成熟）
+int _growthForm(String stageName) {
+  if (stageName.contains('播种') || stageName.contains('发芽')) return 0;
+  if (stageName.contains('出苗')) return 1;
+  if (stageName.contains('幼苗')) return 2;
+  if (stageName.contains('莲座') ||
+      stageName.contains('分蘖') ||
+      stageName.contains('分枝')) {
+    return 3;
+  }
+  if (stageName.contains('拔节') ||
+      stageName.contains('蕾薹') ||
+      stageName.contains('抽雄') ||
+      stageName.contains('抽穗')) {
+    return 4;
+  }
+  if (stageName.contains('开花') || stageName.contains('吐丝')) return 5;
+  if (stageName.contains('结荚') ||
+      stageName.contains('灌浆') ||
+      stageName.contains('鼓粒')) {
+    return 6;
+  }
+  if (stageName.contains('成熟')) return 7;
+  return 2;
+}
+
 /// 实景底图上的透明植株层（照片 ↔ 模拟混合）
 class _SceneOverlayPainter extends CustomPainter {
+  /// 植株形态（0 种子 … 7 成熟），由当前阶段名称映射
   final int stageIdx;
+  /// 当前阶段内进度 0—1，让植株随天数逐日长高
+  final double inner;
 
-  _SceneOverlayPainter({required this.stageIdx});
+  _SceneOverlayPainter({required this.stageIdx, this.inner = 0.5});
 
   @override
   void paint(Canvas canvas, Size size) {
+    final grow = 0.72 + 0.28 * inner.clamp(0.0, 1.0);
+    // 地面一层极淡的绿色雾，照片上更容易分辨叠加上来的模拟层
+    final ground =
+        Rect.fromLTWH(0, size.height * 0.5, size.width, size.height * 0.5);
+    canvas.drawRect(
+      ground,
+      Paint()
+        ..shader = LinearGradient(
+          colors: [
+            const Color(0xFF4C9B45).withValues(alpha: 0),
+            const Color(0xFF4C9B45).withValues(alpha: 0.18),
+          ],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+        ).createShader(ground),
+    );
     for (var i = 0; i < 8; i++) {
       _paintPlant(
         canvas,
         Offset(size.width * (0.04 + i * 0.13), size.height * 0.86),
-        size.height * (0.55 + (i % 3) * 0.025),
+        size.height * (0.55 + (i % 3) * 0.025) * grow,
         stageIdx,
-        0,
+        (((i * 37) % 11) - 5) * 0.014,
       );
     }
     for (var i = 0; i < 6; i++) {
       _paintPlant(
         canvas,
         Offset(size.width * (0.10 + i * 0.16), size.height * 0.98),
-        size.height * (0.82 + (i % 2) * 0.05),
+        size.height * (0.82 + (i % 2) * 0.05) * grow,
         stageIdx,
-        0,
+        (((i * 53) % 11) - 5) * 0.012,
       );
     }
   }
 
   @override
   bool shouldRepaint(covariant _SceneOverlayPainter old) =>
-      old.stageIdx != stageIdx;
+      old.stageIdx != stageIdx || (old.inner - inner).abs() > 0.001;
 }
 
 /// 幼苗特写：单株放大 + 土壤剖面
