@@ -32,9 +32,20 @@ class MinePage extends StatelessWidget {
                   const SizedBox(height: 12),
                   ValueListenableBuilder<AuthUser?>(
                     valueListenable: AuthSession.instance.user,
-                    builder: (context, account, _) => Text(
-                      account?.nickname ?? '未设置昵称',
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                    builder: (context, account, _) => Column(
+                      children: [
+                        Text(
+                          account?.nickname ?? '未设置昵称',
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                        ),
+                        if (account != null) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            '登录号：${account.loginId}',
+                            style: const TextStyle(fontSize: 13, color: AppColors.textHint),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -205,7 +216,9 @@ class MinePage extends StatelessWidget {
       builder: (context, account, _) => _buildMenuItem(
         icon: Icons.login,
         title: account == null ? '账号登录' : '切换账号',
-        subtitle: account == null ? '昵称 + 密码登录' : '当前账号：${account.nickname}',
+        subtitle: account == null
+            ? '登录号 + 密码登录'
+            : '当前账号：${account.nickname}（${account.loginId}）',
         onTap: () async {
           final result = await context.push<AuthUser>('/login');
           if (result != null && context.mounted) {
