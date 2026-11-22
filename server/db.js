@@ -1,30 +1,17 @@
-import { mkdirSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
-import { fileURLToPath } from 'node:url';
+import mysql from 'mysql2/promise';
 
-const root = dirname(fileURLToPath(import.meta.url));
-const dataDir = join(root, 'data');
-mkdirSync(dataDir, { recursive: true });
+/// 数据库连接配置，可用环境变量覆盖
+export const dbConfig = {
+  host: process.env.DB_HOST ?? '127.0.0.1',
+  port: Number(process.env.DB_PORT ?? 3306),
+  user: process.env.DB_USER ?? 'hhsz_app',
+  password: process.env.DB_PASSWORD ?? '',
+  database: process.env.DB_NAME ?? 'huhuashizhe',
+  charset: 'utf8mb4',
+  connectionLimit: 10,
+  dateStrings: true,
+  supportBigNumbers: true,
+};
 
-/** 共用数据库连接：data/forum.db */
-export const db = new DatabaseSync(join(dataDir, 'forum.db'));
-
-db.exec('PRAGMA journal_mode = WAL;');
-db.exec('PRAGMA foreign_keys = ON;');
-
-/** 建表（幂等，可重复执行） */
-export function initSchema() {
-  db.exec(readFileSync(join(root, 'schema.sql'), 'utf8'));
-}
-
-initSchema();
-
-// 兼容旧库：users 表补充密码字段
-const userColumns = db
-  .prepare('PRAGMA table_info(users)')
-  .all()
-  .map((column) => column.name);
-if (!userColumns.includes('password_hash')) {
-  db.exec('ALTER TABLE users ADD COLUMN password_hash TEXT');
-}
+/// 全局连接池，接口统一从这里取连接
+export const pool = mysql.createPool(dbConfig);

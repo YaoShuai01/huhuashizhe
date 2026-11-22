@@ -535,5 +535,50 @@ CREATE TABLE IF NOT EXISTS ai_daily_usage (
   PRIMARY KEY (usage_date, scope, scope_key)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI 代理每日用量';
 
+-- ------------------------------------------------------------
+-- 九、Node 论坛/登录服务（server/index.js，端口 3000）
+-- 与上面的 forum_* 完整论坛模型并存：当前 Node 服务使用 users/posts/replies
+-- ------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS users (
+  id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  nickname VARCHAR(20) NOT NULL COMMENT '昵称即账号',
+  password_hash VARCHAR(255) DEFAULT NULL COMMENT 'scrypt 盐:哈希；未设置密码时为空',
+  avatar VARCHAR(255) DEFAULT NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_users_nickname (nickname)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Node 论坛用户';
+
+CREATE TABLE IF NOT EXISTS posts (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id INT UNSIGNED NOT NULL,
+  section VARCHAR(50) NOT NULL COMMENT '版块名称',
+  title VARCHAR(120) NOT NULL,
+  content TEXT NOT NULL,
+  likes INT NOT NULL DEFAULT 0,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  KEY idx_posts_section_created (section, created_at DESC),
+  KEY idx_posts_user (user_id),
+  CONSTRAINT fk_posts_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Node 论坛帖子';
+
+CREATE TABLE IF NOT EXISTS replies (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  post_id BIGINT UNSIGNED NOT NULL,
+  user_id INT UNSIGNED NOT NULL,
+  content TEXT NOT NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  KEY idx_replies_post (post_id, created_at),
+  KEY idx_replies_user (user_id),
+  CONSTRAINT fk_replies_post FOREIGN KEY (post_id) REFERENCES posts (id) ON DELETE CASCADE,
+  CONSTRAINT fk_replies_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Node 论坛回复';
+
 INSERT IGNORE INTO schema_migrations (version, description)
 VALUES (1, '初始结构：成员/轮协/留言/论坛/飞防/田哨/云种植/系统');
+
+INSERT IGNORE INTO schema_migrations (version, description)
+VALUES (2, 'Node 论坛/登录：users/posts/replies');
