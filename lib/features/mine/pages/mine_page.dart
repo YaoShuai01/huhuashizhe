@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/accessibility/elder_care_scope.dart';
 import '../../../core/theme/app_theme.dart';
@@ -40,9 +41,35 @@ class MinePage extends StatelessWidget {
                         ),
                         if (account != null) ...[
                           const SizedBox(height: 4),
-                          Text(
-                            '登录号：${account.loginId}',
-                            style: const TextStyle(fontSize: 13, color: AppColors.textHint),
+                          InkWell(
+                            borderRadius: BorderRadius.circular(6),
+                            onTap: () async {
+                              await Clipboard.setData(
+                                  ClipboardData(text: account.loginId));
+                              if (!context.mounted) return;
+                              ScaffoldMessenger.of(context)
+                                ..hideCurrentSnackBar()
+                                ..showSnackBar(const SnackBar(
+                                    content: Text('登录号已复制')));
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '登录号：${account.loginId}',
+                                    style: const TextStyle(
+                                        fontSize: 13,
+                                        color: AppColors.textHint),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Icon(Icons.copy,
+                                      size: 14, color: AppColors.textHint),
+                                ],
+                              ),
+                            ),
                           ),
                         ],
                       ],
