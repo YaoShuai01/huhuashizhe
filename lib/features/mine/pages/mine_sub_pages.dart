@@ -944,6 +944,16 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.10.1',
+        'date': '2026-11-22',
+        'content': [
+          '账号登录改为「系统生成登录号」：注册后自动分配 8 位登录号，昵称仅用于展示',
+          '注册成功弹窗醒目展示登录号，「我的」页与账号入口同步显示登录号',
+          '登录页适配跨平台后端地址，连不上服务时提示具体地址',
+          '后端增加 CORS 支持，补充已有库升级脚本（001_add_login_id.sql）',
+        ],
+      },
+      {
         'version': 'v3.10.0',
         'date': '2026-11-22',
         'content': [
