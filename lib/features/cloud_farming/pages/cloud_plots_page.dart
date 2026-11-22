@@ -75,6 +75,7 @@ class _CloudPlotsTabState extends ConsumerState<CloudPlotsTab> {
               plots: c.plots,
               selectedId: _selectedId,
               mapController: _map,
+              center: LatLng(c.location.lat, c.location.lng),
               zoom: 16,
               onSelectPlot: (id) => _select(c, id),
             ),
@@ -86,17 +87,27 @@ class _CloudPlotsTabState extends ConsumerState<CloudPlotsTab> {
             child: Row(
               children: [
                 Container(
+                  constraints: const BoxConstraints(maxWidth: 230),
                   padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
                   decoration: BoxDecoration(
                     color: Colors.black.withValues(alpha: 0.55),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Row(
-                    children: const [
-                      Icon(Icons.gps_fixed, size: 12, color: Color(0xFF9BE7A4)),
-                      SizedBox(width: 4),
-                      Text('定位精度 ±1.2m',
-                          style: TextStyle(fontSize: 10, color: Colors.white)),
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.gps_fixed,
+                          size: 12, color: Color(0xFF9BE7A4)),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          _locationStatus(c),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 10, color: Colors.white),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -104,7 +115,7 @@ class _CloudPlotsTabState extends ConsumerState<CloudPlotsTab> {
                 _mapButton(
                   icon: Icons.my_location,
                   onTap: () => _map.move(
-                    LatLng(CloudSeed.region.lat, CloudSeed.region.lng),
+                    LatLng(c.location.lat, c.location.lng),
                     16,
                   ),
                 ),
@@ -172,6 +183,15 @@ class _CloudPlotsTabState extends ConsumerState<CloudPlotsTab> {
         ],
       ),
     );
+  }
+
+  String _locationStatus(CloudFarmController c) {
+    final loc = c.location;
+    if (loc.isSeed) {
+      return c.lastLocateError != null ? '未定位 · 定位失败' : '未定位 · 示例位置';
+    }
+    final name = loc.name.isEmpty ? '未定位' : loc.name;
+    return '$name · ${cloudAccuracyText(loc.accuracy)}';
   }
 
   Widget _mapButton({

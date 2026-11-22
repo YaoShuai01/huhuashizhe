@@ -167,7 +167,7 @@ class CloudFarmMap extends StatelessWidget {
         else
           MarkerLayer(markers: [
             Marker(
-              point: LatLng(CloudSeed.region.lat, CloudSeed.region.lng),
+              point: center ?? LatLng(CloudSeed.region.lat, CloudSeed.region.lng),
               width: 16,
               height: 16,
               child: IgnorePointer(

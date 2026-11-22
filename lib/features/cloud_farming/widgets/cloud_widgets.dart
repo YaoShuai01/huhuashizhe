@@ -22,6 +22,24 @@ Color cloudSubtle(BuildContext context) =>
 Color cloudHint(BuildContext context) =>
     Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.45);
 
+String cloudAccuracyText(double? accuracy) {
+  if (accuracy == null || accuracy <= 0) return '精度未知';
+  final value =
+      accuracy >= 10 ? accuracy.round().toString() : accuracy.toStringAsFixed(1);
+  return '定位精度 ±${value}m';
+}
+
+String cloudSourceLabel(String source) {
+  switch (source) {
+    case 'gps':
+      return 'GPS 定位';
+    case 'manual':
+      return '手动位置';
+    default:
+      return '示例位置';
+  }
+}
+
 class CloudCard extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry padding;
