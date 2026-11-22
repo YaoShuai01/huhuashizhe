@@ -944,6 +944,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.8.1',
+        'date': '2026-11-22',
+        'content': [
+          '田哨农场：提前收获确认弹窗按钮改为同行并排并放大，窄屏不折行',
+          '收获（成熟/提前/全部）新增金色奖励弹窗，金币大字与随机祝福语',
+          '金币图标由 🪙 改为 💰，兼容老设备避免显示方框',
+        ],
+      },
+      {
         'version': 'v3.8.0',
         'date': '2026-11-22',
         'content': [
