@@ -151,7 +151,8 @@ INSERT IGNORE INTO app_releases (version_name, version_code, release_notes, down
  'http://121.199.75.235:8080/app/huhuashizhe_v3.9.0.apk', 85380568, 'system', '2026-11-22 01:58:29.667');
 
 -- Node 论坛/登录服务演示数据（幂等）
-INSERT IGNORE INTO users (nickname) VALUES ('农友小助手');
+-- 演示账号：农友小助手，固定登录号 10000001（初始无密码）
+INSERT IGNORE INTO users (login_id, nickname) VALUES ('10000001', '农友小助手');
 
 INSERT INTO posts (user_id, section, title, content)
 SELECT u.id, '农友留言区', '飞防作业时段怎么选', '上午露水大，下午风大，大家一般几点起飞？'

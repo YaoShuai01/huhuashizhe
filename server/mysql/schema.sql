@@ -542,11 +542,13 @@ CREATE TABLE IF NOT EXISTS ai_daily_usage (
 
 CREATE TABLE IF NOT EXISTS users (
   id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  nickname VARCHAR(20) NOT NULL COMMENT '昵称即账号',
+  login_id CHAR(8) DEFAULT NULL COMMENT '8 位系统登录号（唯一）',
+  nickname VARCHAR(20) NOT NULL COMMENT '昵称仅用于展示',
   password_hash VARCHAR(255) DEFAULT NULL COMMENT 'scrypt 盐:哈希；未设置密码时为空',
   avatar VARCHAR(255) DEFAULT NULL,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
+  UNIQUE KEY uk_users_login_id (login_id),
   UNIQUE KEY uk_users_nickname (nickname)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Node 论坛用户';
 

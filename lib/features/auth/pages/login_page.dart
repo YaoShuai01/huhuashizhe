@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../data/auth_api.dart';
 import '../data/auth_session.dart';
 
-/// 登录 / 设置密码（注册）
+/// 登录 / 设置密码（注册后系统自动生成登录号）
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, this.api, this.session});
 
@@ -20,6 +21,7 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
+  final _loginIdController = TextEditingController();
   final _nicknameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
@@ -35,6 +37,7 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   void dispose() {
+    _loginIdController.dispose();
     _nicknameController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
@@ -46,15 +49,26 @@ class _LoginPageState extends State<LoginPage> {
     setState(() => _error = null);
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
-    final nickname = _nicknameController.text.trim();
     final password = _passwordController.text;
 
     setState(() => _submitting = true);
     try {
       final user = _registerMode
-          ? await _api.register(nickname: nickname, password: password)
-          : await _api.login(nickname: nickname, password: password);
+          ? await _api.register(
+              nickname: _nicknameController.text.trim(),
+              password: password,
+            )
+          : await _api.login(
+              loginId: _loginIdController.text.trim(),
+              password: password,
+            );
       _session.signIn(user);
+      if (!mounted) return;
+      // 请求已结束，先收起加载态；注册成功还需弹窗展示登录号
+      setState(() => _submitting = false);
+      if (_registerMode) {
+        await _showLoginIdDialog(user);
+      }
       if (!mounted) return;
       Navigator.of(context).pop(user);
     } on AuthException catch (error) {
@@ -63,6 +77,47 @@ class _LoginPageState extends State<LoginPage> {
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  /// 注册成功后必须让用户记住系统分配的登录号
+  Future<void> _showLoginIdDialog(AuthUser user) {
+    return showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('注册成功'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('你的登录号',
+                style: TextStyle(fontSize: 13)),
+            const SizedBox(height: 8),
+            SelectableText(
+              user.loginId,
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 3,
+                color: AppColors.primary,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              '昵称「${user.nickname}」仅用于发帖展示。'
+              '以后请用「登录号 + 密码」登录，建议截图保存。',
+              style: TextStyle(fontSize: 13, color: context.palette.textHint),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('我已保存'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _switchMode() {
@@ -88,25 +143,48 @@ class _LoginPageState extends State<LoginPage> {
             children: [
               _buildHeader(context),
               const SizedBox(height: 32),
-              TextFormField(
-                controller: _nicknameController,
-                textInputAction: TextInputAction.next,
-                maxLength: 20,
-                decoration: _decoration(
-                  context,
-                  label: '昵称',
-                  hint: '取一个 2-20 字的昵称，昵称即账号',
-                  icon: Icons.person_outline,
-                  showCounter: false,
+              if (_registerMode) ...[
+                TextFormField(
+                  controller: _nicknameController,
+                  textInputAction: TextInputAction.next,
+                  maxLength: 20,
+                  decoration: _decoration(
+                    context,
+                    label: '昵称',
+                    hint: '2-20 字，仅用于展示',
+                    icon: Icons.person_outline,
+                  ),
+                  validator: (value) {
+                    final text = (value ?? '').trim();
+                    if (text.isEmpty) return '请输入昵称';
+                    if (text.length < 2) return '昵称至少 2 个字符';
+                    return null;
+                  },
                 ),
-                validator: (value) {
-                  final text = (value ?? '').trim();
-                  if (text.isEmpty) return '请输入昵称';
-                  if (text.length < 2) return '昵称至少 2 个字符';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
+                const SizedBox(height: 16),
+              ] else ...[
+                TextFormField(
+                  controller: _loginIdController,
+                  keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.next,
+                  maxLength: 8,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: _decoration(
+                    label: '登录号',
+                    hint: '8 位数字登录号',
+                    icon: Icons.badge_outlined,
+                  ),
+                  validator: (value) {
+                    final text = (value ?? '').trim();
+                    if (text.isEmpty) return '请输入登录号';
+                    if (!RegExp(r'^\d{8}$').hasMatch(text)) {
+                      return '登录号是 8 位数字';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
               TextFormField(
                 controller: _passwordController,
                 obscureText: _obscure,
@@ -119,7 +197,6 @@ class _LoginPageState extends State<LoginPage> {
                   label: '密码',
                   hint: '6-32 位密码',
                   icon: Icons.lock_outline,
-                  showCounter: false,
                 ).copyWith(
                   suffixIcon: IconButton(
                     tooltip: _obscure ? '显示密码' : '隐藏密码',
@@ -153,7 +230,6 @@ class _LoginPageState extends State<LoginPage> {
                     label: '确认密码',
                     hint: '再次输入密码',
                     icon: Icons.lock_outline,
-                    showCounter: false,
                   ),
                   validator: (value) {
                     if ((value ?? '').isEmpty) return '请再次输入密码';
@@ -207,7 +283,7 @@ class _LoginPageState extends State<LoginPage> {
                           ),
                         )
                       : Text(
-                          _registerMode ? '设置密码并登录' : '登录',
+                          _registerMode ? '设置密码并生成登录号' : '登录',
                           style: const TextStyle(
                               fontSize: 16, fontWeight: FontWeight.w600),
                         ),
@@ -217,7 +293,7 @@ class _LoginPageState extends State<LoginPage> {
               TextButton(
                 onPressed: _submitting ? null : _switchMode,
                 child: Text(
-                  _registerMode ? '已有密码？去登录' : '首次使用？设置密码',
+                  _registerMode ? '已有登录号？去登录' : '首次使用？设置密码',
                   style: const TextStyle(color: AppColors.primary),
                 ),
               ),
@@ -242,7 +318,8 @@ class _LoginPageState extends State<LoginPage> {
         ),
         const SizedBox(height: 16),
         Text(
-          _registerMode ? '设置密码后即可登录' : '欢迎回来',
+        Text(
+          _registerMode ? '设置密码，自动生成登录号' : '欢迎回来',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w600,
@@ -251,7 +328,9 @@ class _LoginPageState extends State<LoginPage> {
         ),
         const SizedBox(height: 6),
         Text(
-          _registerMode ? '昵称即账号，请牢记密码' : '使用昵称和密码登录',
+        Text(
+          _registerMode ? '昵称用于展示，登录号由系统分配' : '使用登录号和密码登录',
+          textAlign: TextAlign.center,
           style: TextStyle(fontSize: 13, color: context.palette.textHint),
         ),
       ],
@@ -263,7 +342,6 @@ class _LoginPageState extends State<LoginPage> {
     required String label,
     required String hint,
     required IconData icon,
-    bool showCounter = false,
   }) {
     return InputDecoration(
       labelText: label,
@@ -272,7 +350,7 @@ class _LoginPageState extends State<LoginPage> {
       prefixIcon: Icon(icon, size: 20, color: context.palette.textHint),
       filled: true,
       fillColor: context.palette.surface,
-      counterText: showCounter ? null : '',
+      counterText: '',
       contentPadding:
           const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
       border: OutlineInputBorder(

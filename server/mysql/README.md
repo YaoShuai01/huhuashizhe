@@ -110,6 +110,14 @@
 
 Node 服务也可在 `server/` 目录执行 `npm run init`（读取同一份 `schema.sql` / `seed.sql`，可重复执行）。
 
+**已有库升级（v3.10.1 起登录号）**：早期 `users` 表没有 `login_id`，先执行一次迁移，再跑 `npm run init`：
+
+```powershell
+& C:\huhuashizhe\mysql\bin\mysql.exe --defaults-extra-file=C:\huhuashizhe\config\mysql-root.cnf -e "source C:/huhuashizhe/forum-server/mysql/migrations/001_add_login_id.sql"
+```
+
+迁移会补 `login_id` 列、加唯一索引，并给已有账号按 `id + 10000000` 生成登录号（如 id=1 → `10000001`）。
+
 后续结构变更请新增 `migrations/00X_xxx.sql`，并在 `schema_migrations` 记录版本；不要直接改已上线的列。
 
 ## 6. 备份
@@ -139,10 +147,12 @@ Node 服务也可在 `server/` 目录执行 `npm run init`（读取同一份 `sc
 | 初始化 | `npm run init`（schema.sql + seed.sql） |
 
 接口：
-- `POST /api/auth/register` `{nickname,password}`
-- `POST /api/auth/login` `{nickname,password}`
+- `POST /api/auth/register` `{nickname,password}` → 返回系统生成的 8 位 `loginId`
+- `POST /api/auth/login` `{loginId,password}`
 - `GET /api/posts?section=&limit=&offset=`
 - `POST /api/posts` `{userId,section,title,content}`
+
+账号规则：注册时填昵称+密码，服务端生成唯一 8 位登录号；登录只用「登录号+密码」，昵称仅用于展示。密码只存 scrypt 加盐哈希。旧的「昵称即账号」登录方式已废弃。
 
 APP 端默认地址在 `lib/features/auth/data/auth_api.dart`，可用 `--dart-define=FORUM_API_BASE=...` 覆盖。
 
