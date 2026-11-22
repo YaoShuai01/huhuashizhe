@@ -41,6 +41,15 @@ class CloudFarmMap extends StatelessWidget {
   final double zoom;
   final MapController? mapController;
 
+  /// 首次渲染时的取景范围（用于自动框住全部田块）
+  final CameraFit? cameraFit;
+
+  /// 地图首次就绪回调
+  final VoidCallback? onMapReady;
+
+  /// 缩放级别变化回调（用于比例尺）
+  final ValueChanged<double>? onZoomChanged;
+
   const CloudFarmMap({
     super.key,
     required this.plots,
@@ -51,6 +60,9 @@ class CloudFarmMap extends StatelessWidget {
     this.center,
     this.zoom = 16,
     this.mapController,
+    this.cameraFit,
+    this.onMapReady,
+    this.onZoomChanged,
   });
 
   @override
@@ -62,9 +74,12 @@ class CloudFarmMap extends StatelessWidget {
       polygons.add(Polygon(
         points: latLngsOf(plot.polygon),
         color: (active ? const Color(0xFFFFD166) : const Color(0xFF6ED37C))
-            .withValues(alpha: active ? 0.26 : 0.16),
-        borderColor: active ? const Color(0xFFFFD166) : const Color(0xFF8FE39A),
-        borderStrokeWidth: active ? 3 : 2,
+            .withValues(alpha: active ? 0.32 : 0.20),
+        borderColor: active ? const Color(0xFFFFD166) : const Color(0xFF9BE7A4),
+        borderStrokeWidth: active ? 3.5 : 2,
+        pattern: active
+            ? const StrokePattern.solid()
+            : StrokePattern.dashed(segments: const [6, 4]),
       ));
     }
 
@@ -88,24 +103,34 @@ class CloudFarmMap extends StatelessWidget {
     final markers = <Marker>[];
     for (final plot in plots) {
       if (plot.polygon.length < 3) continue;
+      final active = plot.id == selectedId;
       markers.add(Marker(
         point: centroidOf(plot.polygon),
-        width: 120,
-        height: 26,
+        width: 150,
+        height: 28,
         child: IgnorePointer(
           child: Center(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0xFF1B2A1E).withValues(alpha: 0.72),
+                color: const Color(0xFF1B2A1E).withValues(alpha: active ? 0.88 : 0.72),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.35)),
+                border: Border.all(
+                  color: active
+                      ? const Color(0xFFFFD166)
+                      : Colors.white.withValues(alpha: 0.35),
+                  width: active ? 1.4 : 1,
+                ),
               ),
               child: Text(
                 '${plot.name} · ${plot.area.toStringAsFixed(1)}亩',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 10, color: Colors.white),
+                style: TextStyle(
+                  fontSize: 10,
+                  color: active ? const Color(0xFFFFE6A3) : Colors.white,
+                  fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                ),
               ),
             ),
           ),
@@ -132,8 +157,13 @@ class CloudFarmMap extends StatelessWidget {
       options: MapOptions(
         initialCenter: center ?? LatLng(CloudSeed.region.lat, CloudSeed.region.lng),
         initialZoom: zoom,
+        initialCameraFit: cameraFit,
         minZoom: 3,
         maxZoom: 19,
+        onMapReady: onMapReady,
+        onPositionChanged: onZoomChanged == null
+            ? null
+            : (camera, hasGesture) => onZoomChanged!(camera.zoom),
         interactionOptions: const InteractionOptions(
           flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
         ),

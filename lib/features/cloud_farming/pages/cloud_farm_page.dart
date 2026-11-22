@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -189,6 +192,11 @@ class _CloudFarmHomeTabState extends ConsumerState<CloudFarmHomeTab> {
           ),
         ),
         actions: [
+          IconButton(
+            tooltip: '田块地图',
+            onPressed: () => widget.onSwitchTab(1),
+            icon: const Icon(Icons.map_outlined),
+          ),
           IconButton(
             tooltip: '农事提醒',
             onPressed: () => widget.onSwitchTab(2),
@@ -395,12 +403,12 @@ class _CloudFarmHomeTabState extends ConsumerState<CloudFarmHomeTab> {
                       style:
                           TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
                   const SizedBox(width: 6),
-                  CloudTag('4 步上手', color: cloudSubtle(context)),
                   const Spacer(),
-                  Text(_guideOpen ? '收起' : '展开',
+                  Text('详细步骤',
                       style: TextStyle(fontSize: 11, color: primary)),
+                  const SizedBox(width: 2),
                   Icon(
-                    _guideOpen ? Icons.expand_less : Icons.expand_more,
+                    _guideOpen ? Icons.expand_less : Icons.chevron_right,
                     size: 16,
                     color: primary,
                   ),
@@ -506,188 +514,352 @@ class _CloudFarmHomeTabState extends ConsumerState<CloudFarmHomeTab> {
     final w = c.weather;
     final loc = c.location;
     const white = Colors.white;
-    final temp = w != null ? '${w.temp.round()}' : '${CloudSeed.weather.temp}';
-    final desc = w != null ? w.desc : CloudSeed.weather.desc;
-    final humidity = w != null ? w.humidity : CloudSeed.weather.humidity;
-    final wind = w != null ? w.wind : CloudSeed.weather.wind;
-    final windDir = w != null ? w.windDir : CloudSeed.weather.windDir;
-    final rainProb = w != null ? w.rainProb : CloudSeed.weather.rainProb;
+    final temp = w?.temp ?? CloudSeed.weather.temp.toDouble();
+    final desc = w?.desc ?? CloudSeed.weather.desc;
+    final humidity = w?.humidity ?? CloudSeed.weather.humidity;
+    final wind = w?.wind ?? CloudSeed.weather.wind;
+    final windDir = w?.windDir ?? CloudSeed.weather.windDir;
+    final rainProb = w?.rainProb ?? CloudSeed.weather.rainProb;
+    // 与网页一致：土壤温度按气温推算，并明确标注“推算”
+    final soilTemp =
+        w == null ? CloudSeed.weather.soilTemp : _round1(w.temp - 3.5);
     final days =
         w?.forecast.take(4).toList() ?? const <CloudForecastDay>[];
     final offline = w?.offline ?? false;
     final locName = loc.name.isEmpty ? '未定位' : loc.name;
-    final accuracy = loc.isSeed ? '示例位置' : cloudAccuracyText(loc.accuracy);
-    final sourceLabel =
-        w == null ? '示例天气' : (offline ? '离线缓存' : '中国天气网');
-    final sourceLine = w == null
-        ? (c.weatherError ?? '尚未获取真实天气 · 下拉刷新')
-        : '中国天气网 · ${_hhmm(w.updatedAt)} 更新'
-            '${offline ? ' · 当前离线，显示上次数据' : ''}';
+    final badgeLabel = loc.fromGps
+        ? 'GPS 高精度定位'
+        : loc.isManual
+            ? '手动定位'
+            : '示例位置';
+    final updateSource = w == null
+        ? '示例天气'
+        : (offline
+            ? '离线缓存'
+            : (w.source.isEmpty ? '中国天气网' : w.source));
+    final updateNote = StringBuffer(updateSource);
+    if (w?.updatedAt != null) {
+      updateNote.write(' · ${_hhmm(w!.updatedAt)} 更新');
+    }
+    updateNote.write(days.length > 1
+        ? ' · 实况 + 未来 ${days.length - 1} 天预报'
+        : ' · 今日实况，未来为预测');
 
     return Container(
-      padding: const EdgeInsets.all(15),
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF2E7D32), Color(0xFF66BB6A)],
+          colors: [Color(0xFF2E7D32), Color(0xFF3F8F43), Color(0xFF63AD63)],
+          stops: [0, 0.48, 1],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF2E7D32).withValues(alpha: 0.28),
-            blurRadius: 14,
-            offset: const Offset(0, 5),
+            color: const Color(0xFF2E7D32).withValues(alpha: 0.24),
+            blurRadius: 26,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          Row(
-            children: [
-              Icon(
-                loc.isSeed ? Icons.gps_off : Icons.gps_fixed,
-                size: 13,
-                color: Colors.white70,
+          Positioned(
+            right: -52,
+            top: -84,
+            child: Container(
+              width: 170,
+              height: 170,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.09),
               ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  '$locName · $accuracy',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 10.5, color: Colors.white70),
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.16),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  sourceLabel,
-                  style: const TextStyle(fontSize: 9, color: Colors.white70),
-                ),
-              ),
-            ],
+            ),
           ),
-          const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(temp,
-                      style: const TextStyle(
-                          fontSize: 42, color: white, fontWeight: FontWeight.w300)),
-                  const Padding(
-                    padding: EdgeInsets.only(top: 5),
-                    child: Text('℃', style: TextStyle(fontSize: 14, color: Colors.white70)),
-                  ),
-                ],
+          Positioned(
+            right: 34,
+            bottom: -70,
+            child: Container(
+              width: 110,
+              height: 110,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.09),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    w != null ? desc : '$desc（示例数据）',
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 10.5, color: white, height: 1.4),
-                  ),
-                ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(desc,
-                      style: const TextStyle(
-                          fontSize: 12, color: white, fontWeight: FontWeight.w600)),
-                  Text('湿度 $humidity%',
-                      style: const TextStyle(fontSize: 10.5, color: Colors.white70)),
-                  Text('$windDir ${_windText(wind)}m/s',
-                      style: const TextStyle(fontSize: 10.5, color: Colors.white70)),
-                ],
-              ),
-            ],
+            ),
           ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              _wxMetric(Icons.water_drop_outlined, '空气湿度', '$humidity%'),
-              _wxMetric(Icons.umbrella_outlined, '降水概率', '$rainProb%'),
-              _wxMetric(Icons.air, '风速', '${_windText(wind)}m/s'),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Container(height: 1, color: Colors.white.withValues(alpha: 0.18)),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Icon(
-                w == null ? Icons.cloud_off_outlined : Icons.public,
-                size: 11,
-                color: Colors.white70,
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  sourceLine,
-                  style: const TextStyle(fontSize: 9.5, color: Colors.white70),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          if (days.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 5),
-              child: Text(
-                '暂无预报数据',
-                style: TextStyle(
-                    fontSize: 10.5,
-                    color: Colors.white.withValues(alpha: 0.76)),
-              ),
-            )
-          else
-            Row(
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (var i = 0; i < days.length; i++)
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 5),
-                      decoration: BoxDecoration(
-                        color: i == 0
-                            ? Colors.white.withValues(alpha: 0.16)
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(9),
-                      ),
-                      child: Column(
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => _openLocationSheet(context),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
                         children: [
-                          Text(days[i].label,
-                              style: const TextStyle(fontSize: 10, color: Colors.white70)),
-                          const SizedBox(height: 3),
-                          Icon(_weatherIcon(days[i].icon),
-                              size: 15, color: Colors.white),
-                          const SizedBox(height: 2),
-                          Text('${days[i].high}°',
-                              style: const TextStyle(fontSize: 11, color: white)),
-                          Text('${days[i].rain}%',
-                              style: const TextStyle(fontSize: 9, color: Colors.white70)),
+                          Icon(
+                            loc.isSeed ? Icons.gps_off : Icons.gps_fixed,
+                            size: 14,
+                            color: Colors.white.withValues(alpha: 0.82),
+                          ),
+                          const SizedBox(width: 5),
+                          Expanded(
+                            child: Text(
+                              '$locName · ${cloudAccuracyText(loc.accuracy)}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                color: Colors.white.withValues(alpha: 0.82),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.18),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              badgeLabel,
+                              style: const TextStyle(
+                                  fontSize: 9, color: Colors.white),
+                            ),
+                          ),
                         ],
                       ),
                     ),
                   ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${temp.round()}',
+                                style: const TextStyle(
+                                  fontSize: 52,
+                                  height: 1,
+                                  letterSpacing: -2,
+                                  fontWeight: FontWeight.w300,
+                                  color: white,
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6, left: 3),
+                                child: Text(
+                                  '℃',
+                                  style: TextStyle(
+                                    fontSize: 17,
+                                    color:
+                                        Colors.white.withValues(alpha: 0.8),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            '$desc · 土壤温度 ${_decimalText(soilTemp)}℃（推算）',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              color: Colors.white.withValues(alpha: 0.82),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          desc,
+                          style: const TextStyle(
+                            fontSize: 15,
+                            height: 1.3,
+                            fontWeight: FontWeight.w600,
+                            color: white,
+                          ),
+                        ),
+                        Text(
+                          '湿度 $humidity%',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            height: 1.6,
+                            color: Colors.white.withValues(alpha: 0.88),
+                          ),
+                        ),
+                        Text(
+                          '$windDir ${_windText(wind)}m/s',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            height: 1.6,
+                            color: Colors.white.withValues(alpha: 0.88),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    _wxMetricBox(
+                        Icons.water_drop_outlined, '空气湿度', '$humidity%'),
+                    const SizedBox(width: 6),
+                    _wxMetricBox(
+                        Icons.umbrella_outlined, '降水概率', '$rainProb%'),
+                    const SizedBox(width: 6),
+                    _wxMetricBox(Icons.air, '风速', '${_windText(wind)}m/s'),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (days.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Text(
+                      '暂无预报数据',
+                      style: TextStyle(
+                        fontSize: 10.5,
+                        color: Colors.white.withValues(alpha: 0.76),
+                      ),
+                    ),
+                  )
+                else
+                  Row(
+                    children: [
+                      for (var i = 0; i < days.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 4),
+                        Expanded(child: _wxDayCard(days[i], today: i == 0)),
+                      ],
+                    ],
+                  ),
+                const SizedBox(height: 8),
+                Text(
+                  updateNote.toString(),
+                  textAlign: TextAlign.right,
+                  style: TextStyle(
+                    fontSize: 8.5,
+                    color: Colors.white.withValues(alpha: 0.7),
+                  ),
+                ),
               ],
             ),
+          ),
         ],
       ),
     );
   }
+
+  Widget _wxMetricBox(IconData icon, String label, String value) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.13),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 15, color: Colors.white.withValues(alpha: 0.9)),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 10,
+                      height: 1.2,
+                      color: Colors.white.withValues(alpha: 0.75),
+                    ),
+                  ),
+                  Text(
+                    value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.2,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _wxDayCard(CloudForecastDay day, {required bool today}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: today ? 0.2 : 0.1),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        children: [
+          Text(
+            day.label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 9.5,
+              color: Colors.white.withValues(alpha: 0.78),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Icon(_weatherIcon(day.icon), size: 17, color: Colors.white),
+          const SizedBox(height: 2),
+          Text(
+            '${day.high}°',
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+            ),
+          ),
+          Text(
+            '${day.rain}%',
+            style: const TextStyle(fontSize: 8.5, color: Color(0xFFBFE4FF)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  double _round1(double value) => (value * 10).round() / 10;
+
+  String _decimalText(double value) => value == value.roundToDouble()
+      ? '${value.round()}'
+      : value.toStringAsFixed(1);
 
   String _windText(double value) =>
       value == value.roundToDouble() ? '${value.round()}' : value.toStringAsFixed(1);
@@ -696,31 +868,6 @@ class _CloudFarmHomeTabState extends ConsumerState<CloudFarmHomeTab> {
     if (t == null) return '--:--';
     String two(int v) => v.toString().padLeft(2, '0');
     return '${two(t.hour)}:${two(t.minute)}';
-  }
-
-  Widget _wxMetric(IconData icon, String label, String value) {
-    return Expanded(
-      child: Padding(
-        padding: const EdgeInsets.only(right: 6),
-        child: Row(
-          children: [
-            Icon(icon, size: 15, color: Colors.white70),
-            const SizedBox(width: 5),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: const TextStyle(fontSize: 9.5, color: Colors.white70)),
-                Text(value,
-                    style: const TextStyle(
-                        fontSize: 11.5,
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600)),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   Widget _climateCard(BuildContext context, CloudClimate cl) {
@@ -735,7 +882,7 @@ class _CloudFarmHomeTabState extends ConsumerState<CloudFarmHomeTab> {
               const Text('本地立地条件',
                   style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
               const Spacer(),
-              CloudTag('GPS 自动获取', color: cloudSubtle(context)),
+              CloudTag('区域气候参考值', color: cloudSubtle(context)),
             ],
           ),
           const SizedBox(height: 10),
@@ -897,7 +1044,13 @@ class _CloudLocationSheetState extends ConsumerState<_CloudLocationSheet> {
   final TextEditingController _lat = TextEditingController();
   final TextEditingController _lng = TextEditingController();
   final TextEditingController _name = TextEditingController();
+  final TextEditingController _cityQuery = TextEditingController();
   bool _manualOpen = false;
+  bool _cityOpen = false;
+  bool _cityBusy = false;
+  bool _autoBusy = false;
+  String? _cityError;
+  Future<List<MapEntry<String, String>>>? _citiesFuture;
 
   @override
   void initState() {
@@ -913,6 +1066,7 @@ class _CloudLocationSheetState extends ConsumerState<_CloudLocationSheet> {
     _lat.dispose();
     _lng.dispose();
     _name.dispose();
+    _cityQuery.dispose();
     super.dispose();
   }
 
@@ -955,6 +1109,71 @@ class _CloudLocationSheetState extends ConsumerState<_CloudLocationSheet> {
     final messenger = ScaffoldMessenger.of(context);
     Navigator.of(context).pop();
     messenger.showSnackBar(const SnackBar(content: Text('位置已更新')));
+  }
+
+  Future<List<MapEntry<String, String>>> _loadCities() async {
+    final raw = await rootBundle.loadString('assets/city_codes.json');
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map<String, dynamic>) return const [];
+    return decoded.entries
+        .map((e) => MapEntry(e.key, e.value.toString()))
+        .toList();
+  }
+
+  void _toggleCityList() {
+    setState(() {
+      _cityOpen = !_cityOpen;
+      if (_cityOpen) _citiesFuture ??= _loadCities();
+    });
+  }
+
+  List<MapEntry<String, String>> _filterCities(
+    List<MapEntry<String, String>> all,
+  ) {
+    final query = _cityQuery.text.trim().toLowerCase();
+    final matched = query.isEmpty
+        ? all
+        : all.where((e) => e.key.toLowerCase().contains(query));
+    return matched.take(80).toList();
+  }
+
+  Future<void> _selectCity(String name, String code) async {
+    if (_cityBusy) return;
+    setState(() {
+      _cityBusy = true;
+      _cityError = null;
+    });
+    final c = ref.read(cloudFarmProvider);
+    final ok = await c.setWeatherCity(name, code);
+    if (!mounted) return;
+    final error = c.weatherError;
+    setState(() {
+      _cityBusy = false;
+      if (!ok) _cityError = error ?? '切换城市失败，请检查网络';
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(ok ? '已切换为 $name 的天气' : (error ?? '切换城市失败，请检查网络')),
+      ),
+    );
+  }
+
+  Future<void> _restoreAuto() async {
+    if (_autoBusy) return;
+    setState(() {
+      _autoBusy = true;
+      _cityError = null;
+    });
+    final c = ref.read(cloudFarmProvider);
+    await c.restoreAutoWeather();
+    if (!mounted) return;
+    final error = c.weatherError;
+    setState(() => _autoBusy = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(error ?? '已恢复为按定位获取天气'),
+      ),
+    );
   }
 
   @override
@@ -1027,6 +1246,8 @@ class _CloudLocationSheetState extends ConsumerState<_CloudLocationSheet> {
                 const SizedBox(height: 12),
                 _manualEditor(context),
               ],
+              const SizedBox(height: 12),
+              _weatherCitySection(context, c),
               const SizedBox(height: 4),
             ],
           ),
@@ -1201,5 +1422,172 @@ class _CloudLocationSheetState extends ConsumerState<_CloudLocationSheet> {
   String _timeText(DateTime t) {
     String two(int v) => v.toString().padLeft(2, '0');
     return '${two(t.month)}-${two(t.day)} ${two(t.hour)}:${two(t.minute)}';
+  }
+
+  Widget _weatherCitySection(BuildContext context, CloudFarmController c) {
+    final primary = Theme.of(context).colorScheme.primary;
+    final cityName = c.weatherCityName;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (cityName != null) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: cloudSoft(primary, context, light: 0.06, dark: 0.14),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: primary.withValues(alpha: 0.22)),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.location_city, size: 16, color: primary),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '天气城市：$cityName'
+                    '${c.weatherCityCode == null ? '' : '（${c.weatherCityCode}）'}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 11.5, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _autoBusy ? null : _restoreAuto,
+                  style: TextButton.styleFrom(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    _autoBusy ? '切换中…' : '恢复自动（按定位）',
+                    style: const TextStyle(fontSize: 10.5),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+        Text(
+          '选择城市仅影响天气与气候展示；地图定位仍以 GPS 或手动经纬度为准',
+          style: TextStyle(fontSize: 10, height: 1.45, color: cloudHint(context)),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton.icon(
+            onPressed: _toggleCityList,
+            icon: Icon(
+              _cityOpen ? Icons.expand_less : Icons.travel_explore,
+              size: 17,
+            ),
+            label: Text(_cityOpen ? '收起城市列表' : '手动选择城市'),
+          ),
+        ),
+        if (_cityOpen) ...[
+          const SizedBox(height: 10),
+          TextField(
+            controller: _cityQuery,
+            style: const TextStyle(fontSize: 12),
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              hintText: '搜索城市名，如：北京、海淀',
+              prefixIcon: Icon(Icons.search, size: 18),
+              isDense: true,
+              contentPadding:
+                  EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            ),
+          ),
+          if (_cityBusy) ...[
+            const SizedBox(height: 8),
+            const LinearProgressIndicator(minHeight: 2),
+          ],
+          const SizedBox(height: 8),
+          _cityList(context),
+          if (_cityError != null) ...[
+            const SizedBox(height: 8),
+            _errorTip(context, _cityError!),
+          ],
+        ],
+      ],
+    );
+  }
+
+  Widget _cityList(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    final selectedName = ref.watch(cloudFarmProvider).weatherCityName;
+    return Container(
+      height: 240,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: Theme.of(context).dividerColor.withValues(alpha: 0.5),
+        ),
+      ),
+      child: FutureBuilder<List<MapEntry<String, String>>>(
+        future: _citiesFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState != ConnectionState.done) {
+            return const Center(
+              child: SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            );
+          }
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(
+                  '城市列表加载失败，请稍后重试',
+                  style: TextStyle(fontSize: 11, color: cloudHint(context)),
+                ),
+              ),
+            );
+          }
+          final cities = _filterCities(snapshot.data ?? const []);
+          if (cities.isEmpty) {
+            return Center(
+              child: Text(
+                '未找到匹配的城市',
+                style: TextStyle(fontSize: 11, color: cloudHint(context)),
+              ),
+            );
+          }
+          return ListView.separated(
+            padding: EdgeInsets.zero,
+            itemCount: cities.length,
+            separatorBuilder: (_, __) => Divider(
+              height: 1,
+              color: Theme.of(context).dividerColor.withValues(alpha: 0.4),
+            ),
+            itemBuilder: (context, index) {
+              final city = cities[index];
+              final selected = city.key == selectedName;
+              return ListTile(
+                dense: true,
+                visualDensity: VisualDensity.compact,
+                enabled: !_cityBusy,
+                title: Text(city.key, style: const TextStyle(fontSize: 12)),
+                subtitle: Text(
+                  city.value,
+                  style: TextStyle(fontSize: 10, color: cloudHint(context)),
+                ),
+                trailing: selected
+                    ? Icon(Icons.check, size: 16, color: primary)
+                    : null,
+                onTap: () => _selectCity(city.key, city.value),
+              );
+            },
+          );
+        },
+      ),
+    );
   }
 }
