@@ -347,7 +347,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
   ForumRepository get _repository =>
       widget.repository ?? ForumScope.of(context);
 
-  void _submit() {
+  Future<void> _submit() async {
     final text = _ctrl.text.trim();
     if (text.isEmpty) {
       ScaffoldMessenger.of(context)
@@ -356,11 +356,20 @@ class _FeedbackPageState extends State<FeedbackPage> {
       return;
     }
     final summary = text.length > 20 ? '${text.substring(0, 20)}…' : text;
-    _repository.publish(
-      section: _section,
-      title: '意见反馈：$summary',
-      content: text,
-    );
+    try {
+      await _repository.publish(
+        section: _section,
+        title: '意见反馈：$summary',
+        content: text,
+      );
+    } on ForumException catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(error.message)));
+      return;
+    }
+    if (!mounted) return;
     _ctrl.clear();
     FocusScope.of(context).unfocus();
     ScaffoldMessenger.of(context)

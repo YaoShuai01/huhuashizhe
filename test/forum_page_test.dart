@@ -165,11 +165,11 @@ void main() {
     expect(repository.hasUnreadMessages, isFalse);
   });
 
-  test('发帖后进入对应版块与我的帖子', () {
+  test('发帖后进入对应版块与我的帖子', () async {
     final repository = InMemoryForumRepository();
     final before = repository.countOf('新手提问区');
 
-    final post = repository.publish(
+    final post = await repository.publish(
       section: '新手提问区',
       title: '起飞前检查清单求补充',
       content: '除了电池和桨叶，还需要检查哪些项目？',

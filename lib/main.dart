@@ -8,6 +8,8 @@ import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'data/local_database.dart';
 import 'features/auth/data/auth_session.dart';
+import 'features/forum/data/forum_api_repository.dart';
+import 'features/forum/forum_scope.dart';
 import 'providers/device_provider.dart';
 import 'providers/update_provider.dart';
 import 'services/ai_suggestion_worker.dart';
@@ -28,9 +30,14 @@ void main() async {
   unawaited(ModelHotupdateService.instance.checkAndDownload());
   // 轮协静默同步：已登录用户联网后自动拉取最新轮协并重排本地提醒
   unawaited(ScheduleService.instance.syncSilently());
+  // 论坛：启动时静默拉取服务器帖子，失败不影响其他功能
+  unawaited(defaultForumApiRepository.refresh().catchError((_) {}));
   runApp(
-    const ProviderScope(
-      child: HuHuaShiZheApp(),
+    ProviderScope(
+      child: ForumScope(
+        repository: defaultForumApiRepository,
+        child: const HuHuaShiZheApp(),
+      ),
     ),
   );
 }

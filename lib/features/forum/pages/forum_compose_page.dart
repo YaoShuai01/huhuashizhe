@@ -101,7 +101,7 @@ class _ForumComposePageState extends State<ForumComposePage> {
       await _showRejectDialog(result);
       return;
     }
-    _finishPublish(
+    await _finishPublish(
       section: section,
       title: title,
       content: content,
@@ -109,18 +109,28 @@ class _ForumComposePageState extends State<ForumComposePage> {
     );
   }
 
-  void _finishPublish({
+  Future<void> _finishPublish({
     required String section,
     required String title,
     required String content,
     bool pendingReview = false,
-  }) {
-    _repository.publish(
-      section: section,
-      title: title,
-      content: content,
-      pendingReview: pendingReview,
-    );
+  }) async {
+    setState(() => _submitting = true);
+    try {
+      await _repository.publish(
+        section: section,
+        title: title,
+        content: content,
+        pendingReview: pendingReview,
+      );
+    } on ForumException catch (error) {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      _toast(error.message);
+      return;
+    }
+    if (!mounted) return;
+    setState(() => _submitting = false);
     final messenger = ScaffoldMessenger.of(context);
     context.pop();
     messenger
