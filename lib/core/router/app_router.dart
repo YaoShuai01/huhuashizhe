@@ -38,6 +38,11 @@ import '../../features/forum/pages/forum_favorites_page.dart';
 import '../../features/forum/pages/forum_post_detail_page.dart';
 import '../../features/sentinel/pages/sentinel_page.dart';
 import '../../features/sentinel/pages/farm_game_page.dart';
+import '../../features/cloud_farming/pages/cloud_farm_page.dart';
+import '../../features/cloud_farming/pages/cloud_plot_create_page.dart';
+import '../../features/cloud_farming/pages/cloud_planting_wizard_page.dart';
+import '../../features/cloud_farming/pages/cloud_plot_detail_page.dart';
+import '../../features/cloud_farming/pages/cloud_remote_page.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
@@ -345,6 +350,38 @@ final appRouter = GoRouter(
       path: '/sentinel/farm',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) => const FarmGamePage(),
+    ),
+    GoRoute(
+      path: '/cloud-farm',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const CloudFarmPage(),
+    ),
+    GoRoute(
+      path: '/cloud-farm/create',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) => const CloudPlotCreatePage(),
+    ),
+    GoRoute(
+      path: '/cloud-farm/plant',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) {
+        final extra = state.extra as Map<String, dynamic>?;
+        return CloudPlantingWizardPage(
+          initialPlotId: extra?['plotId'] as String?,
+        );
+      },
+    ),
+    GoRoute(
+      path: '/cloud-farm/plot/:id',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) =>
+          CloudPlotDetailPage(plotId: state.pathParameters['id']!),
+    ),
+    GoRoute(
+      path: '/cloud-farm/remote/:id',
+      parentNavigatorKey: _rootNavigatorKey,
+      builder: (context, state) =>
+          CloudRemotePage(plotId: state.pathParameters['id']!),
     ),
   ],
 );

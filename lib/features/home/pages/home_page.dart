@@ -6,6 +6,7 @@ import '../../../providers/weather_provider.dart';
 import '../../../providers/device_provider.dart';
 import '../../../services/wifi_service.dart';
 import '../../../services/weather_service.dart';
+import '../../cloud_farming/services/cloud_farm_controller.dart';
 import '../../mission/pages/map_select_page.dart';
 
 class HomePage extends ConsumerWidget {
@@ -45,6 +46,8 @@ class HomePage extends ConsumerWidget {
               _buildDeviceCard(context, deviceStatus),
               const SizedBox(height: 16),
               _buildQuickActions(context),
+              const SizedBox(height: 16),
+              const _CloudFarmEntryCard(),
               const SizedBox(height: 16),
               _buildRecentMissions(context),
               const SizedBox(height: 16),
@@ -466,5 +469,138 @@ class HomePage extends ConsumerWidget {
 
   Widget _buildDivider(BuildContext context) {
     return Container(height: 40, width: 1, color: context.palette.surfaceVariant);
+  }
+}
+
+/// 首页云种植入口（跟随系统深浅色）
+class _CloudFarmEntryCard extends ConsumerWidget {
+  const _CloudFarmEntryCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final controller = ref.watch(cloudFarmProvider);
+    final alertCount = controller.alerts.length;
+    final primary = Theme.of(context).colorScheme.primary;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Material(
+      color: Colors.transparent,
+      borderRadius: BorderRadius.circular(16),
+      child: Ink(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: isDark
+                ? [const Color(0xFF1F3A24), const Color(0xFF2B5133)]
+                : [const Color(0xFFE8F5E9), const Color(0xFFD7EEDB)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+              color: primary.withValues(alpha: isDark ? 0.35 : 0.22)),
+        ),
+        child: InkWell(
+          onTap: () => context.push('/cloud-farm'),
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: primary.withValues(alpha: isDark ? 0.28 : 0.15),
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: Icon(Icons.eco, color: primary, size: 26),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Text(
+                            '云种植',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: primary.withValues(
+                                  alpha: isDark ? 0.22 : 0.12),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              'AI 农事',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                                color: primary,
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
+                          Icon(Icons.chevron_right, color: primary, size: 20),
+                        ],
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        '${controller.plots.length} 块田 · '
+                        '${controller.totalArea.toStringAsFixed(1)} 亩 · '
+                        '$alertCount 项待办',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: Theme.of(context)
+                              .colorScheme
+                              .onSurface
+                              .withValues(alpha: 0.62),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 5,
+                        runSpacing: 4,
+                        children: [
+                          _miniTag(context, 'GPS 圈地'),
+                          _miniTag(context, '1:1 建模'),
+                          _miniTag(context, '墒情推断'),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _miniTag(BuildContext context, String text) {
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: onSurface.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 9,
+          color: onSurface.withValues(alpha: 0.55),
+        ),
+      ),
+    );
   }
 }

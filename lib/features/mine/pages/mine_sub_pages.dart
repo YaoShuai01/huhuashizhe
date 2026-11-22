@@ -944,6 +944,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.8.0',
+        'date': '2026-11-22',
+        'content': [
+          '新增云种植模块：田块创建、种植向导、云田详情、远程控制、预警与 AI 农事助手',
+          '首页新增云种植入口卡，底部导航保持不变',
+          '云种植数据保存在本机，支持地块、种植记录与待办管理',
+        ],
+      },
+      {
         'version': 'v3.7.1',
         'date': '2026-11-21',
         'content': [
