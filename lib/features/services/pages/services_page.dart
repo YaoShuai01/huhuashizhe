@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/accessibility/elder_care_reader.dart';
 import '../../../core/theme/app_theme.dart';
+import '../data/booking_role.dart';
 
 /// 服务页：集中展示各类服务入口（小课堂、预约飞防、论坛）
 class ServicesPage extends StatelessWidget {
@@ -46,7 +47,12 @@ class ServicesPage extends StatelessWidget {
                 color: AppColors.accent,
                 title: '预约飞防',
                 desc: '在线预约专业飞手上门喷洒农药，按亩计价，飞手电话确认后作业',
-                onTap: () => context.push('/services/booking'),
+                onTap: () {
+                  final role = savedBookingRole();
+                  context.push(
+                    role == null ? '/services/booking' : bookingRolePath(role),
+                  );
+                },
               ),
               _serviceCard(
                 context,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:huhuashizhe/data/local_database.dart';
 import 'package:huhuashizhe/features/classroom/pages/classroom_page.dart';
 import 'package:huhuashizhe/features/services/pages/booking_page.dart';
 import 'package:huhuashizhe/features/services/pages/booking_role_page.dart';
@@ -9,6 +10,8 @@ import 'package:huhuashizhe/features/services/pages/pilot_workbench_page.dart';
 import 'package:huhuashizhe/features/services/pages/services_page.dart';
 
 void main() {
+  setUp(() => LocalDatabase().remove('booking_role'));
+
   testWidgets('服务页展示小课堂板块并可进入小课堂', (tester) async {
     final router = GoRouter(
       initialLocation: '/services',
@@ -337,5 +340,51 @@ void main() {
 
     // 返回工作台并展示已完善状态
     expect(find.text('已完善：张师傅 · 监利市新沟镇'), findsOneWidget);
+  });
+
+  testWidgets('记住身份后直接进入对应页面，可从右上角转换', (tester) async {
+    LocalDatabase().set('booking_role', 'farmer');
+
+    final router = GoRouter(
+      initialLocation: '/services',
+      routes: [
+        GoRoute(
+          path: '/services',
+          builder: (context, state) => const ServicesPage(),
+        ),
+        GoRoute(
+          path: '/services/booking',
+          builder: (context, state) => const BookingRolePage(),
+        ),
+        GoRoute(
+          path: '/services/booking/farmer',
+          builder: (context, state) => const BookingPage(),
+        ),
+        GoRoute(
+          path: '/services/booking/pilot',
+          builder: (context, state) => const PilotWorkbenchPage(),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('预约飞防'));
+    await tester.pumpAndSettle();
+
+    // 不再经过身份选择，直接进入上次选择的农户页
+    expect(find.text('选择飞手'), findsOneWidget);
+    expect(find.text('身份转换'), findsOneWidget);
+
+    await tester.tap(find.text('身份转换'));
+    await tester.pumpAndSettle();
+    expect(find.text('转换身份'), findsOneWidget);
+
+    await tester.tap(find.text('我是飞手'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('飞手工作台'), findsOneWidget);
+    expect(find.text('身份转换'), findsOneWidget);
   });
 }

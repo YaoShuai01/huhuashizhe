@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/accessibility/elder_care_reader.dart';
 import '../../../core/theme/app_theme.dart';
+import '../data/booking_role.dart';
+import '../widgets/booking_role_switch.dart';
 import 'pilot_profile_page.dart';
 
 /// 飞手工作台：查看附近订单并接单
@@ -109,7 +111,26 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('飞手工作台')),
+      appBar: AppBar(
+        title: const Text('飞手工作台'),
+        actions: [
+          TextButton.icon(
+            onPressed: () => showBookingRoleSwitch(
+              context,
+              currentRole: bookingRolePilot,
+            ),
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.textOnPrimary,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+            icon: const Icon(Icons.swap_horiz, size: 18),
+            label: const Text(
+              '身份转换',
+              style: TextStyle(fontSize: 14),
+            ),
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
