@@ -27,6 +27,10 @@ class DroneJoystick extends StatefulWidget {
 class _DroneJoystickState extends State<DroneJoystick> {
   double _x = 0;
   double _y = 0;
+  // 手指按下点作为本次拖动的相对原点：按偏了也不会让摇杆瞬间跳过去
+  Offset? _origin;
+
+  double get _travel => widget.size / 2 - widget.size * 0.18;
 
   @override
   Widget build(BuildContext context) {
@@ -40,8 +44,8 @@ class _DroneJoystickState extends State<DroneJoystick> {
       width: widget.size,
       height: widget.size + 30,
       child: GestureDetector(
-        onPanStart: (d) => _updatePosition(d.localPosition),
-        onPanUpdate: (d) => _updatePosition(d.localPosition),
+        onPanStart: _onStart,
+        onPanUpdate: _onUpdate,
         onPanEnd: (_) => _onRelease(),
         onPanCancel: _onRelease,
         child: Stack(
@@ -112,31 +116,42 @@ class _DroneJoystickState extends State<DroneJoystick> {
     );
   }
 
-  void _updatePosition(Offset local) {
+  void _onStart(DragStartDetails d) {
     final center = Offset(widget.size / 2, widget.size / 2);
-    final dx = local.dx - center.dx;
-    final dy = local.dy - center.dy;
-    final maxRadius = widget.size / 2 - widget.size * 0.18;
+    // 只接受从摇杆圆圈内开始的触摸，圈外按下不响应
+    if ((d.localPosition - center).distance > widget.size / 2) return;
+    _origin = d.localPosition;
+  }
 
-    final distSq = dx * dx + dy * dy;
-    double nx, ny;
-    if (distSq > maxRadius * maxRadius) {
-      final dist = sqrt(distSq);
-      nx = dx / dist;
-      ny = dy / dist;
-    } else {
-      nx = dx / maxRadius;
-      ny = dy / maxRadius;
+  void _onUpdate(DragUpdateDetails d) {
+    final origin = _origin;
+    if (origin == null) return;
+
+    double dx = (d.localPosition.dx - origin.dx) / _travel;
+    double dy = (d.localPosition.dy - origin.dy) / _travel;
+
+    // 圆形限幅，斜向不会比正向更灵敏
+    final dist = sqrt(dx * dx + dy * dy);
+    if (dist > 1.0) {
+      dx /= dist;
+      dy /= dist;
     }
 
+    final sx = _expo(dx);
+    final sy = _expo(dy);
+
     setState(() {
-      _x = nx.clamp(-1.0, 1.0);
-      _y = ny.clamp(-1.0, 1.0);
+      _x = sx;
+      _y = sy;
     });
     widget.onChanged?.call(_x * 100, -_y * 100);
   }
 
+  /// 中心柔和、满杆仍能到位的指数曲线，避免轻碰一下就是大杆量
+  static double _expo(double v) => 0.62 * v + 0.38 * v * v * v;
+
   void _onRelease() {
+    _origin = null;
     if (widget.stickyY) {
       // 油门轴保持位置，仅横滚轴回中
       setState(() { _x = 0; });

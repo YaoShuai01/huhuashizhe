@@ -21,6 +21,8 @@ class YawJoystick extends StatefulWidget {
 
 class _YawJoystickState extends State<YawJoystick> {
   double _x = 0;
+  // 手指按下点作为相对原点，按偏了也不会让滑块瞬间跳过去
+  double? _originDx;
 
   @override
   Widget build(BuildContext context) {
@@ -32,13 +34,10 @@ class _YawJoystickState extends State<YawJoystick> {
       height: widget.height,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
-        onHorizontalDragStart: (d) => _update(d.localPosition.dx),
+        onHorizontalDragStart: (d) => _originDx = d.localPosition.dx,
         onHorizontalDragUpdate: (d) => _update(d.localPosition.dx),
         onHorizontalDragEnd: (_) => _release(),
         onHorizontalDragCancel: _release,
-        onTapDown: (d) => _update(d.localPosition.dx),
-        onTapUp: (_) => _release(),
-        onTapCancel: _release,
         child: Stack(
           alignment: Alignment.center,
           children: [
@@ -77,13 +76,18 @@ class _YawJoystickState extends State<YawJoystick> {
   }
 
   void _update(double localDx) {
+    final origin = _originDx;
+    if (origin == null) return;
     final travel = widget.width / 2 - (widget.height * 0.42) / 2;
-    final x = ((localDx - widget.width / 2) / travel).clamp(-1.0, 1.0);
+    var x = ((localDx - origin) / travel).clamp(-1.0, 1.0);
+    // 指数曲线：小杆量更柔和，满杆仍到 100
+    x = 0.62 * x + 0.38 * x * x * x;
     setState(() => _x = x);
     widget.onChanged((x * 100).round());
   }
 
   void _release() {
+    _originDx = null;
     setState(() => _x = 0);
     widget.onChanged(0);
     widget.onReleased?.call();
