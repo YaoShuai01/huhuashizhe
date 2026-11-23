@@ -953,6 +953,16 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.10.9',
+        'date': '2026-11-23',
+        'content': [
+          '新增「平板布局」开关（设置 → 显示），默认关闭，手机不受影响',
+          '横屏且最短边 ≥600 时启用左侧导航栏，正文限宽居中',
+          '首页、数据管理、社区、我的网格按屏幕宽度自适应列数',
+          '平板布局下云种植详情与远程控制页同步适配',
+        ],
+      },
+      {
         'version': 'v3.10.8',
         'date': '2026-11-23',
         'content': [
