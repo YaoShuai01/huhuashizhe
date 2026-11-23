@@ -241,10 +241,62 @@ class ForumApiRepository extends InMemoryForumRepository {
   }
 
   @override
+  ForumPost? postById(String id) {
+    for (final post in cachedPosts) {
+      if (post.id == id) return post;
+    }
+    return null;
+  }
+
+  @override
+  Future<String> uploadAudio({
+    required Uint8List bytes,
+    required int durationMs,
+  }) async {
+    final me = _requireUser();
+    final data = await _post(
+      '/api/uploads',
+      {
+        'userId': me.id,
+        'ext': 'wav',
+        'data': base64Encode(bytes),
+      },
+      options: Options(
+        sendTimeout: const Duration(seconds: 60),
+        receiveTimeout: const Duration(seconds: 30),
+      ),
+    );
+    final url = data['url'];
+    if (url is! String || url.isEmpty) {
+      throw const ForumException('语音上传失败，请重试');
+    }
+    return url;
+  }
+
+  @override
+  Future<String> transcribeAudio({
+    required Uint8List bytes,
+    String dialect = 'mandarin',
+  }) async {
+    final data = await _post(
+      '/api/asr',
+      {'audio': base64Encode(bytes), 'dialect': dialect},
+      options: Options(
+        sendTimeout: const Duration(seconds: 60),
+        receiveTimeout: const Duration(seconds: 60),
+      ),
+    );
+    final text = data['text'];
+    return text is String ? text.trim() : '';
+  }
+
+  @override
   Future<ForumComment> addComment({
     required ForumPost post,
     required String content,
     ForumComment? replyTo,
+    String? audioUrl,
+    int? audioDurationMs,
   }) async {
     final me = _requireUser();
     final parentId = replyTo == null ? null : int.tryParse(replyTo.id);
@@ -252,6 +304,8 @@ class ForumApiRepository extends InMemoryForumRepository {
       'userId': me.id,
       'content': content.trim(),
       if (parentId != null) 'parentId': parentId,
+      if (audioUrl != null) 'audioUrl': audioUrl,
+      if (audioDurationMs != null) 'audioDuration': audioDurationMs,
     });
     final comment = _commentFromJson(data);
     post.replyCount += 1;
@@ -426,6 +480,10 @@ class ForumApiRepository extends InMemoryForumRepository {
         createdAt: _parseTime(json['created_at']),
         parentId: json['parent_id'] == null ? null : '${json['parent_id']}',
         replyToAuthor: json['parent_author'] as String?,
+        audioUrl: (json['audio_url'] as String?)?.isNotEmpty == true
+            ? _absoluteUrl(json['audio_url'] as String)
+            : null,
+        audioDurationMs: (json['audio_duration'] as num?)?.toInt(),
       );
 
   ForumMessage _messageFromJson(Map<String, dynamic> json) => ForumMessage(
@@ -439,6 +497,7 @@ class ForumApiRepository extends InMemoryForumRepository {
         body: json['body'] as String? ?? '',
         createdAt: _parseTime(json['created_at']),
         unread: json['unread'] == true,
+        postId: json['post_id'] == null ? null : '${json['post_id']}',
       );
 }
 

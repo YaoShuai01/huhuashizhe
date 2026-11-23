@@ -5,11 +5,12 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/accessibility/elder_care_reader.dart';
 import '../../../core/theme/app_theme.dart';
+import '../data/booking_orders.dart';
 import '../data/booking_role.dart';
 import '../widgets/booking_role_switch.dart';
 import 'pilot_profile_page.dart';
 
-/// 飞手工作台：查看附近订单并接单
+/// 飞手工作台：查看农户订单并接单
 class PilotWorkbenchPage extends StatefulWidget {
   const PilotWorkbenchPage({super.key});
 
@@ -18,46 +19,36 @@ class PilotWorkbenchPage extends StatefulWidget {
 }
 
 class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
-  static const List<_FarmOrder> _seedOrders = [
-    _FarmOrder(
-      crop: '油菜',
-      area: 60,
-      village: '监利市新沟镇',
-      time: '明天上午',
-      price: 480,
-    ),
-    _FarmOrder(
-      crop: '水稻',
-      area: 120,
-      village: '洪湖市峰口镇',
-      time: '11月22日下午',
-      price: 960,
-    ),
-    _FarmOrder(
-      crop: '小麦',
-      area: 45,
-      village: '江陵县白马镇',
-      time: '11月23日上午',
-      price: 360,
-    ),
-  ];
-
   bool _accepting = true;
 
-  // 接单状态保存在页面外的存储中，退出工作台再进入不会丢失
-  final List<_FarmOrder> _pending = _PilotOrders.pending;
-  final List<_AcceptedOrder> _accepted = _PilotOrders.accepted;
+  BookingOrderStore get _store => BookingOrderStore.instance;
 
-  Future<void> _accept(_FarmOrder order) async {
+  List<BookingOrder> get _pending => _store.pending;
+  List<BookingOrder> get _accepted => _store.acceptedOrders;
+
+  @override
+  void initState() {
+    super.initState();
+    _store.addListener(_onOrdersChanged);
+  }
+
+  @override
+  void dispose() {
+    _store.removeListener(_onOrdersChanged);
+    super.dispose();
+  }
+
+  void _onOrdersChanged() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _accept(BookingOrder order) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => _AcceptOrderDialog(order: order),
     );
     if (confirmed != true || !mounted) return;
-    setState(() {
-      _pending.remove(order);
-      _accepted.insert(0, _AcceptedOrder(order: order, acceptedAt: DateTime.now()));
-    });
+    _store.accept(order.id);
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
@@ -65,17 +56,18 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
       );
   }
 
-  Future<void> _cancelAccepted(_AcceptedOrder entry) async {
-    final elapsed = DateTime.now().difference(entry.acceptedAt);
+  Future<void> _cancelAccepted(BookingOrder order) async {
+    final acceptedAt = order.acceptedAt ?? DateTime.now();
+    final elapsed = DateTime.now().difference(acceptedAt);
     final charged = elapsed.inHours >= 12;
-    final fee = entry.order.price * 0.02;
+    final fee = order.amount * 0.02;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('取消订单'),
         content: Text(
           charged
-              ? '接单已超过 12 小时，取消后需向农户支付订单金额 2% 的接单费用（约 ￥${fee.toStringAsFixed(0)}）。确认取消吗？'
+              ? '接单已超过 12 小时，取消后需向农户支付订单金额 2% 的接单费用（约 ￥${_money(fee)}）。确认取消吗？'
               : '接单未满 12 小时，可免费取消。确认取消吗？',
         ),
         actions: [
@@ -91,17 +83,14 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
       ),
     );
     if (confirmed != true || !mounted) return;
-    setState(() {
-      _accepted.remove(entry);
-      _pending.insert(0, entry.order);
-    });
+    _store.cancel(order.id);
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
           content: Text(
             charged
-                ? '已取消订单，将向农户支付 ￥${fee.toStringAsFixed(0)} 接单费用'
+                ? '已取消订单，将向农户支付 ￥${_money(fee)} 接单费用'
                 : '已取消订单',
           ),
         ),
@@ -170,7 +159,7 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
           ),
           const SizedBox(height: 20),
           Text(
-            '附近订单',
+            '农户订单',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
@@ -179,7 +168,7 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
           ),
           const SizedBox(height: 10),
           if (_pending.isEmpty)
-            _emptyCard('暂无待接订单，稍后再来看看')
+            _emptyCard('暂无待接订单，农户提交预约后会显示在这里')
           else
             for (final order in _pending) _orderCard(order),
           const SizedBox(height: 20),
@@ -195,7 +184,7 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
           if (_accepted.isEmpty)
             _emptyCard('还没有接单，接单后会展示在这里')
           else
-            for (final entry in _accepted) _acceptedCard(entry),
+            for (final order in _accepted) _acceptedCard(order),
         ],
       ),
     );
@@ -274,10 +263,10 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
     );
   }
 
-  Widget _orderCard(_FarmOrder order) {
+  Widget _orderCard(BookingOrder order) {
     return ElderCareBlock(
       readText:
-          '${order.crop}${order.area.toStringAsFixed(0)}亩，${order.village}，${order.time}，预估${order.price.toStringAsFixed(0)}元',
+          '${order.crop}${_mu(order.area)}亩，${order.address}，${order.time}，预估${_money(order.amount)}元',
       child: Card(
         margin: const EdgeInsets.only(bottom: 10),
         child: Padding(
@@ -289,7 +278,7 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
                 children: [
                   Expanded(
                     child: Text(
-                      '${order.crop} · ${order.area.toStringAsFixed(0)} 亩',
+                      '${order.crop} · ${_mu(order.area)} 亩',
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -298,7 +287,7 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
                     ),
                   ),
                   Text(
-                    '￥${order.price.toStringAsFixed(0)}',
+                    '￥${_money(order.amount)}',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -308,9 +297,20 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
                 ],
               ),
               const SizedBox(height: 8),
-              _infoRow(Icons.place_outlined, order.village),
+              _infoRow(Icons.place_outlined, order.address),
               const SizedBox(height: 4),
               _infoRow(Icons.schedule, order.time),
+              const SizedBox(height: 4),
+              _infoRow(
+                Icons.person_outline,
+                '${order.contactName} ${order.phone}',
+              ),
+              const SizedBox(height: 4),
+              _infoRow(Icons.flight_takeoff, '指定飞手：${order.pilotName}'),
+              if (order.note.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                _infoRow(Icons.notes, '备注：${order.note}'),
+              ],
               const SizedBox(height: 10),
               Align(
                 alignment: Alignment.centerRight,
@@ -336,8 +336,7 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
     );
   }
 
-  Widget _acceptedCard(_AcceptedOrder entry) {
-    final order = entry.order;
+  Widget _acceptedCard(BookingOrder order) {
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: Padding(
@@ -349,7 +348,7 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '${order.crop} · ${order.area.toStringAsFixed(0)} 亩',
+                    '${order.crop} · ${_mu(order.area)} 亩',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -358,10 +357,20 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    '${order.village} · ${order.time}',
+                    '${order.address} · ${order.time}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 12,
                       color: context.palette.textHint,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '农户：${order.contactName} ${order.phone}',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                 ],
@@ -387,7 +396,7 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
                   ),
                 ),
                 TextButton(
-                  onPressed: () => _cancelAccepted(entry),
+                  onPressed: () => _cancelAccepted(order),
                   style: TextButton.styleFrom(
                     foregroundColor: AppColors.error,
                     padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -426,28 +435,21 @@ class _PilotWorkbenchPageState extends State<PilotWorkbenchPage> {
       ],
     );
   }
-}
 
-/// 飞手接单状态：页面退出后仍保留，再次进入工作台可看到已接订单
-class _PilotOrders {
-  static final List<_FarmOrder> pending =
-      List.of(_PilotWorkbenchPageState._seedOrders);
-  static final List<_AcceptedOrder> accepted = <_AcceptedOrder>[];
-}
+  String _mu(double area) => area == area.roundToDouble()
+      ? area.toStringAsFixed(0)
+      : area.toStringAsFixed(1);
 
-/// 已接订单，记录接单时间用于判断取消是否收费
-class _AcceptedOrder {
-  const _AcceptedOrder({required this.order, required this.acceptedAt});
-
-  final _FarmOrder order;
-  final DateTime acceptedAt;
+  String _money(double value) => value == value.roundToDouble()
+      ? value.toStringAsFixed(0)
+      : value.toStringAsFixed(2);
 }
 
 /// 接单确认弹窗：展示订单与取消规则，确认按钮 5 秒倒计时后才可点击
 class _AcceptOrderDialog extends StatefulWidget {
   const _AcceptOrderDialog({required this.order});
 
-  final _FarmOrder order;
+  final BookingOrder order;
 
   @override
   State<_AcceptOrderDialog> createState() => _AcceptOrderDialogState();
@@ -480,7 +482,13 @@ class _AcceptOrderDialogState extends State<_AcceptOrderDialog> {
   @override
   Widget build(BuildContext context) {
     final order = widget.order;
-    final fee = order.price * 0.02;
+    final fee = order.amount * 0.02;
+    final money = order.amount == order.amount.roundToDouble()
+        ? order.amount.toStringAsFixed(0)
+        : order.amount.toStringAsFixed(2);
+    final area = order.area == order.area.roundToDouble()
+        ? order.area.toStringAsFixed(0)
+        : order.area.toStringAsFixed(1);
     return AlertDialog(
       title: const Text('确认接单'),
       content: Column(
@@ -488,7 +496,7 @@ class _AcceptOrderDialogState extends State<_AcceptOrderDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${order.crop} · ${order.area.toStringAsFixed(0)} 亩',
+            '${order.crop} · $area 亩',
             style: TextStyle(
               fontSize: 15,
               fontWeight: FontWeight.w600,
@@ -497,12 +505,17 @@ class _AcceptOrderDialogState extends State<_AcceptOrderDialog> {
           ),
           const SizedBox(height: 6),
           Text(
-            '${order.village} · ${order.time}',
+            '${order.address} · ${order.time}',
+            style: TextStyle(fontSize: 12, color: context.palette.textHint),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '农户：${order.contactName} ${order.phone}',
             style: TextStyle(fontSize: 12, color: context.palette.textHint),
           ),
           const SizedBox(height: 6),
           Text(
-            '预估费用 ￥${order.price.toStringAsFixed(0)}',
+            '预估费用 ￥$money',
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w700,
@@ -546,21 +559,4 @@ class _AcceptOrderDialogState extends State<_AcceptOrderDialog> {
       ],
     );
   }
-}
-
-/// 农户发布的作业订单
-class _FarmOrder {
-  const _FarmOrder({
-    required this.crop,
-    required this.area,
-    required this.village,
-    required this.time,
-    required this.price,
-  });
-
-  final String crop;
-  final double area;
-  final String village;
-  final String time;
-  final double price;
 }

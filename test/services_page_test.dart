@@ -10,7 +10,10 @@ import 'package:huhuashizhe/features/services/pages/pilot_workbench_page.dart';
 import 'package:huhuashizhe/features/services/pages/services_page.dart';
 
 void main() {
-  setUp(() => LocalDatabase().remove('booking_role'));
+  setUp(() {
+    LocalDatabase().remove('booking_role');
+    LocalDatabase().remove('booking_orders');
+  });
 
   testWidgets('服务页展示小课堂板块并可进入小课堂', (tester) async {
     final router = GoRouter(
@@ -189,7 +192,7 @@ void main() {
     );
   });
 
-  testWidgets('飞手身份进入工作台可以接单', (tester) async {
+  testWidgets('农户提交的订单会出现在飞手工作台并可接单', (tester) async {
     final router = GoRouter(
       initialLocation: '/services/booking',
       routes: [
@@ -211,12 +214,58 @@ void main() {
     await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
 
+    // 农户填写并提交预约
+    await tester.tap(find.text('我是农户'));
+    await tester.pumpAndSettle();
+
+    await tester.dragUntilVisible(
+      find.text('作业面积（亩）'),
+      find.byType(ListView).last,
+      const Offset(0, -200),
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, '作业面积（亩）'),
+      '60',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, '作业地点'),
+      '监利市新沟镇',
+    );
+
+    await tester.dragUntilVisible(
+      find.text('联系人'),
+      find.byType(ListView).last,
+      const Offset(0, -300),
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, '联系人'),
+      '张叔',
+    );
+    await tester.enterText(
+      find.widgetWithText(TextFormField, '手机号'),
+      '13800002222',
+    );
+
+    await tester.dragUntilVisible(
+      find.text('提交预约'),
+      find.byType(ListView).last,
+      const Offset(0, -300),
+    );
+    await tester.tap(find.text('提交预约'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('预约已提交'), findsOneWidget);
+    await tester.tap(find.text('我知道了'));
+    await tester.pumpAndSettle();
+
+    // 切换到飞手工作台，可以看到农户刚提交的订单
     await tester.tap(find.text('我是飞手'));
     await tester.pumpAndSettle();
 
     expect(find.text('飞手工作台'), findsOneWidget);
     expect(find.text('待接订单'), findsOneWidget);
     expect(find.text('油菜 · 60 亩'), findsOneWidget);
+    expect(find.text('张叔 13800002222'), findsOneWidget);
 
     await tester.tap(find.text('接单').first);
     await tester.pumpAndSettle();
@@ -262,6 +311,15 @@ void main() {
       const Offset(0, -300),
     );
     expect(find.text('油菜 · 60 亩'), findsOneWidget);
+  });
+
+  testWidgets('飞手工作台不再内置预设订单', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: PilotWorkbenchPage()));
+    await tester.pumpAndSettle();
+
+    expect(find.text('油菜 · 60 亩'), findsNothing);
+    expect(find.text('水稻 · 120 亩'), findsNothing);
+    expect(find.text('暂无待接订单，农户提交预约后会显示在这里'), findsOneWidget);
   });
 
   testWidgets('作物类型选择其他时可自定义填写', (tester) async {

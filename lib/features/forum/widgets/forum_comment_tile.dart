@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/accessibility/elder_care_reader.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/forum_models.dart';
+import 'forum_voice_bubble.dart';
 
 /// 单条评论
 class ForumCommentTile extends StatelessWidget {
@@ -37,8 +38,10 @@ class ForumCommentTile extends StatelessWidget {
     // 只朗读昵称与评论内容，跳过时间
     readText:
         _isReply
-            ? '${comment.author} 回复 ${comment.replyToAuthor}。${comment.content}'
-            : '${comment.author}。${comment.content}',
+            ? '${comment.author} 回复 ${comment.replyToAuthor}。'
+                '${comment.isVoice ? '语音评论：' : ''}${comment.content}'
+            : '${comment.author}。'
+                '${comment.isVoice ? '语音评论：' : ''}${comment.content}',
     child: _buildTile(context),
   );
 
@@ -100,23 +103,41 @@ class ForumCommentTile extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 4),
-                Text.rich(
-                  TextSpan(
-                    children: [
-                      if (_isReply)
-                        TextSpan(
-                          text: '回复 @${comment.replyToAuthor}：',
-                          style: const TextStyle(color: AppColors.primary),
+                if (comment.isVoice) ...[
+                  if (_isReply && comment.replyToAuthor != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: Text(
+                        '回复 @${comment.replyToAuthor}：',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: AppColors.primary,
                         ),
-                      TextSpan(text: comment.content),
-                    ],
+                      ),
+                    ),
+                  ForumVoiceBubble(
+                    url: comment.audioUrl!,
+                    durationMs: comment.audioDurationMs ?? 0,
+                    transcript: comment.content,
                   ),
-                  style: TextStyle(
-                    fontSize: 13,
-                    height: 1.45,
-                    color: context.palette.textSecondary,
+                ] else
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        if (_isReply)
+                          TextSpan(
+                            text: '回复 @${comment.replyToAuthor}：',
+                            style: const TextStyle(color: AppColors.primary),
+                          ),
+                        TextSpan(text: comment.content),
+                      ],
+                    ),
+                    style: TextStyle(
+                      fontSize: 13,
+                      height: 1.45,
+                      color: context.palette.textSecondary,
+                    ),
                   ),
-                ),
                 if (onReply != null ||
                     onReport != null ||
                     onDelete != null) ...[

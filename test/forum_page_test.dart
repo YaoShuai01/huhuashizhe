@@ -219,6 +219,99 @@ void main() {
     expect(repository.hasUnreadMessages, isFalse);
   });
 
+  testWidgets('消息提醒内可直接回复对应帖子', (tester) async {
+    AuthSession.instance.signIn(
+      const AuthUser(id: 9, loginId: '13800000009', nickname: '我'),
+    );
+    addTearDown(AuthSession.instance.signOut);
+
+    final post = ForumPost(
+      id: 'p1',
+      section: '农友留言区',
+      author: '种田的老张',
+      title: '水稻田作业参数',
+      content: '求参数参考',
+      createdAt: DateTime.now(),
+    );
+    final repository = InMemoryForumRepository(
+      posts: [post],
+      messages: [
+        ForumMessage(
+          id: 'm1',
+          kind: ForumMessageKind.reply,
+          title: '老张 回复了你的帖子',
+          body: '「水稻田作业参数」按 2.5 米更稳',
+          createdAt: DateTime.now(),
+          unread: true,
+          postId: post.id,
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      wrap(
+        ForumScope(repository: repository, child: const ForumMessagesPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('回复').first);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.reply));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '收到，谢谢');
+    await tester.pump();
+    await tester.tap(find.byTooltip('发送回复'));
+    await tester.pumpAndSettle();
+
+    expect(repository.commentsOf(post.id).length, 1);
+    expect(repository.commentsOf(post.id).first.content, '收到，谢谢');
+    expect(repository.messages.first.unread, isFalse);
+  });
+
+  testWidgets('语音评论展示播放气泡与自动转写文字', (tester) async {
+    final post = ForumPost(
+      id: 'p_voice',
+      section: '农友留言区',
+      author: '种田的老张',
+      title: '语音评论测试',
+      content: '看看语音评论',
+      createdAt: DateTime.now(),
+    );
+    final repository = InMemoryForumRepository(
+      posts: [post],
+      comments: {
+        post.id: [
+          ForumComment(
+            id: 'voice_1',
+            postId: post.id,
+            author: '种田的老张',
+            content: '这块地明天上午打药',
+            createdAt: DateTime.now(),
+            audioUrl: 'http://example.com/voice.wav',
+            audioDurationMs: 4000,
+          ),
+        ],
+      },
+    );
+
+    await tester.pumpWidget(
+      wrap(
+        ForumPostDetailPage(
+          post: post,
+          repository: repository,
+          moderationService: _FakeModerationService(_passResult),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.play_circle_fill), findsOneWidget);
+    expect(find.text('4″'), findsOneWidget);
+    expect(find.text('这块地明天上午打药'), findsOneWidget);
+  });
+
   test('发帖后进入对应版块与我的帖子', () async {
     final repository = InMemoryForumRepository();
     final before = repository.countOf('新手提问区');

@@ -188,7 +188,10 @@ void main() {
     expect(find.text('老年关怀模式'), findsOneWidget);
     expect(controller.enabled, isFalse);
 
-    await tester.tap(find.byType(Switch));
+    final elderSwitch = find.byType(Switch);
+    await tester.ensureVisible(elderSwitch);
+    await tester.pumpAndSettle();
+    await tester.tap(elderSwitch);
     await tester.pumpAndSettle();
 
     expect(controller.enabled, isTrue);
