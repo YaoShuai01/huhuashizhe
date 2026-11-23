@@ -1,13 +1,15 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:camera/camera.dart';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../../../core/layout/tablet_layout.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/local_database.dart';
 import '../../../providers/weather_provider.dart';
@@ -20,6 +22,23 @@ import '../../../services/ys_image_store.dart';
 import '../data/model_catalog.dart';
 import '../data/model_labels.dart';
 import '../widgets/warning_detail_card.dart';
+
+/// 相机预览区尺寸。
+///
+/// 参数是 body 的实际可用尺寸（已扣除 AppBar/系统栏）：
+/// - 宽度上限 480；手机（<=600）用可用宽度；
+/// - 高度最多「可用高度 − 200」，给开关条和预警列表留位置；
+/// - 超出时按 3:4 等比缩小，保证不拉伸、不溢出。
+Size modelTestPreviewSize(Size available) {
+  var width = available.width > 600 ? 480.0 : available.width;
+  var height = width * 4 / 3;
+  final maxHeight = math.max(240.0, available.height - 200);
+  if (height > maxHeight) {
+    height = maxHeight;
+    width = height * 3 / 4;
+  }
+  return Size(width, height);
+}
 
 /// 模型测试页：摄像头开关式实时识别（竖屏）
 ///
@@ -77,8 +96,23 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
   @override
   void initState() {
     super.initState();
-    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
     _initModels();
+  }
+
+  bool _orientationApplied = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_orientationApplied) return;
+    _orientationApplied = true;
+    // 手机保持竖屏（相机识别姿态）；平板允许横竖屏，避免横屏时被强制
+    // 锁成竖屏、两侧留黑边。
+    SystemChrome.setPreferredOrientations(
+      LayoutScope.useTablet(context)
+          ? DeviceOrientation.values
+          : const [DeviceOrientation.portraitUp],
+    );
   }
 
   /// 初始化：并入选中的热更新模型 → 加载引擎 → 静默检查新模型
@@ -124,7 +158,8 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
   void dispose() {
     _stopCamera();
     _inference.dispose();
-    SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
+    // 退出后恢复全方向，别把整个 App 锁在竖屏。
+    SystemChrome.setPreferredOrientations(DeviceOrientation.values);
     super.dispose();
   }
 
@@ -461,19 +496,24 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
             ),
           ),
         ),
-        body: Column(
-          children: [
-            // 模型热更新横幅（静默下载完成后短暂提示）
-            if (_hotPhase == HotupdatePhase.done && _hotAdded.isNotEmpty)
-              _buildHotupdateBanner(),
-            // 摄像头预览区
-            _buildCameraArea(),
-            // 开关与状态
-            _buildSwitchBar(),
-            const Divider(height: 1),
-            // 预警列表
-            Expanded(child: _buildWarningList(groups)),
-          ],
+        body: LayoutBuilder(
+          builder: (context, constraints) {
+            final preview = modelTestPreviewSize(constraints.biggest);
+            return Column(
+              children: [
+                // 模型热更新横幅（静默下载完成后短暂提示）
+                if (_hotPhase == HotupdatePhase.done && _hotAdded.isNotEmpty)
+                  _buildHotupdateBanner(),
+                // 摄像头预览区
+                _buildCameraArea(preview),
+                // 开关与状态
+                _buildSwitchBar(),
+                const Divider(height: 1),
+                // 预警列表
+                Expanded(child: _buildWarningList(groups)),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -506,57 +546,70 @@ class _ModelTestPageState extends ConsumerState<ModelTestPage> {
     );
   }
 
-  Widget _buildCameraArea() {
+  Widget _buildCameraArea(Size preview) {
     final controller = _camera;
     final result = _lastResult;
-    return Stack(
-      children: [
-        AspectRatio(
-          aspectRatio: 3 / 4,
-          child: _cameraOn && controller != null && controller.value.isInitialized
-              ? CameraPreview(controller)
-              : Container(
+    return Center(
+      child: SizedBox(
+        width: preview.width,
+        height: preview.height,
+        child: ClipRect(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (_cameraOn &&
+                  controller != null &&
+                  controller.value.isInitialized)
+                CameraPreview(controller)
+              else
+                Container(
                   color: const Color(0xFF1E2A20),
                   child: Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: const [
-                        Icon(Icons.videocam_off, size: 48, color: Colors.white38),
+                        Icon(Icons.videocam_off,
+                            size: 48, color: Colors.white38),
                         SizedBox(height: 10),
                         Text(
                           '摄像头已关闭',
-                          style: TextStyle(color: Colors.white54, fontSize: 14),
+                          style:
+                              TextStyle(color: Colors.white54, fontSize: 14),
                         ),
                         SizedBox(height: 4),
                         Text(
                           '打开下方开关开始实时识别',
-                          style: TextStyle(color: Colors.white38, fontSize: 12),
+                          style:
+                              TextStyle(color: Colors.white38, fontSize: 12),
                         ),
                       ],
                     ),
                   ),
                 ),
-        ),
-        // 实时识别结果叠加标注（分类模型：标签条；检测模型升级后绘制框）
-        if (result != null) _buildOverlayLabel(result),
-        // 模型加载中提示
-        if (!_modelReady)
-          Positioned.fill(
-            child: Container(
-              color: Colors.black45,
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    CircularProgressIndicator(color: Colors.white),
-                    SizedBox(height: 8),
-                    Text('正在加载识别模型...', style: TextStyle(color: Colors.white70)),
-                  ],
+              // 实时识别结果叠加标注（分类模型：标签条；检测模型升级后绘制框）
+              if (result != null) _buildOverlayLabel(result),
+              // 模型加载中提示
+              if (!_modelReady)
+                Positioned.fill(
+                  child: Container(
+                    color: Colors.black45,
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          CircularProgressIndicator(color: Colors.white),
+                          SizedBox(height: 8),
+                          Text('正在加载识别模型...',
+                              style: TextStyle(color: Colors.white70)),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
+            ],
           ),
-      ],
+        ),
+      ),
     );
   }
 
