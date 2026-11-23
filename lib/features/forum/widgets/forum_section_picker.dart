@@ -25,17 +25,17 @@ class ForumSectionPicker extends StatelessWidget {
       children: [
         Text(
           label,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: AppColors.textSecondary,
+            color: context.palette.textSecondary,
           ),
         ),
         const SizedBox(height: 8),
         if (!hasSections)
-          const Text(
+          Text(
             '暂无可用标签',
-            style: TextStyle(fontSize: 13, color: AppColors.textHint),
+            style: TextStyle(fontSize: 13, color: context.palette.textHint),
           )
         else
           Wrap(
@@ -48,14 +48,14 @@ class ForumSectionPicker extends StatelessWidget {
                   selected: section == value,
                   showCheckmark: false,
                   onSelected: (_) => onChanged(section),
-                  backgroundColor: AppColors.surface,
+                  backgroundColor: context.palette.surface,
                   selectedColor: AppColors.primaryLight.withValues(alpha: 0.18),
                   labelStyle: TextStyle(
                     fontSize: 13,
                     color:
                         section == value
                             ? AppColors.primary
-                            : AppColors.textSecondary,
+                            : context.palette.textSecondary,
                     fontWeight:
                         section == value ? FontWeight.w600 : FontWeight.w400,
                   ),

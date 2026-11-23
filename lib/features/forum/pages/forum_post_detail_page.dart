@@ -482,22 +482,22 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                           padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
                           child: Text(
                             '全部评论 ${comments.length}',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary,
+                              color: context.palette.textPrimary,
                             ),
                           ),
                         ),
                         if (comments.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 32),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 32),
                             child: Center(
                               child: Text(
                                 '还没有评论，来说两句',
                                 style: TextStyle(
                                   fontSize: 13,
-                                  color: AppColors.textHint,
+                                  color: context.palette.textHint,
                                 ),
                               ),
                             ),
@@ -582,10 +582,10 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                     post.author,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
+                      color: context.palette.textPrimary,
                     ),
                   ),
                 ),
@@ -595,9 +595,9 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                     forumTimeText(post.createdAt),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
-                      color: AppColors.textHint,
+                      color: context.palette.textHint,
                     ),
                   ),
                 ),
@@ -606,20 +606,20 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
             const SizedBox(height: 12),
             Text(
               post.title,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 17,
                 height: 1.4,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
+                color: context.palette.textPrimary,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               post.content,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 height: 1.6,
-                color: AppColors.textSecondary,
+                color: context.palette.textSecondary,
               ),
             ),
             if (post.images.isNotEmpty) ...[
@@ -650,16 +650,16 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.surfaceVariant,
+                              color: context.palette.surfaceVariant,
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
                               label,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 11,
-                                color: AppColors.textHint,
+                                color: context.palette.textHint,
                               ),
                             ),
                           ),
@@ -679,7 +679,7 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                       color:
                           repository.isLiked(post)
                               ? AppColors.accent.withValues(alpha: 0.12)
-                              : AppColors.textHint,
+                              : context.palette.surfaceVariant,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -693,7 +693,7 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                           color:
                               repository.isLiked(post)
                                   ? AppColors.accent
-                                  : AppColors.textOnPrimary,
+                                  : context.palette.textHint,
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -703,7 +703,7 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                             color:
                                 repository.isLiked(post)
                                     ? AppColors.accent
-                                    : AppColors.textOnPrimary,
+                                    : context.palette.textHint,
                           ),
                         ),
                       ],
@@ -730,7 +730,7 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                           color:
                               repository.isFavorite(post)
                                   ? AppColors.accent
-                                  : AppColors.textHint,
+                                  : context.palette.textHint,
                         ),
                         const SizedBox(width: 4),
                         Text(
@@ -740,7 +740,7 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                             color:
                                 repository.isFavorite(post)
                                     ? AppColors.accent
-                                    : AppColors.textHint,
+                                    : context.palette.textHint,
                           ),
                         ),
                       ],
@@ -777,9 +777,11 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
     return SafeArea(
       top: false,
       child: Container(
-        decoration: const BoxDecoration(
-          color: AppColors.surface,
-          border: Border(top: BorderSide(color: AppColors.surfaceVariant)),
+        decoration: BoxDecoration(
+          color: context.palette.surface,
+          border: Border(
+            top: BorderSide(color: context.palette.surfaceVariant),
+          ),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -804,12 +806,12 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                     InkWell(
                       borderRadius: BorderRadius.circular(12),
                       onTap: () => setState(() => _replyTo = null),
-                      child: const Padding(
-                        padding: EdgeInsets.all(4),
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
                         child: Icon(
                           Icons.close,
                           size: 16,
-                          color: AppColors.textHint,
+                          color: context.palette.textHint,
                         ),
                       ),
                     ),
@@ -844,13 +846,13 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                             _replyTo == null
                                 ? '写下你的评论…'
                                 : '回复 @${_replyTo!.author}…',
-                        hintStyle: const TextStyle(
+                        hintStyle: TextStyle(
                           fontSize: 13,
-                          color: AppColors.textHint,
+                          color: context.palette.textHint,
                         ),
                         isDense: true,
                         filled: true,
-                        fillColor: AppColors.surfaceVariant,
+                        fillColor: context.palette.surfaceVariant,
                         contentPadding: const EdgeInsets.symmetric(
                           horizontal: 14,
                           vertical: 10,

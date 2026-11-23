@@ -953,6 +953,17 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.10.10',
+        'date': '2026-11-23',
+        'content': [
+          '发帖改为 #标签形式，可附加最多 3 个标签',
+          '新增语音发帖/评论：普通话用系统识别，粤语/四川话/河南话走云端方言识别',
+          '自己的帖子与评论支持删除；所有内容可提交投诉',
+          '帖子详情支持下拉刷新，时间按本地时区正确显示',
+          '新增麦克风/语音识别权限说明，Android 最低版本调整为 6.0',
+        ],
+      },
+      {
         'version': 'v3.10.9',
         'date': '2026-11-23',
         'content': [
