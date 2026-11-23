@@ -953,6 +953,16 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.10.7',
+        'date': '2026-11-23',
+        'content': [
+          '小课堂阅读数改为「内置基数 + 本机累计」，进入详情自动加一并持久化',
+          '课程支持收藏与取消收藏，列表和详情页图标实时切换',
+          '「我的收藏」新增「课程」标签页，可集中查看与取消课程收藏',
+          '课程数据独立维护，阅读与收藏记录保存在本机',
+        ],
+      },
+      {
         'version': 'v3.10.6',
         'date': '2026-11-22',
         'content': [
