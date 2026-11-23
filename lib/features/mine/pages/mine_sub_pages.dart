@@ -953,6 +953,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.10.11',
+        'date': '2026-11-23',
+        'content': [
+          '模型测试页平板适配：平板解除竖屏锁定，横屏不再被强制竖屏',
+          '相机预览按可用空间等比缩放，限宽 480，为预警列表保留空间',
+          'record 依赖固定 6.2.1，修复部分环境编译失败',
+        ],
+      },
+      {
         'version': 'v3.10.10',
         'date': '2026-11-23',
         'content': [
