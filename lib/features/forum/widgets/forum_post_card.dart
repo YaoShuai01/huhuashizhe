@@ -45,10 +45,10 @@ class ForumPostCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ElderCareBlock(
-        // 只朗读昵称与提问/回答内容，跳过时间、版块与点赞
-        readText: '${post.author}。${post.title}。${post.content}',
-        child: _buildCard(context),
-      );
+    // 只朗读昵称与提问/回答内容，跳过时间、版块与点赞
+    readText: '${post.author}。${post.title}。${post.content}',
+    child: _buildCard(context),
+  );
 
   Widget _buildCard(BuildContext context) {
     return Card(
@@ -70,17 +70,17 @@ class ForumPostCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildAuthorRow(context),
+                  _buildAuthorRow(),
                   const SizedBox(height: 7),
                   Text(
                     post.title,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 15,
                       height: 1.3,
                       fontWeight: FontWeight.w600,
-                      color: context.palette.textPrimary,
+                      color: AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -88,14 +88,14 @@ class ForumPostCard extends StatelessWidget {
                     post.content,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 13,
                       height: 1.45,
-                      color: context.palette.textSecondary,
+                      color: AppColors.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 10),
-                  _buildFooter(context),
+                  _buildFooter(),
                 ],
               ),
             ),
@@ -105,7 +105,7 @@ class ForumPostCard extends StatelessWidget {
     );
   }
 
-  Widget _buildAuthorRow(BuildContext context) {
+  Widget _buildAuthorRow() {
     return Row(
       children: [
         Container(
@@ -134,10 +134,10 @@ class ForumPostCard extends StatelessWidget {
                 post.author,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
-                  color: context.palette.textPrimary,
+                  color: AppColors.textPrimary,
                 ),
               ),
               const SizedBox(height: 1),
@@ -145,10 +145,7 @@ class ForumPostCard extends StatelessWidget {
                 forumTimeText(post.createdAt),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: context.palette.textHint,
-                ),
+                style: const TextStyle(fontSize: 10, color: AppColors.textHint),
               ),
             ],
           ),
@@ -157,7 +154,7 @@ class ForumPostCard extends StatelessWidget {
     );
   }
 
-  Widget _buildFooter(BuildContext context) {
+  Widget _buildFooter() {
     return Row(
       children: [
         if (showSection)
@@ -170,7 +167,8 @@ class ForumPostCard extends StatelessWidget {
                 children: [
                   if (post.featured) _featuredTag(),
                   if (post.pendingReview) _pendingTag(),
-                  _tag(context, post.section),
+                  _tag('#${post.section}'),
+                  for (final tag in post.tags) _tag('#$tag'),
                 ],
               ),
             ),
@@ -184,14 +182,11 @@ class ForumPostCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               onTap: onFavorite,
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 6,
-                  vertical: 2,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 child: Icon(
                   favorited ? Icons.bookmark : Icons.bookmark_border,
                   size: 16,
-                  color: favorited ? AppColors.primary : context.palette.textHint,
+                  color: favorited ? AppColors.primary : AppColors.textHint,
                 ),
               ),
             ),
@@ -202,9 +197,10 @@ class ForumPostCard extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: liked
-                  ? AppColors.accent.withValues(alpha: 0.12)
-                  : context.palette.surfaceVariant,
+              color:
+                  liked
+                      ? AppColors.accent.withValues(alpha: 0.12)
+                      : AppColors.surfaceVariant,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(
@@ -213,14 +209,14 @@ class ForumPostCard extends StatelessWidget {
                 Icon(
                   liked ? Icons.favorite : Icons.favorite_border,
                   size: 14,
-                  color: liked ? AppColors.accent : context.palette.textHint,
+                  color: liked ? AppColors.accent : AppColors.textHint,
                 ),
                 const SizedBox(width: 3),
                 Text(
                   '${post.likes}',
                   style: TextStyle(
                     fontSize: 11,
-                    color: liked ? AppColors.accent : context.palette.textHint,
+                    color: liked ? AppColors.accent : AppColors.textHint,
                   ),
                 ),
               ],
@@ -269,18 +265,18 @@ class ForumPostCard extends StatelessWidget {
     );
   }
 
-  Widget _tag(BuildContext context, String text) {
+  Widget _tag(String text) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
-        color: context.palette.surfaceVariant,
+        color: AppColors.surfaceVariant,
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
         text,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: TextStyle(fontSize: 11, color: context.palette.textHint),
+        style: const TextStyle(fontSize: 11, color: AppColors.textHint),
       ),
     );
   }

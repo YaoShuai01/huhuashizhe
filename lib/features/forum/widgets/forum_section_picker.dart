@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 
-/// 发帖时的版块选择器
+/// 发帖时的版块选择器，以 #标签 形式展示
 class ForumSectionPicker extends StatelessWidget {
   const ForumSectionPicker({
     super.key,
@@ -25,37 +25,52 @@ class ForumSectionPicker extends StatelessWidget {
       children: [
         Text(
           label,
-          style:  TextStyle(
+          style: const TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: context.palette.textSecondary,
+            color: AppColors.textSecondary,
           ),
         ),
         const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: context.palette.surface,
-            borderRadius: BorderRadius.circular(12),
+        if (!hasSections)
+          const Text(
+            '暂无可用标签',
+            style: TextStyle(fontSize: 13, color: AppColors.textHint),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final section in sections)
+                ChoiceChip(
+                  label: Text('#$section'),
+                  selected: section == value,
+                  showCheckmark: false,
+                  onSelected: (_) => onChanged(section),
+                  backgroundColor: AppColors.surface,
+                  selectedColor: AppColors.primaryLight.withValues(alpha: 0.18),
+                  labelStyle: TextStyle(
+                    fontSize: 13,
+                    color:
+                        section == value
+                            ? AppColors.primary
+                            : AppColors.textSecondary,
+                    fontWeight:
+                        section == value ? FontWeight.w600 : FontWeight.w400,
+                  ),
+                  side: BorderSide(
+                    color:
+                        section == value
+                            ? AppColors.primary.withValues(alpha: 0.4)
+                            : Colors.transparent,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                ),
+            ],
           ),
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: hasSections ? value : null,
-              isExpanded: true,
-              borderRadius: BorderRadius.circular(12),
-              hint: const Text('暂无可用版块'),
-              items: [
-                for (final section in sections)
-                  DropdownMenuItem(value: section, child: Text(section)),
-              ],
-              onChanged: hasSections
-                  ? (v) {
-                      if (v != null) onChanged(v);
-                    }
-                  : null,
-            ),
-          ),
-        ),
       ],
     );
   }

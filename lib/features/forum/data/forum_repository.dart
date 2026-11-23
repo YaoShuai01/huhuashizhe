@@ -40,6 +40,7 @@ abstract class ForumRepository extends ChangeNotifier {
     required String content,
     bool pendingReview = false,
     List<String> images = const [],
+    List<String> tags = const [],
   });
 
   /// 上传一张帖子配图，返回可访问的 URL。
@@ -259,6 +260,7 @@ class InMemoryForumRepository extends ForumRepository {
     required String content,
     bool pendingReview = false,
     List<String> images = const [],
+    List<String> tags = const [],
   }) async {
     final post = ForumPost(
       id: 'local_${DateTime.now().microsecondsSinceEpoch}_${_idSeed++}',
@@ -269,6 +271,13 @@ class InMemoryForumRepository extends ForumRepository {
       createdAt: DateTime.now(),
       pendingReview: pendingReview,
       images: List.unmodifiable(images.take(3)),
+      tags: List.unmodifiable(
+        tags
+            .map((tag) => tag.replaceFirst(RegExp(r'^#+'), '').trim())
+            .where((tag) => tag.isNotEmpty)
+            .toSet()
+            .take(3),
+      ),
     );
     _posts.add(post);
     notifyListeners();

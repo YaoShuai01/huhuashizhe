@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 
 import authRouter from './auth.js';
+import { registerAsrRoutes } from './asr.js';
 import { pool } from './db.js';
 
 const app = express();
@@ -27,6 +28,8 @@ app.use((req, res, next) => {
 });
 
 app.use('/api/auth', authRouter);
+// 方言语音识别：客户端上传 PCM，服务端调用讯飞转为普通话文字
+registerAsrRoutes(app);
 
 const POST_FIELDS = `
   p.id,
@@ -34,6 +37,7 @@ const POST_FIELDS = `
   p.title,
   p.content,
   p.images,
+  p.tags,
   p.likes,
   p.featured,
   DATE_FORMAT(p.created_at, '%Y-%m-%d %H:%i:%s') AS created_at,
@@ -105,10 +109,39 @@ function withParsedImages(row) {
   return {
     ...row,
     images: parseImages(row.images),
+    tags: parseTags(row.tags),
     liked: Boolean(row.liked),
     favorited: Boolean(row.favorited),
     featured: Boolean(row.featured),
   };
+}
+
+// 数据库里保存的是 JSON 数组，返回给客户端时还原成 #标签
+function parseTags(value) {
+  if (!value) return [];
+  try {
+    const arr = typeof value === 'string' ? JSON.parse(value) : value;
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter((tag) => typeof tag === 'string' && tag.length > 0)
+      .slice(0, 3);
+  } catch {
+    return [];
+  }
+}
+
+// 标签去掉 # 前缀，去重后最多保留 3 个
+function normalizeTags(value) {
+  if (value == null) return [];
+  if (!Array.isArray(value) || value.length > 3) return null;
+  const result = [];
+  for (const item of value) {
+    if (typeof item !== 'string') return null;
+    const tag = item.replace(/^#+/, '').trim();
+    if (!tag || tag.length > 10) return null;
+    if (!result.includes(tag)) result.push(tag);
+  }
+  return result;
 }
 
 // 消息正文只存摘要，避免超长
@@ -242,7 +275,7 @@ app.get(
 );
 
 // POST /api/posts
-// body: { userId, section, title, content, images?: string[] }
+// body: { userId, section, title, content, images?: string[], tags?: string[] }
 app.post(
   '/api/posts',
   asyncHandler(async (req, res) => {
@@ -252,6 +285,7 @@ app.post(
     const title = typeof body.title === 'string' ? body.title.trim() : '';
     const content = typeof body.content === 'string' ? body.content.trim() : '';
     const images = normalizeImages(body.images);
+    const tags = normalizeTags(body.tags);
 
     if (!Number.isInteger(userId) || userId <= 0) {
       return res.status(400).json({ error: 'userId 必须是正整数' });
@@ -270,6 +304,11 @@ app.post(
         .status(400)
         .json({ error: 'images 最多 3 张且必须是已上传的图片地址' });
     }
+    if (tags === null) {
+      return res
+        .status(400)
+        .json({ error: 'tags 最多 3 个且每个不超过 10 个字' });
+    }
 
     const [users] = await pool.execute(
       'SELECT id FROM users WHERE id = ?',
@@ -280,13 +319,14 @@ app.post(
     }
 
     const [result] = await pool.execute(
-      'INSERT INTO posts (user_id, section, title, content, images) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO posts (user_id, section, title, content, images, tags) VALUES (?, ?, ?, ?, ?, ?)',
       [
         userId,
         section,
         title,
         content,
         images.length > 0 ? JSON.stringify(images) : null,
+        tags.length > 0 ? JSON.stringify(tags) : null,
       ],
     );
 
@@ -785,7 +825,7 @@ async function ensureSchema() {
     `SELECT TABLE_NAME, COLUMN_NAME
        FROM information_schema.COLUMNS
       WHERE TABLE_SCHEMA = DATABASE()
-        AND ((TABLE_NAME = 'posts' AND COLUMN_NAME = 'featured')
+        AND ((TABLE_NAME = 'posts' AND COLUMN_NAME IN ('featured', 'tags'))
           OR (TABLE_NAME = 'replies' AND COLUMN_NAME = 'parent_id'))`,
   );
   const existing = new Set(
@@ -795,6 +835,11 @@ async function ensureSchema() {
   if (!existing.has('posts.featured')) {
     await pool.query(
       "ALTER TABLE posts ADD COLUMN featured TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否精选（推荐分区优先展示）' AFTER likes",
+    );
+  }
+  if (!existing.has('posts.tags')) {
+    await pool.query(
+      "ALTER TABLE posts ADD COLUMN tags JSON DEFAULT NULL COMMENT '附加 #标签' AFTER images",
     );
   }
   if (!existing.has('replies.parent_id')) {

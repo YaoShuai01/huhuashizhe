@@ -51,9 +51,7 @@ void main() {
     expect(find.text('作业记录导出能不能加个 Excel？'), findsOneWidget);
     expect(
       tester.getTopLeft(find.text('第一次用护花使者，求作业参数参考')).dx,
-      lessThan(
-        tester.getTopLeft(find.text('作业记录导出能不能加个 Excel？')).dx,
-      ),
+      lessThan(tester.getTopLeft(find.text('作业记录导出能不能加个 Excel？')).dx),
     );
     expect(find.text('3 米高度和 2.5 米高度，水稻田哪个更合适？'), findsNothing);
 
@@ -129,7 +127,9 @@ void main() {
     final unread = repository.messages.where((m) => m.unread).length;
     expect(unread, greaterThan(0));
     expect(
-      tester.widget<ForumMessageBell>(find.byType(ForumMessageBell)).unreadCount,
+      tester
+          .widget<ForumMessageBell>(find.byType(ForumMessageBell))
+          .unreadCount,
       unread,
     );
 
@@ -137,7 +137,9 @@ void main() {
     await tester.pump();
 
     expect(
-      tester.widget<ForumMessageBell>(find.byType(ForumMessageBell)).unreadCount,
+      tester
+          .widget<ForumMessageBell>(find.byType(ForumMessageBell))
+          .unreadCount,
       0,
     );
   });
@@ -161,15 +163,9 @@ void main() {
 
   testWidgets('支持通过 ForumScope 注入外部数据源', (tester) async {
     final repository = InMemoryForumRepository(
-      categories: const [
-        ForumCategory(name: '注入区', icon: Icons.star_outline),
-      ],
+      categories: const [ForumCategory(name: '注入区', icon: Icons.star_outline)],
       sections: const [
-        ForumSection(
-          title: '注入版块',
-          desc: '来自外部数据源',
-          category: '注入区',
-        ),
+        ForumSection(title: '注入版块', desc: '来自外部数据源', category: '注入区'),
       ],
       posts: [],
       messages: [],
@@ -177,12 +173,7 @@ void main() {
     );
 
     await tester.pumpWidget(
-      wrap(
-        ForumScope(
-          repository: repository,
-          child: const ForumPage(),
-        ),
-      ),
+      wrap(ForumScope(repository: repository, child: const ForumPage())),
     );
 
     expect(find.text('注入版块'), findsOneWidget);
@@ -196,10 +187,7 @@ void main() {
 
     await tester.pumpWidget(
       wrap(
-        ForumScope(
-          repository: repository,
-          child: const ForumMessagesPage(),
-        ),
+        ForumScope(repository: repository, child: const ForumMessagesPage()),
       ),
     );
 
@@ -259,6 +247,19 @@ void main() {
     expect(post.images.first, 'a.jpg');
   });
 
+  test('发帖可携带多个 #标签', () async {
+    final repository = InMemoryForumRepository();
+    final post = await repository.publish(
+      section: '农友留言区',
+      title: '水稻施肥记录',
+      content: '分享一次施肥经验',
+      tags: const ['水稻', '#施肥', '水稻', '经验'],
+    );
+
+    expect(post.tags, ['水稻', '施肥', '经验']);
+    expect(repository.postsOf('农友留言区').first.tags, contains('水稻'));
+  });
+
   testWidgets('帖子有配图时卡片展示首图', (tester) async {
     final post = ForumPost(
       id: 'image_post',
@@ -290,22 +291,13 @@ void main() {
     repository.addListener(() => refreshed++);
 
     await tester.pumpWidget(
-      wrap(
-        ForumSectionPage(
-          section: '农友留言区',
-          repository: repository,
-        ),
-      ),
+      wrap(ForumSectionPage(section: '农友留言区', repository: repository)),
     );
 
     expect(find.byTooltip('返回'), findsOneWidget);
     expect(find.byType(RefreshIndicator), findsOneWidget);
 
-    await tester.fling(
-      find.byType(ListView),
-      const Offset(0, 300),
-      1000,
-    );
+    await tester.fling(find.byType(ListView), const Offset(0, 300), 1000);
     await tester.pumpAndSettle();
 
     expect(refreshed, greaterThan(0));
@@ -359,14 +351,14 @@ void main() {
     final repository = InMemoryForumRepository(seed: false, posts: [post]);
 
     Widget buildCard() => MaterialApp(
-          home: Scaffold(
-            body: ForumPostCard(
-              post: post,
-              liked: repository.isLiked(post),
-              onLike: () => repository.toggleLike(post),
-            ),
-          ),
-        );
+      home: Scaffold(
+        body: ForumPostCard(
+          post: post,
+          liked: repository.isLiked(post),
+          onLike: () => repository.toggleLike(post),
+        ),
+      ),
+    );
 
     await tester.pumpWidget(buildCard());
     expect(
@@ -545,10 +537,7 @@ void main() {
     expect(post.featured, isFalse);
     await repository.setFeatured(post, true);
     expect(post.featured, isTrue);
-    expect(
-      repository.postsOf(forumRecommendedSection).first.id,
-      post.id,
-    );
+    expect(repository.postsOf(forumRecommendedSection).first.id, post.id);
 
     await repository.setFeatured(post, false);
     expect(post.featured, isFalse);
@@ -597,6 +586,23 @@ void main() {
     expect(find.text('第一下就能发送'), findsOneWidget);
   });
 
+  testWidgets('帖子详情下拉可刷新帖子与评论', (tester) async {
+    final repository = _RefreshTrackingRepository();
+    final post = repository.postsOf('农友留言区').first;
+
+    await tester.pumpWidget(
+      wrap(ForumPostDetailPage(post: post, repository: repository)),
+    );
+    await tester.pumpAndSettle();
+    final loadsBefore = repository.commentLoads;
+
+    await tester.drag(find.byType(ListView), const Offset(0, 320));
+    await tester.pumpAndSettle();
+
+    expect(repository.refreshCount, greaterThan(0));
+    expect(repository.commentLoads, greaterThan(loadsBefore));
+  });
+
   testWidgets('详情页收藏按钮切换状态并给出提示', (tester) async {
     final repository = InMemoryForumRepository();
     final post = repository.postsOf('农友留言区').first;
@@ -629,9 +635,7 @@ void main() {
     final repository = InMemoryForumRepository();
     final post = repository.postsOf('农友留言区').first;
 
-    await tester.pumpWidget(
-      wrap(ForumFavoritesPage(repository: repository)),
-    );
+    await tester.pumpWidget(wrap(ForumFavoritesPage(repository: repository)));
 
     expect(find.text('还没有收藏的帖子'), findsOneWidget);
 
@@ -714,10 +718,7 @@ void main() {
   test('屏蔽词命中直接驳回，未命中立即通过', () async {
     final service = BannedWordForumModerationService();
 
-    final rejected = await service.review(
-      title: '转让一批肥料',
-      content: '需要的加微信详聊',
-    );
+    final rejected = await service.review(title: '转让一批肥料', content: '需要的加微信详聊');
     expect(rejected.rejected, isTrue);
     expect(rejected.reason, contains('加微信'));
 
@@ -872,10 +873,7 @@ void main() {
     final router = GoRouter(
       initialLocation: '/forum',
       routes: [
-        GoRoute(
-          path: '/forum',
-          builder: (context, state) => const ForumPage(),
-        ),
+        GoRoute(path: '/forum', builder: (context, state) => const ForumPage()),
         GoRoute(
           path: '/forum/compose',
           builder: (context, state) => const ForumComposePage(),
@@ -914,10 +912,7 @@ void main() {
     final router = GoRouter(
       initialLocation: '/forum',
       routes: [
-        GoRoute(
-          path: '/forum',
-          builder: (context, state) => const ForumPage(),
-        ),
+        GoRoute(path: '/forum', builder: (context, state) => const ForumPage()),
         GoRoute(
           path: '/forum/compose',
           builder: (context, state) => const ForumComposePage(),
@@ -934,6 +929,83 @@ void main() {
     expect(find.text('发布帖子'), findsOneWidget);
   });
 
+  testWidgets('语音发帖写入正文并自动补全标题', (tester) async {
+    final repository = InMemoryForumRepository();
+    final voice = _FakeVoiceRecognizer();
+    final router = GoRouter(
+      initialLocation: '/compose',
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (context, state) => const Scaffold(body: Text('首页')),
+        ),
+        GoRoute(
+          path: '/compose',
+          builder:
+              (context, state) => ForumComposePage(
+                repository: repository,
+                voiceRecognizer: voice,
+              ),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.mic_none).first);
+    await tester.pump();
+    expect(voice.started, isTrue);
+
+    voice.emit('今天给水稻打药了。风有点大，注意飘移');
+    await tester.pumpAndSettle();
+
+    expect(find.text('今天给水稻打药了'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField).at(1)).controller!.text,
+      '今天给水稻打药了。风有点大，注意飘移',
+    );
+  });
+
+  testWidgets('切换方言后语音识别使用对应方言', (tester) async {
+    final repository = InMemoryForumRepository();
+    final voice = _FakeVoiceRecognizer();
+    addTearDown(
+      () => forumVoiceDialectInput.value = ForumVoiceDialect.mandarin,
+    );
+    final router = GoRouter(
+      initialLocation: '/compose',
+      routes: [
+        GoRoute(
+          path: '/',
+          builder: (context, state) => const Scaffold(body: Text('首页')),
+        ),
+        GoRoute(
+          path: '/compose',
+          builder:
+              (context, state) => ForumComposePage(
+                repository: repository,
+                voiceRecognizer: voice,
+              ),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('普通话').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('四川话').last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.mic_none).first);
+    await tester.pump();
+
+    expect(voice.started, isTrue);
+    expect(voice.lastDialect, ForumVoiceDialect.sichuanese);
+  });
+
   test('论坛时间显示为具体时刻而非相对时间', () {
     final now = DateTime.now();
     expect(
@@ -941,11 +1013,15 @@ void main() {
       '今天 09:05',
     );
 
-    final tenDaysAgo =
-        DateTime(now.year, now.month, now.day).subtract(const Duration(days: 10));
-    final expected = tenDaysAgo.year == now.year
-        ? '${tenDaysAgo.month}月${tenDaysAgo.day}日 14:30'
-        : '${tenDaysAgo.year}年${tenDaysAgo.month}月${tenDaysAgo.day}日 14:30';
+    final tenDaysAgo = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(const Duration(days: 10));
+    final expected =
+        tenDaysAgo.year == now.year
+            ? '${tenDaysAgo.month}月${tenDaysAgo.day}日 14:30'
+            : '${tenDaysAgo.year}年${tenDaysAgo.month}月${tenDaysAgo.day}日 14:30';
     expect(
       forumTimeText(
         DateTime(tenDaysAgo.year, tenDaysAgo.month, tenDaysAgo.day, 14, 30),
@@ -982,13 +1058,31 @@ GoRouter _composeRouter(
       ),
       GoRoute(
         path: '/compose',
-        builder: (context, state) => ForumComposePage(
-          repository: repository,
-          moderationService: moderator,
-        ),
+        builder:
+            (context, state) => ForumComposePage(
+              repository: repository,
+              moderationService: moderator,
+            ),
       ),
     ],
   );
+}
+
+class _RefreshTrackingRepository extends InMemoryForumRepository {
+  int refreshCount = 0;
+  int commentLoads = 0;
+
+  @override
+  Future<void> refresh() async {
+    refreshCount++;
+    await super.refresh();
+  }
+
+  @override
+  Future<void> loadComments(String postId) async {
+    commentLoads++;
+    await super.loadComments(postId);
+  }
 }
 
 class _DeferredModerationService implements ForumModerationService {
@@ -1031,6 +1125,7 @@ class _FakeModerationService implements ForumModerationService {
 
 class _FakeVoiceRecognizer implements ForumVoiceRecognizer {
   bool started = false;
+  ForumVoiceDialect? lastDialect;
   ValueChanged<String>? _onText;
   ForumVoiceStatusHandler? _onStatus;
 
@@ -1038,8 +1133,10 @@ class _FakeVoiceRecognizer implements ForumVoiceRecognizer {
   Future<bool> start({
     required ValueChanged<String> onText,
     required ForumVoiceStatusHandler onStatus,
+    ForumVoiceDialect dialect = ForumVoiceDialect.mandarin,
   }) async {
     started = true;
+    lastDialect = dialect;
     _onText = onText;
     _onStatus = onStatus;
     onStatus(ForumVoiceStatus.listening, null);
