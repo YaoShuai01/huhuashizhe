@@ -1146,6 +1146,9 @@ public:
     // Enable auto-detection of BMP280 barometer (if wired later)
     baro.dev = BARO_DEFAULT;
 
+    // 解锁不要求卫星定位（默认 8 颗星会导致室内无法解锁）；只要求 GPS 模块在线
+    gps.minSats = 0;
+
     output.protocol = ESC_PROTOCOL_PWM;
     output.async = true;
     output.rate = 50;
