@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/layout/tablet_layout.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../providers/weather_provider.dart';
 import '../../../providers/device_provider.dart';
@@ -37,22 +38,25 @@ class HomePage extends ConsumerWidget {
         },
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildWeatherBar(weather),
-              const SizedBox(height: 16),
-              _buildDeviceCard(context, deviceStatus),
-              const SizedBox(height: 16),
-              _buildQuickActions(context),
-              const SizedBox(height: 16),
-              const _CloudFarmEntryCard(),
-              const SizedBox(height: 16),
-              _buildRecentMissions(context),
-              const SizedBox(height: 16),
-              _buildStatsOverview(context),
-            ],
+          child: AdaptiveContent(
+            maxWidth: 1100,
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildWeatherBar(weather),
+                const SizedBox(height: 16),
+                _buildDeviceCard(context, deviceStatus),
+                const SizedBox(height: 16),
+                _buildQuickActions(context),
+                const SizedBox(height: 16),
+                const _CloudFarmEntryCard(),
+                const SizedBox(height: 16),
+                _buildRecentMissions(context),
+                const SizedBox(height: 16),
+                _buildStatsOverview(context),
+              ],
+            ),
           ),
         ),
       ),
@@ -246,13 +250,10 @@ class HomePage extends ConsumerWidget {
   }
 
   Widget _buildQuickActions(BuildContext context) {
-    return GridView.count(
-      crossAxisCount: 2,
+    return GridView(
+      gridDelegate: adaptiveGridDelegate(context, childAspectRatio: 1.8),
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 12,
-      crossAxisSpacing: 12,
-      childAspectRatio: 1.8,
       children: [
         _buildActionCard(
           context,

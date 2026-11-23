@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import '../../../core/layout/tablet_layout.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data_module_config.dart';
 import 'data_list_page.dart';
@@ -15,8 +16,10 @@ class DataCenterPage extends StatelessWidget {
         title: const Text('数据管理中心'),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+        child: AdaptiveContent(
+          maxWidth: 1200,
+          padding: const EdgeInsets.all(16),
+          child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // 顶部说明
@@ -67,6 +70,7 @@ class DataCenterPage extends StatelessWidget {
             _buildModuleGrid(context, DataModules.allModules.sublist(8, 11)),
             const SizedBox(height: 24),
           ],
+          ),
         ),
       ),
     );
@@ -90,11 +94,10 @@ class DataCenterPage extends StatelessWidget {
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
+      gridDelegate: adaptiveGridDelegate(
+        context,
         childAspectRatio: 0.95,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
+        maxCrossAxisExtent: 300,
       ),
       itemCount: modules.length,
       itemBuilder: (context, index) {

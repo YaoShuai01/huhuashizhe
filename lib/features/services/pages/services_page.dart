@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/accessibility/elder_care_reader.dart';
+import '../../../core/layout/tablet_layout.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/booking_role.dart';
 
@@ -14,8 +15,13 @@ class ServicesPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('社区')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         children: [
+          AdaptiveContent(
+            maxWidth: 1100,
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
           Text(
             '常用服务',
             style: TextStyle(
@@ -25,13 +31,10 @@ class ServicesPage extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 12),
-          GridView.count(
-            crossAxisCount: 2,
+          GridView(
+            gridDelegate: adaptiveGridDelegate(context, childAspectRatio: 0.82),
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            crossAxisSpacing: 12,
-            mainAxisSpacing: 12,
-            childAspectRatio: 0.82,
             children: [
               _serviceCard(
                 context,
@@ -63,6 +66,9 @@ class ServicesPage extends StatelessWidget {
                 onTap: () => context.push('/forum'),
               ),
             ],
+          ),
+              ],
+            ),
           ),
         ],
       ),
