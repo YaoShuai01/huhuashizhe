@@ -273,6 +273,51 @@ class ForumApiRepository extends InMemoryForumRepository {
     }
   }
 
+  @override
+  Future<void> deletePost(ForumPost post) async {
+    final me = _requireUser();
+    try {
+      await _dio.delete<Map<String, dynamic>>(
+        '/api/posts/${post.id}',
+        queryParameters: {'userId': me.id},
+      );
+    } on DioException catch (error) {
+      throw ForumException(_errorMessage(error));
+    }
+    await super.deletePost(post);
+  }
+
+  @override
+  Future<void> deleteComment(ForumComment comment) async {
+    final me = _requireUser();
+    try {
+      await _dio.delete<Map<String, dynamic>>(
+        '/api/replies/${comment.id}',
+        queryParameters: {'userId': me.id},
+      );
+    } on DioException catch (error) {
+      throw ForumException(_errorMessage(error));
+    }
+    await super.deleteComment(comment);
+  }
+
+  @override
+  Future<void> report({
+    required String targetType,
+    required String targetId,
+    required String reason,
+  }) async {
+    final me = _requireUser();
+    final id = int.tryParse(targetId);
+    if (id == null) throw const ForumException('该内容不支持投诉');
+    await _post('/api/reports', {
+      'userId': me.id,
+      'targetType': targetType,
+      'targetId': id,
+      'reason': reason,
+    });
+  }
+
   /// 我的帖子：按当前登录昵称匹配
   @override
   List<ForumPost> get myPosts {

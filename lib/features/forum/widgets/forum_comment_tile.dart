@@ -10,12 +10,20 @@ class ForumCommentTile extends StatelessWidget {
     super.key,
     required this.comment,
     this.onReply,
+    this.onReport,
+    this.onDelete,
   });
 
   final ForumComment comment;
 
   /// 点击「回复」回调，为空时不展示回复入口
   final VoidCallback? onReply;
+
+  /// 点击「投诉」回调，为空时不展示投诉入口
+  final VoidCallback? onReport;
+
+  /// 点击「删除」回调，仅自己的评论会传入
+  final VoidCallback? onDelete;
 
   bool get _isReply => comment.parentId != null;
 
@@ -108,32 +116,25 @@ class ForumCommentTile extends StatelessWidget {
                     color: context.palette.textSecondary,
                   ),
                 ),
-                if (onReply != null) ...[
+                if (onReply != null || onReport != null || onDelete != null) ...[
                   const SizedBox(height: 2),
                   Align(
                     alignment: Alignment.centerRight,
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(10),
-                      onTap: onReply,
-                      child: const Padding(
-                        padding:
-                            EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.reply,
-                                size: 14, color: AppColors.textHint),
-                            SizedBox(width: 3),
-                            Text(
-                              '回复',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppColors.textHint,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (onReply != null)
+                          _action(Icons.reply, '回复', onReply!),
+                        if (onReport != null)
+                          _action(Icons.flag_outlined, '投诉', onReport!),
+                        if (onDelete != null)
+                          _action(
+                            Icons.delete_outline,
+                            '删除',
+                            onDelete!,
+                            color: AppColors.error,
+                          ),
+                      ],
                     ),
                   ),
                 ],
@@ -141,6 +142,29 @@ class ForumCommentTile extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _action(
+    IconData icon,
+    String label,
+    VoidCallback onTap, {
+    Color color = AppColors.textHint,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 3),
+            Text(label, style: TextStyle(fontSize: 12, color: color)),
+          ],
+        ),
       ),
     );
   }
