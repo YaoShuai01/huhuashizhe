@@ -32,7 +32,7 @@ class ForumComposePage extends StatefulWidget {
   /// 外部注入的语音识别实现，为空时使用系统语音识别
   final ForumVoiceRecognizer? voiceRecognizer;
 
-  /// 外部注入的内容初审实现，为空时使用 AI 初审
+  /// 外部注入的内容初审实现，为空时使用本地屏蔽词检查
   final ForumModerationService? moderationService;
 
   @override
@@ -51,7 +51,7 @@ class _ForumComposePageState extends State<ForumComposePage> {
 
   String? _section;
   bool _submitting = false;
-  String _submittingLabel = 'AI 审核中，请稍候…';
+  String _submittingLabel = '内容检查中，请稍候…';
 
   @override
   void dispose() {
@@ -152,7 +152,7 @@ class _ForumComposePageState extends State<ForumComposePage> {
       return;
     }
 
-    // AI 初审：通过即发布，驳回拦截，无法判定转人工复审
+    // 本地屏蔽词检查：命中词库直接驳回，否则立即发布
     setState(() => _submitting = true);
     final result = await _moderator.review(title: title, content: content);
     if (!mounted) return;
@@ -178,7 +178,7 @@ class _ForumComposePageState extends State<ForumComposePage> {
   }) async {
     setState(() {
       _submitting = true;
-      _submittingLabel = _images.isEmpty ? 'AI 审核中，请稍候…' : '正在上传图片…';
+      _submittingLabel = _images.isEmpty ? '内容检查中，请稍候…' : '正在上传图片…';
     });
     try {
       final imageUrls = <String>[];

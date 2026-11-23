@@ -38,6 +38,8 @@ class ForumPost {
     required this.author,
     required this.createdAt,
     this.likes = 0,
+    this.replyCount = 0,
+    this.featured = false,
     this.pendingReview = false,
     this.images = const [],
   });
@@ -49,6 +51,10 @@ class ForumPost {
   final String author;
   final DateTime createdAt;
   int likes;
+  int replyCount;
+
+  /// 是否被标记为精选（推荐分区优先展示）
+  bool featured;
 
   /// 帖子配图（服务器可访问的 URL，最多 3 张）
   final List<String> images;
@@ -56,6 +62,9 @@ class ForumPost {
   /// 是否等待人工复审（AI 初审无法直接判定时标记）
   final bool pendingReview;
 }
+
+/// 首页顶部的聚合分区：汇总精选内容，不足时用热门帖子补齐
+const String forumRecommendedSection = '推荐';
 
 /// 帖子评论
 class ForumComment {
@@ -65,6 +74,8 @@ class ForumComment {
     required this.author,
     required this.content,
     required this.createdAt,
+    this.parentId,
+    this.replyToAuthor,
   });
 
   final String id;
@@ -72,6 +83,12 @@ class ForumComment {
   final String author;
   final String content;
   final DateTime createdAt;
+
+  /// 回复的评论 id，为空表示直接评论帖子
+  final String? parentId;
+
+  /// 被回复人昵称，用于在评论内容前展示「回复 @某某」
+  final String? replyToAuthor;
 }
 
 /// 消息类型（决定图标与语义）

@@ -144,6 +144,8 @@ class _UpdateCheckerState extends ConsumerState<_UpdateChecker> with WidgetsBind
     if (state == AppLifecycleState.resumed) {
       _checkUpdate();
       unawaited(ScheduleService.instance.syncSilently());
+      // 后台期间定时器被挂起，回前台立即补拉一次消息提醒
+      unawaited(defaultForumApiRepository.loadMessages().catchError((_) {}));
     }
   }
 

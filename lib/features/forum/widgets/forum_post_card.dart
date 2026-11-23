@@ -168,6 +168,7 @@ class ForumPostCard extends StatelessWidget {
                 spacing: 6,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
+                  if (post.featured) _featuredTag(),
                   if (post.pendingReview) _pendingTag(),
                   _tag(context, post.section),
                 ],
@@ -227,6 +228,25 @@ class ForumPostCard extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _featuredTag() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.accent.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: const Text(
+        '精选',
+        maxLines: 1,
+        style: TextStyle(
+          fontSize: 11,
+          color: AppColors.accent,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 

@@ -66,7 +66,11 @@ abstract class ForumRepository extends ChangeNotifier {
   Future<ForumComment> addComment({
     required ForumPost post,
     required String content,
+    ForumComment? replyTo,
   });
+
+  /// 设置 / 取消精选（推荐分区优先展示精选内容）
+  Future<void> setFeatured(ForumPost post, bool featured) async {}
 
   bool isFavorite(ForumPost post);
 
@@ -90,6 +94,12 @@ abstract class ForumRepository extends ChangeNotifier {
   Future<void> refresh() async {
     notifyListeners();
   }
+
+  /// 是否支持从服务端实时拉取消息提醒（内存实现不支持）
+  bool get supportsRealtimeMessages => false;
+
+  /// 拉取当前用户的消息提醒，内存实现无需处理
+  Future<void> loadMessages() async {}
 }
 
 /// 默认的内存实现（App 重启后恢复示例数据）。
@@ -124,7 +134,7 @@ class InMemoryForumRepository extends ForumRepository {
       _seedComments();
     }
     if (favoritePostIds != null) {
-      _favoriteIds.addAll(favoritePostIds);
+      favoriteIds.addAll(favoritePostIds);
     }
   }
 
@@ -135,9 +145,10 @@ class InMemoryForumRepository extends ForumRepository {
   final List<ForumPost> _posts = [];
   final List<ForumMessage> _messages = [];
   final Map<String, List<ForumComment>> _comments = {};
-  final Set<String> _favoriteIds = {};
+  final Set<String> favoriteIds = {};
   /// 当前用户点过赞的帖子 id，用于正确的点赞/取消点赞切换
-  final Set<String> _likedIds = {};
+  @protected
+  final Set<String> likedIds = {};
   int _idSeed = 0;
 
   @override
@@ -156,10 +167,35 @@ class InMemoryForumRepository extends ForumRepository {
 
   @override
   List<ForumPost> postsOf(String section) {
+    if (section == forumRecommendedSection) return _recommendedPosts();
     final list = _posts.where((p) => p.section == section).toList();
     list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return list;
   }
+
+  /// 推荐分区：精选帖子全部展示，不足 [recommendedMinCount] 条时用热门帖子补齐
+  static const int recommendedMinCount = 12;
+
+  List<ForumPost> _recommendedPosts() {
+    final result = _posts.where((p) => p.featured).toList()
+      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    if (result.length >= recommendedMinCount) return result;
+
+    final chosen = result.map((p) => p.id).toSet();
+    final hot = _posts.where((p) => !chosen.contains(p.id)).toList()
+      ..sort((a, b) {
+        final diff = _heatOf(b).compareTo(_heatOf(a));
+        return diff != 0 ? diff : b.createdAt.compareTo(a.createdAt);
+      });
+    for (final post in hot) {
+      if (result.length >= recommendedMinCount) break;
+      result.add(post);
+    }
+    return result;
+  }
+
+  /// 热度 = 点赞 + 评论 × 3
+  int _heatOf(ForumPost post) => post.likes + post.replyCount * 3;
 
   @override
   List<ForumPost> get myPosts {
@@ -170,8 +206,9 @@ class InMemoryForumRepository extends ForumRepository {
   }
 
   @override
-  int countOf(String section) =>
-      _posts.where((p) => p.section == section).length;
+  int countOf(String section) => section == forumRecommendedSection
+      ? _recommendedPosts().length
+      : _posts.where((p) => p.section == section).length;
 
   /// 供远端实现读取当前缓存
   @protected
@@ -190,6 +227,15 @@ class InMemoryForumRepository extends ForumRepository {
   @protected
   void replaceComments(String postId, Iterable<ForumComment> comments) {
     _comments[postId] = [...comments];
+    notifyListeners();
+  }
+
+  /// 用远端结果替换消息提醒缓存
+  @protected
+  void replaceMessages(Iterable<ForumMessage> messages) {
+    _messages
+      ..clear()
+      ..addAll(messages);
     notifyListeners();
   }
 
@@ -232,11 +278,11 @@ class InMemoryForumRepository extends ForumRepository {
     // 本地没有该帖（理论上不会出现）时直接忽略
     if (!_posts.contains(target)) return;
 
-    if (_likedIds.remove(post.id)) {
+    if (likedIds.remove(post.id)) {
       // 取消点赞：不能把点赞数减成负数
       target.likes = target.likes > 0 ? target.likes - 1 : 0;
     } else {
-      _likedIds.add(post.id);
+      likedIds.add(post.id);
       target.likes += 1;
     }
     post.likes = target.likes;
@@ -244,7 +290,7 @@ class InMemoryForumRepository extends ForumRepository {
   }
 
   @override
-  bool isLiked(ForumPost post) => _likedIds.contains(post.id);
+  bool isLiked(ForumPost post) => likedIds.contains(post.id);
 
   @override
   List<ForumComment> commentsOf(String postId) {
@@ -257,6 +303,7 @@ class InMemoryForumRepository extends ForumRepository {
   Future<ForumComment> addComment({
     required ForumPost post,
     required String content,
+    ForumComment? replyTo,
   }) async {
     final comment = ForumComment(
       id: 'comment_${DateTime.now().microsecondsSinceEpoch}_${_idSeed++}',
@@ -264,26 +311,42 @@ class InMemoryForumRepository extends ForumRepository {
       author: currentUserName,
       content: content.trim(),
       createdAt: DateTime.now(),
+      parentId: replyTo?.id,
+      replyToAuthor: replyTo?.author,
     );
     _comments.putIfAbsent(post.id, () => []).add(comment);
+    final target =
+        _posts.firstWhere((p) => p.id == post.id, orElse: () => post);
+    if (_posts.contains(target)) target.replyCount += 1;
+    post.replyCount = target.replyCount;
     notifyListeners();
     return comment;
   }
 
   @override
-  bool isFavorite(ForumPost post) => _favoriteIds.contains(post.id);
+  Future<void> setFeatured(ForumPost post, bool featured) async {
+    final target =
+        _posts.firstWhere((p) => p.id == post.id, orElse: () => post);
+    if (!_posts.contains(target)) return;
+    target.featured = featured;
+    post.featured = featured;
+    notifyListeners();
+  }
+
+  @override
+  bool isFavorite(ForumPost post) => favoriteIds.contains(post.id);
 
   @override
   void toggleFavorite(ForumPost post) {
-    if (!_favoriteIds.remove(post.id)) {
-      _favoriteIds.add(post.id);
+    if (!favoriteIds.remove(post.id)) {
+      favoriteIds.add(post.id);
     }
     notifyListeners();
   }
 
   @override
   List<ForumPost> get favoritePosts {
-    final list = _posts.where((p) => _favoriteIds.contains(p.id)).toList();
+    final list = _posts.where((p) => favoriteIds.contains(p.id)).toList();
     list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return list;
   }
@@ -328,6 +391,7 @@ class InMemoryForumRepository extends ForumRepository {
         author: '种田的老张',
         createdAt: now.subtract(const Duration(minutes: 18)),
         likes: 6,
+        replyCount: 2,
       ),
       ForumPost(
         id: 'seed_2',
@@ -346,6 +410,7 @@ class InMemoryForumRepository extends ForumRepository {
         author: '小林',
         createdAt: now.subtract(const Duration(hours: 5)),
         likes: 4,
+        replyCount: 1,
       ),
       ForumPost(
         id: 'seed_4',

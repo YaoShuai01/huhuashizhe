@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/accessibility/elder_care_reader.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../auth/data/auth_session.dart';
 import '../data/forum_models.dart';
 import '../data/forum_repository.dart';
 import '../forum_scope.dart';
@@ -31,7 +32,7 @@ class ForumPostDetailPage extends StatefulWidget {
   /// 外部注入的语音识别实现，为空时使用系统语音识别
   final ForumVoiceRecognizer? voiceRecognizer;
 
-  /// 外部注入的内容初审实现，为空时使用 AI 初审
+  /// 外部注入的内容初审实现，为空时使用本地屏蔽词检查
   final ForumModerationService? moderationService;
 
   @override
@@ -44,6 +45,9 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
   bool _canSend = false;
   bool _sending = false;
   bool _showEmojiPanel = false;
+
+  /// 正在回复的评论，为空表示直接评论帖子
+  ForumComment? _replyTo;
 
   @override
   void initState() {
@@ -142,6 +146,7 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
       await repository.addComment(
         post: widget.post,
         content: text,
+        replyTo: _replyTo,
       );
     } on ForumException catch (error) {
       if (mounted) _toast(error.message);
@@ -149,8 +154,30 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
     }
     _controller.clear();
     _focusNode.unfocus();
+    if (mounted) setState(() => _replyTo = null);
     if (result.needsManualReview) {
       _toast('评论已提交，人工复审通过后展示');
+    }
+  }
+
+  /// 点击某条评论的「回复」，输入框切换为该评论的回复模式
+  void _startReply(ForumComment comment) {
+    setState(() {
+      _replyTo = comment;
+      _showEmojiPanel = false;
+    });
+    _focusNode.requestFocus();
+  }
+
+  /// 作者可将自己的帖子设为 / 取消精选
+  Future<void> _toggleFeatured(ForumRepository repository) async {
+    final next = !widget.post.featured;
+    try {
+      await repository.setFeatured(widget.post, next);
+      if (!mounted) return;
+      _toast(next ? '已设为精选，将展示在推荐分区' : '已取消精选');
+    } on ForumException catch (error) {
+      if (mounted) _toast(error.message);
     }
   }
 
@@ -202,6 +229,18 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
         leading: const ForumBackButton(),
         title: const Text('帖子详情'),
         actions: [
+          if (widget.post.author == AuthSession.instance.user.value?.nickname)
+            AnimatedBuilder(
+              animation: repository,
+              builder: (context, _) => IconButton(
+                tooltip: widget.post.featured ? '取消精选' : '设为精选',
+                onPressed: () => _toggleFeatured(repository),
+                icon: Icon(
+                  widget.post.featured ? Icons.star : Icons.star_border,
+                  color: AppColors.textOnPrimary,
+                ),
+              ),
+            ),
           AnimatedBuilder(
             animation: repository,
             builder: (context, _) {
@@ -256,7 +295,10 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                         )
                       else
                         for (final comment in comments)
-                          ForumCommentTile(comment: comment),
+                          ForumCommentTile(
+                            comment: comment,
+                            onReply: () => _startReply(comment),
+                          ),
                     ],
                   ),
                 ),
@@ -487,6 +529,35 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (_replyTo != null)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(16, 6, 8, 0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        '回复 @${_replyTo!.author}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                    InkWell(
+                      borderRadius: BorderRadius.circular(12),
+                      onTap: () => setState(() => _replyTo = null),
+                      child: const Padding(
+                        padding: EdgeInsets.all(4),
+                        child: Icon(Icons.close,
+                            size: 16, color: AppColors.textHint),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
               child: Row(
@@ -509,8 +580,10 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                       },
                       style: const TextStyle(fontSize: 13),
                       decoration: InputDecoration(
-                        hintText: '写下你的评论…',
-                        hintStyle:  TextStyle(
+                        hintText: _replyTo == null
+                            ? '写下你的评论…'
+                            : '回复 @${_replyTo!.author}…',
+                        hintStyle: TextStyle(
                           fontSize: 13,
                           color: context.palette.textHint,
                         ),
