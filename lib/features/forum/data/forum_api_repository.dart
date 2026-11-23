@@ -1,16 +1,14 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../auth/data/auth_api.dart';
 import '../../auth/data/auth_session.dart';
 import 'forum_models.dart';
 import 'forum_repository.dart';
 
-/// 对接论坛后端的实现：帖子与评论保存在服务器，登录用户之间互相可见。
-///
-/// 点赞、收藏、消息仍沿用本地内存逻辑。
+/// 对接论坛后端的实现：帖子、评论、点赞、收藏与消息提醒都保存在服务器。
 class ForumApiRepository extends InMemoryForumRepository {
   ForumApiRepository({Dio? dio, String? baseUrl})
       : _dio = dio ??
@@ -21,9 +19,24 @@ class ForumApiRepository extends InMemoryForumRepository {
                 receiveTimeout: const Duration(seconds: 8),
               ),
             ),
-        super(seed: false);
+        super(seed: false) {
+    // 登录 / 退出后同步私有数据（消息、点赞、收藏），避免不同账号串号
+    AuthSession.instance.user.addListener(_onAccountChanged);
+  }
 
   final Dio _dio;
+
+  /// 账号变化：登录后立即拉取，退出后清空本账号维度的缓存
+  void _onAccountChanged() {
+    final me = AuthSession.instance.user.value;
+    if (me == null) {
+      likedIds.clear();
+      favoriteIds.clear();
+      replaceMessages(<ForumMessage>[]);
+      return;
+    }
+    refresh().catchError((_) {});
+  }
 
   static String _normalizeBase(String base) =>
       base.endsWith('/') ? base.substring(0, base.length - 1) : base;
@@ -31,18 +44,133 @@ class ForumApiRepository extends InMemoryForumRepository {
   /// 拉取全部帖子，替换本地缓存
   @override
   Future<void> refresh() async {
+    final me = AuthSession.instance.user.value;
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         '/api/posts',
-        queryParameters: {'limit': 100},
+        queryParameters: {
+          'limit': 100,
+          if (me != null) 'userId': me.id,
+        },
       );
       final items = response.data?['items'];
       if (items is! List) return;
-      replacePosts(
-        items.map((item) => _postFromJson(item as Map<String, dynamic>)),
+      final posts = <ForumPost>[];
+      final liked = <String>{};
+      final favorited = <String>{};
+      for (final item in items) {
+        final json = item as Map<String, dynamic>;
+        final post = _postFromJson(json);
+        posts.add(post);
+        if (json['liked'] == true) liked.add(post.id);
+        if (json['favorited'] == true) favorited.add(post.id);
+      }
+      likedIds
+        ..clear()
+        ..addAll(liked);
+      favoriteIds
+        ..clear()
+        ..addAll(favorited);
+      replacePosts(posts);
+    } on DioException catch (error) {
+      throw ForumException(_errorMessage(error));
+    }
+    // 帖子刷新后顺带同步消息提醒，失败不影响帖子展示
+    try {
+      await loadMessages();
+    } on ForumException {
+      // 忽略消息拉取失败，下次轮询会重试
+    }
+  }
+
+  @override
+  bool get supportsRealtimeMessages => true;
+
+  @override
+  Future<void> loadMessages() async {
+    final me = AuthSession.instance.user.value;
+    if (me == null) return;
+    try {
+      final response = await _dio.get<Map<String, dynamic>>(
+        '/api/messages',
+        queryParameters: {'userId': me.id, 'limit': 100},
+      );
+      final items = response.data?['items'];
+      if (items is! List) return;
+      replaceMessages(
+        items.map((item) => _messageFromJson(item as Map<String, dynamic>)),
       );
     } on DioException catch (error) {
       throw ForumException(_errorMessage(error));
+    }
+  }
+
+  /// 点赞 / 收藏同步到服务端；失败时回滚本地状态
+  @override
+  void toggleLike(ForumPost post) {
+    super.toggleLike(post);
+    _syncPostAction(
+      path: '/api/posts/${post.id}/like',
+      field: 'liked',
+      value: isLiked(post),
+      rollback: () => super.toggleLike(post),
+    );
+  }
+
+  @override
+  void toggleFavorite(ForumPost post) {
+    super.toggleFavorite(post);
+    _syncPostAction(
+      path: '/api/posts/${post.id}/favorite',
+      field: 'favorited',
+      value: isFavorite(post),
+      rollback: () => super.toggleFavorite(post),
+    );
+  }
+
+  Future<void> _syncPostAction({
+    required String path,
+    required String field,
+    required bool value,
+    required VoidCallback rollback,
+  }) async {
+    final me = AuthSession.instance.user.value;
+    if (me == null) return;
+    try {
+      await _dio.post<Map<String, dynamic>>(
+        path,
+        data: {'userId': me.id, field: value},
+      );
+    } on DioException {
+      rollback();
+    }
+  }
+
+  @override
+  void markAllMessagesRead() {
+    final hadUnread = hasUnreadMessages;
+    super.markAllMessagesRead();
+    if (hadUnread) _syncMessagesRead(null);
+  }
+
+  @override
+  void markMessageRead(ForumMessage message) {
+    final wasUnread = message.unread;
+    super.markMessageRead(message);
+    if (wasUnread) _syncMessagesRead(int.tryParse(message.id));
+  }
+
+  /// 已读状态同步到服务端，失败时保留本地状态，下次拉取会纠正
+  Future<void> _syncMessagesRead(int? id) async {
+    final me = AuthSession.instance.user.value;
+    if (me == null) return;
+    try {
+      await _dio.post<Map<String, dynamic>>(
+        '/api/messages/read',
+        data: {'userId': me.id, if (id != null) 'id': id},
+      );
+    } on DioException {
+      // 忽略同步失败
     }
   }
 
@@ -114,15 +242,35 @@ class ForumApiRepository extends InMemoryForumRepository {
   Future<ForumComment> addComment({
     required ForumPost post,
     required String content,
+    ForumComment? replyTo,
   }) async {
     final me = _requireUser();
+    final parentId = replyTo == null ? null : int.tryParse(replyTo.id);
     final data = await _post('/api/posts/${post.id}/replies', {
       'userId': me.id,
       'content': content.trim(),
+      if (parentId != null) 'parentId': parentId,
     });
     final comment = _commentFromJson(data);
+    post.replyCount += 1;
     replaceComments(post.id, [...commentsOf(post.id), comment]);
     return comment;
+  }
+
+  @override
+  Future<void> setFeatured(ForumPost post, bool featured) async {
+    final me = _requireUser();
+    final previous = post.featured;
+    await super.setFeatured(post, featured);
+    try {
+      await _dio.post<Map<String, dynamic>>(
+        '/api/posts/${post.id}/feature',
+        data: {'userId': me.id, 'featured': featured},
+      );
+    } on DioException catch (error) {
+      await super.setFeatured(post, previous);
+      throw ForumException(_errorMessage(error));
+    }
   }
 
   /// 我的帖子：按当前登录昵称匹配
@@ -187,6 +335,8 @@ class ForumApiRepository extends InMemoryForumRepository {
         author: json['author'] as String? ?? '农友',
         createdAt: _parseTime(json['created_at']),
         likes: (json['likes'] as num?)?.toInt() ?? 0,
+        replyCount: (json['reply_count'] as num?)?.toInt() ?? 0,
+        featured: json['featured'] == true,
         images: _parseImages(json['images']),
       );
 
@@ -206,6 +356,21 @@ class ForumApiRepository extends InMemoryForumRepository {
         author: json['author'] as String? ?? '农友',
         content: json['content'] as String? ?? '',
         createdAt: _parseTime(json['created_at']),
+        parentId: json['parent_id'] == null ? null : '${json['parent_id']}',
+        replyToAuthor: json['parent_author'] as String?,
+      );
+
+  ForumMessage _messageFromJson(Map<String, dynamic> json) => ForumMessage(
+        id: '${json['id']}',
+        kind: switch (json['kind']) {
+          'reply' => ForumMessageKind.reply,
+          'favorite' => ForumMessageKind.favorite,
+          _ => ForumMessageKind.like,
+        },
+        title: json['title'] as String? ?? '新的消息',
+        body: json['body'] as String? ?? '',
+        createdAt: _parseTime(json['created_at']),
+        unread: json['unread'] == true,
       );
 
   DateTime _parseTime(Object? value) =>

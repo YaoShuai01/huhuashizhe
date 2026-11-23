@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -23,15 +25,56 @@ class ForumPage extends StatefulWidget {
 
 class _ForumPageState extends State<ForumPage> {
   String? _selectedSection;
+  Timer? _messageTimer;
+  bool _messagePollingStarted = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_messagePollingStarted) return;
+    _messagePollingStarted = true;
+    final repository = widget.repository ?? ForumScope.of(context);
+    // 远端数据源开启消息轮询，让铃铛的未读数接近实时
+    if (!repository.supportsRealtimeMessages) return;
+    _refreshMessages(repository);
+    _messageTimer = Timer.periodic(
+      const Duration(seconds: 15),
+      (_) => _refreshMessages(repository),
+    );
+  }
+
+  Future<void> _refreshMessages(ForumRepository repository) async {
+    try {
+      await repository.loadMessages();
+    } on ForumException {
+      // 轮询失败静默处理，下一轮会重试
+    }
+  }
+
+  @override
+  void dispose() {
+    _messageTimer?.cancel();
+    super.dispose();
+  }
+
+  /// 首页分区胶囊：推荐（精选聚合）+ 全部真实版块
+  List<String> _feedTitles(ForumRepository repository) =>
+      [forumRecommendedSection, ...repository.sectionTitles];
 
   /// 选中的小分区失效（数据源变化）时回退到第一个分区
   String? _resolveSection(ForumRepository repository) {
-    final titles = repository.sectionTitles;
+    final titles = _feedTitles(repository);
     if (titles.isEmpty) return null;
     if (_selectedSection != null && titles.contains(_selectedSection)) {
       return _selectedSection;
     }
     return titles.first;
+  }
+
+  /// 发帖版块：推荐是聚合分区，不能作为发帖版块
+  String? _composeSection(ForumRepository repository) {
+    final section = _resolveSection(repository);
+    return section == forumRecommendedSection ? null : section;
   }
 
   @override
@@ -60,7 +103,7 @@ class _ForumPageState extends State<ForumPage> {
           if (!await ensureForumLoggedIn(context) || !context.mounted) return;
           context.push(
             '/forum/compose',
-            extra: _resolveSection(repository),
+            extra: _composeSection(repository),
           );
         },
         icon: const Icon(Icons.edit_outlined),
@@ -76,7 +119,7 @@ class _ForumPageState extends State<ForumPage> {
             return Column(
               children: [
                 _SectionBar(
-                  titles: repository.sectionTitles,
+                  titles: _feedTitles(repository),
                   selected: section,
                   countOf: repository.countOf,
                   onSelected: (title) =>
@@ -101,15 +144,19 @@ class _ForumPageState extends State<ForumPage> {
   /// 帖子瀑布流：按奇偶分到左右两列，形成错开的双列布局
   Widget _buildFeed(ForumRepository repository, String section) {
     final posts = repository.postsOf(section);
+    final isRecommended = section == forumRecommendedSection;
     if (posts.isEmpty) {
       return ForumEmptyState(
         icon: Icons.forum_outlined,
-        text: '「$section」还没有帖子',
+        text: isRecommended ? '还没有推荐内容' : '「$section」还没有帖子',
         actionLabel: '去发帖',
         onAction: () async {
           if (!await ensureForumLoggedIn(context)) return;
           if (!mounted) return;
-          context.push('/forum/compose', extra: section);
+          context.push(
+            '/forum/compose',
+            extra: isRecommended ? null : section,
+          );
         },
       );
     }
@@ -128,10 +175,15 @@ class _ForumPageState extends State<ForumPage> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildColumn(repository, left),
+            _buildColumn(repository, left, showSection: isRecommended),
             const SizedBox(width: 10),
             // 右列整体下沉，与左列形成明显的错落感
-            _buildColumn(repository, right, topOffset: 26),
+            _buildColumn(
+              repository,
+              right,
+              topOffset: 26,
+              showSection: isRecommended,
+            ),
           ],
         ),
       ),
@@ -142,6 +194,7 @@ class _ForumPageState extends State<ForumPage> {
     ForumRepository repository,
     List<ForumPost> posts, {
     double topOffset = 0,
+    bool showSection = false,
   }) {
     return Expanded(
       child: Padding(
@@ -154,7 +207,7 @@ class _ForumPageState extends State<ForumPage> {
                 child: ForumPostCard(
                   post: post,
                   margin: EdgeInsets.zero,
-                  showSection: false,
+                  showSection: showSection,
                   onLike: () => repository.toggleLike(post),
                   liked: repository.isLiked(post),
                   favorited: repository.isFavorite(post),
@@ -198,6 +251,7 @@ class _SectionBar extends StatelessWidget {
           final isSelected = title == selected;
           final count = countOf(title);
           return Material(
+            key: ValueKey('forum-section-$title'),
             color: isSelected ? AppColors.primary : AppColors.surface,
             borderRadius: BorderRadius.circular(22),
             child: InkWell(

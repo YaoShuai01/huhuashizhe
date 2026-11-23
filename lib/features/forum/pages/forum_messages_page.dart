@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -27,6 +29,43 @@ class _ForumMessagesPageState extends State<ForumMessagesPage> {
   static const Color _favoriteColor = AppColors.primaryLight;
 
   ForumMessageKind _kind = ForumMessageKind.like;
+  bool _messagesRequested = false;
+  ForumRepository? _repository;
+  Timer? _messageTimer;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_messagesRequested) return;
+    _messagesRequested = true;
+    final repository = widget.repository ?? ForumScope.of(context);
+    _repository = repository;
+    _loadMessages();
+    // 消息页独立打开（首页未挂载）时也能实时刷新
+    if (repository.supportsRealtimeMessages) {
+      _messageTimer = Timer.periodic(
+        const Duration(seconds: 15),
+        (_) => _loadMessages(),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _messageTimer?.cancel();
+    super.dispose();
+  }
+
+  /// 打开消息页时从服务器拉取最新消息
+  Future<void> _loadMessages() async {
+    final repository = _repository;
+    if (repository == null) return;
+    try {
+      await repository.loadMessages();
+    } on ForumException {
+      // 静默失败，下拉刷新可重试
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

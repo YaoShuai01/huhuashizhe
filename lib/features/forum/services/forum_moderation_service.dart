@@ -186,6 +186,76 @@ class AiForumModerationService implements ForumModerationService {
   }
 }
 
+/// 本地屏蔽词审核：命中词库直接驳回，否则立即通过，无网络请求。
+class BannedWordForumModerationService implements ForumModerationService {
+  BannedWordForumModerationService({List<String>? bannedWords})
+      : _bannedWords = (bannedWords ?? defaultBannedWords)
+            .map(_normalize)
+            .where((word) => word.isNotEmpty)
+            .toSet()
+            .toList(growable: false);
+
+  /// 屏蔽词库：维护时直接在这里增删（大小写、空格与标点会被忽略）
+  static const List<String> defaultBannedWords = [
+    // 导流 / 广告
+    '加微信', '加我微信', '微信号', '微信同号', '加vx', 'vx号',
+    '加qq', 'qq群', '加群', '私聊', '扫码加', '扫码进群', '关注公众号',
+    '代购', '刷单', '返利', '兼职日结', '日赚', '躺赚',
+    '荐股', '炒股群', '理财群', '博彩', '网赌', '赌博', '赌球',
+    '六合彩', '时时彩', '彩票代购', '贷款秒批', '无抵押贷款',
+    '代开发票', '办假证', '刻章', '医保套现', '提取公积金',
+    // 色情低俗
+    '裸聊', '约炮', '一夜情', '色情', '成人视频', '黄片',
+    '招嫖', '卖淫', '嫖娼', '援交',
+    // 违法违禁
+    '毒品', '冰毒', '海洛因', '大麻', '摇头丸', '吸毒', '贩毒',
+    '枪支', '弹药', '炸药', '炸弹', '管制刀具',
+    '自杀', '自残', '恐怖袭击', '邪教', '法轮功',
+    // 辱骂 / 隐私
+    '傻逼', '操你妈', '草泥马', '去死', '弄死你', '人肉', '开盒',
+    // 英文
+    'porn', 'casino',
+  ];
+
+  /// 匹配时忽略空白与常见标点，防止「加 微 信」这类简单绕过
+  static const String _ignoredChars =
+      ' \t\n\r，。！？、；：,.!?;:\'"“”‘’()（）[]【】{}<>《》_-~·|/\\*+#@&%^';
+
+  final List<String> _bannedWords;
+
+  static String _normalize(String text) {
+    final buffer = StringBuffer();
+    for (final rune in text.toLowerCase().runes) {
+      final char = String.fromCharCode(rune);
+      if (_ignoredChars.contains(char)) continue;
+      buffer.write(char);
+    }
+    return buffer.toString();
+  }
+
+  @override
+  Future<ForumAuditResult> review({
+    required String title,
+    String content = '',
+    String extraText = '',
+  }) async {
+    final text = _normalize('$title\n$content\n$extraText');
+    for (final word in _bannedWords) {
+      if (text.contains(word)) {
+        return ForumAuditResult(
+          verdict: ForumAuditVerdict.reject,
+          reason: '内容包含屏蔽词「$word」',
+          violationType: '违规词',
+        );
+      }
+    }
+    return const ForumAuditResult(
+      verdict: ForumAuditVerdict.pass,
+      reason: '内容正常',
+    );
+  }
+}
+
 /// 默认审核实现，页面可通过构造参数注入替身
 final ForumModerationService defaultForumModerationService =
-    AiForumModerationService();
+    BannedWordForumModerationService();
