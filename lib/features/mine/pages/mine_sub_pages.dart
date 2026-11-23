@@ -1100,6 +1100,17 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.10.12',
+        'date': '2026-11-23',
+        'content': [
+          '预约飞防订单打通：农户提交后飞手工作台直接可见并接单',
+          '我的账户支持更换头像与修改昵称，保存后立即生效',
+          '论坛评论支持语音，可播放语音气泡并显示转写文字',
+          '消息中心支持内联回复，无需跳转帖子',
+          '语音评论服务端支持 WAV 上传与自动转写',
+        ],
+      },
+      {
         'version': 'v3.10.11',
         'date': '2026-11-23',
         'content': [

@@ -50,10 +50,10 @@ class MinePage extends StatelessWidget {
                     },
                   ),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     '点击头像可修改昵称与头像',
-                    style:
-                        TextStyle(fontSize: 12, color: AppColors.textHint),
+                    style: TextStyle(
+                        fontSize: 12, color: context.palette.textHint),
                   ),
                   const SizedBox(height: 12),
                   ValueListenableBuilder<AuthUser?>(

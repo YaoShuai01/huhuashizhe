@@ -136,6 +136,7 @@ class ForumCommentTile extends StatelessWidget {
                       fontSize: 13,
                       height: 1.45,
                       color: context.palette.textSecondary,
+                    ),
                   ),
                 if (onReply != null ||
                     onReport != null ||
