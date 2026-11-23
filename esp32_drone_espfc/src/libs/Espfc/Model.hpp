@@ -204,6 +204,9 @@ public:
     state.output.saturated = val;
     for (size_t i = 0; i < AXIS_COUNT_RPY; i++)
     {
+      // 偏航轴不因电机饱和而冻结积分：偏航的持续差速本身就是把电机推到满的
+      // 原因，冻结 I 项会让它永远学不到抵消持续偏航扭矩所需的量
+      if (i == AXIS_YAW) continue;
       state.innerPid[i].outputSaturated = val;
       state.outerPid[i].outputSaturated = val;
     }

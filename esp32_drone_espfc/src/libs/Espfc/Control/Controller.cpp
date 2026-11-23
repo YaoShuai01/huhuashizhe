@@ -341,8 +341,17 @@ void Controller::reloadPid()
     pid.Ki = (float)pc.I * ITERM_SCALE * pidScale[axis];
     pid.Kd = (float)pc.D * DTERM_SCALE * pidScale[axis];
     pid.Kf = (float)pc.F * FTERM_SCALE * pidScale[axis];
-    pid.iLimitLow = -_model.config.iterm.limit * 0.01f;
-    pid.iLimitHigh = _model.config.iterm.limit * 0.01f;
+    if (axis == AXIS_YAW)
+    {
+      // 偏航单独放宽：机体存在持续的顺时针扭矩，需要较大稳态差速才能抵消
+      pid.iLimitLow = -0.45f;
+      pid.iLimitHigh = 0.45f;
+    }
+    else
+    {
+      pid.iLimitLow = -_model.config.iterm.limit * 0.01f;
+      pid.iLimitHigh = _model.config.iterm.limit * 0.01f;
+    }
     pid.oLimitLow = -0.66f;
     pid.oLimitHigh = 0.66f;
     pid.rate = pidFilterRate;
