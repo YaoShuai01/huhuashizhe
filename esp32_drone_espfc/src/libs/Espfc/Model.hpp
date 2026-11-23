@@ -138,6 +138,13 @@ public:
     state.gyro.calibrationState = CALIBRATION_START;
   }
 
+  // 加速度计水平校准：飞机必须静止且水平放置，采样约 2 秒后写入 NVS。
+  // 不校准会让飞控把"倾斜"当成水平，形成固定方向的漂移。
+  void calibrateAccel()
+  {
+    state.accel.calibrationState = CALIBRATION_START;
+  }
+
   void calibrateMag()
   {
     state.mag.calibrationState = CALIBRATION_START;

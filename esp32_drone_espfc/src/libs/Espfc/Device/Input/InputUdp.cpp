@@ -355,6 +355,25 @@ void InputUdp::taskLoop()
             body = "{\"ok\":1,\"ms\":2000}";
           }
         }
+        else if (req.indexOf("/api/accelcal") >= 0)
+        {
+          // 加速度计水平校准：飞机必须静止且放平，约 2 秒采样后写入 NVS
+          if (_model.isModeActive(MODE_ARMED))
+          {
+            code = 409;
+            body = "{\"ok\":0,\"err\":\"armed\"}";
+          }
+          else if (_model.calibrationActive())
+          {
+            code = 409;
+            body = "{\"ok\":0,\"err\":\"busy\"}";
+          }
+          else
+          {
+            _model.calibrateAccel();
+            body = "{\"ok\":1,\"ms\":2000}";
+          }
+        }
         else if (req.indexOf("/api/trimget") >= 0)
         {
           body = "{\"ok\":1,\"r\":" + String(currentTrim(AXIS_ROLL)) +
@@ -581,6 +600,7 @@ void InputUdp::taskLoop()
       client.print("<a href='/api/yawrev?on=1'>偏航反向 开</a>");
       client.print("<a href='/api/yawrev?on=0'>偏航反向 关</a>");
       client.print("<a href='/api/gyrocal'>陀螺仪校准（静止时点）</a>");
+      client.print("<a href='/api/accelcal'>加速度计水平校准（放平后点）</a>");
       client.print("<a class='stop' href='/api/trimclear'>清除微调</a>");
       client.print("<a href='/logs'>飞行日志下载</a>");
       client.print(PAGE_BUTTONS);
