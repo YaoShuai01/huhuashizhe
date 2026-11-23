@@ -3,6 +3,7 @@
 #if defined(ESPFC_UDP_RX)
 
 #include <Arduino.h>
+#include <LittleFS.h>
 #include <Preferences.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
@@ -71,6 +72,39 @@ int queryInt(const String& req, const char* key, int def)
   }
   if (idx < 0) return def;
   return atoi(req.c_str() + idx + skip);
+}
+
+String queryStr(const String& req, const char* key)
+{
+  const String k = String("?") + key + "=";
+  const String k2 = String("&") + key + "=";
+  int idx = req.indexOf(k);
+  int skip = k.length();
+  if (idx < 0)
+  {
+    idx = req.indexOf(k2);
+    skip = k2.length();
+  }
+  if (idx < 0) return "";
+  const int start = idx + skip;
+  int end = req.indexOf('&', start);
+  if (end < 0) end = req.indexOf(' ', start);
+  if (end < 0) end = req.length();
+  return req.substring(start, end);
+}
+
+// 只允许安全字符，避免路径穿越
+String sanitizeName(const String& s)
+{
+  String out;
+  for (size_t i = 0; i < s.length() && out.length() < 40; i++)
+  {
+    const char c = s[i];
+    if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '.' ||
+        c == '-')
+      out += c;
+  }
+  return out;
 }
 
 const char* PAGE_HEAD =
@@ -341,6 +375,45 @@ void InputUdp::taskLoop()
           body = "{\"ok\":1,\"r\":" + String(r) + ",\"p\":" + String(p) +
                  ",\"y\":" + String(y) + "}";
         }
+        else if (req.indexOf("/api/log") >= 0)
+        {
+          // 飞行日志下载：仅在未解锁时允许，避免下载大文件阻塞遥控
+          if (_model.isModeActive(MODE_ARMED))
+          {
+            code = 409;
+            body = "{\"ok\":0,\"err\":\"armed\"}";
+          }
+          else
+          {
+            String name = sanitizeName(queryStr(req, "f"));
+            if (name.length() == 0) name = "flight_000.csv";
+            if (name[0] != '/') name = "/" + name;
+            if (!LittleFS.exists(name))
+            {
+              code = 404;
+              body = "{\"ok\":0,\"err\":\"nofile\"}";
+            }
+            else
+            {
+              File f = LittleFS.open(name, FILE_READ);
+              client.print("HTTP/1.1 200 OK\r\nContent-Type: text/csv; charset=utf-8\r\n");
+              client.print("Content-Disposition: attachment; filename=\"" + name.substring(1) + "\"\r\n");
+              client.print("Content-Length: " + String((unsigned)f.size()) + "\r\nConnection: close\r\n\r\n");
+              uint8_t chunk[512];
+              while (f.available())
+              {
+                const size_t rd = f.read(chunk, sizeof(chunk));
+                if (!rd) break;
+                client.write(chunk, rd);
+                tick(now); // 下载期间保持通道/状态更新
+              }
+              f.close();
+              client.stop();
+              vTaskDelay(pdMS_TO_TICKS(5));
+              continue;
+            }
+          }
+        }
         else
         {
           code = 404;
@@ -350,6 +423,41 @@ void InputUdp::taskLoop()
         client.print("HTTP/1.1 " + String(code) + " OK\r\nContent-Type: " + ctype +
                      "\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n");
         client.print(body);
+        client.stop();
+        tick(now);
+        vTaskDelay(pdMS_TO_TICKS(5));
+        continue;
+      }
+
+      if (req.indexOf("/logs") >= 0)
+      {
+        client.print("HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nConnection: close\r\n\r\n");
+        client.print("<!doctype html><html><head><meta charset='utf-8'>");
+        client.print("<meta name='viewport' content='width=device-width,initial-scale=1'>");
+        client.print("<style>body{font-family:sans-serif;background:#111;color:#eee;padding:14px}");
+        client.print("a{display:block;margin:8px 0;padding:14px;background:#2a7;color:#fff;");
+        client.print("text-decoration:none;border-radius:8px;font-size:17px}a.back{background:#444}");
+        client.print("</style></head><body><h2>飞行日志</h2>");
+        client.print("<p>解锁后自动记录（50Hz）。点文件名下载 CSV。</p>");
+        File root = LittleFS.open("/");
+        int count = 0;
+        File f = root.openNextFile();
+        while (f)
+        {
+          const String n = String(f.name());
+          if (!f.isDirectory() && n.endsWith(".csv"))
+          {
+            String base = n;
+            if (base.startsWith("/")) base = base.substring(1);
+            client.print("<a href='/api/log?f=" + base + "'>" + base + " (" + String((unsigned)f.size() / 1024) +
+                         " KB)</a>");
+            count++;
+          }
+          f = root.openNextFile();
+        }
+        root.close();
+        if (count == 0) client.print("<p>还没有日志：需要解锁一次才会开始记录。</p>");
+        client.print("<p><a class='back' href='/'>返回状态页</a></p></body></html>");
         client.stop();
         tick(now);
         vTaskDelay(pdMS_TO_TICKS(5));
@@ -383,11 +491,11 @@ void InputUdp::taskLoop()
       client.print((int)_throttle);
       client.print("us</p>");
       client.print("<p style='font-size:16px'>陀螺°/s 横滚 ");
-      client.print(_model.state.gyro.adc[AXIS_ROLL], 1);
+      client.print(_model.state.gyro.adc[AXIS_ROLL] * 57.2958f, 1);
       client.print(" 俯仰 ");
-      client.print(_model.state.gyro.adc[AXIS_PITCH], 1);
+      client.print(_model.state.gyro.adc[AXIS_PITCH] * 57.2958f, 1);
       client.print(" 偏航 ");
-      client.print(_model.state.gyro.adc[AXIS_YAW], 1);
+      client.print(_model.state.gyro.adc[AXIS_YAW] * 57.2958f, 1);
       client.print("</p>");
       client.print("<p style='font-size:16px'>磁力计 ");
       if (_model.state.mag.present)
@@ -474,6 +582,7 @@ void InputUdp::taskLoop()
       client.print("<a href='/api/yawrev?on=0'>偏航反向 关</a>");
       client.print("<a href='/api/gyrocal'>陀螺仪校准（静止时点）</a>");
       client.print("<a class='stop' href='/api/trimclear'>清除微调</a>");
+      client.print("<a href='/logs'>飞行日志下载</a>");
       client.print(PAGE_BUTTONS);
       client.stop();
     }

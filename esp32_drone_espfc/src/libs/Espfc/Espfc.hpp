@@ -12,6 +12,7 @@
 #include "SensorManager.hpp"
 #include "SerialManager.hpp"
 #include "TelemetryManager.hpp"
+#include "Utils/Math.hpp"
 
 namespace Espfc {
 
@@ -50,6 +51,33 @@ public:
   int magX() const { return _model.state.mag.raw.x; }
   int magY() const { return _model.state.mag.raw.y; }
   int magZ() const { return _model.state.mag.raw.z; }
+
+  // 偏航闭环诊断：判断修正方向是否真的在抵消自旋
+  bool isArmed() const { return _model.isModeActive(MODE_ARMED); }
+  float gyroYawDeg() const { return Utils::toDeg(_model.state.gyro.adc[AXIS_YAW]); }
+  float setpointYawDeg() const { return Utils::toDeg(_model.state.setpoint.rate[AXIS_YAW]); }
+  float outputYaw() const { return _model.state.output.ch[AXIS_YAW]; }
+  int motorUs(int i) const { return (i >= 0 && i < 4) ? (int)_model.state.output.us[i] : 0; }
+
+  // 飞行日志：格式化为一行 CSV（角度/角速度单位 0.1，输出为 0.001 满量程）
+  int logFlight(uint32_t ms, char* buf, size_t len)
+  {
+    const auto& s = _model.state;
+    const int gx = (int)(Utils::toDeg(s.gyro.adc[AXIS_ROLL]) * 10.f);
+    const int gy = (int)(Utils::toDeg(s.gyro.adc[AXIS_PITCH]) * 10.f);
+    const int gz = (int)(Utils::toDeg(s.gyro.adc[AXIS_YAW]) * 10.f);
+    const int sx = (int)(Utils::toDeg(s.setpoint.rate[AXIS_ROLL]) * 10.f);
+    const int sy = (int)(Utils::toDeg(s.setpoint.rate[AXIS_PITCH]) * 10.f);
+    const int sz = (int)(Utils::toDeg(s.setpoint.rate[AXIS_YAW]) * 10.f);
+    const int ox = (int)(s.output.ch[AXIS_ROLL] * 1000.f);
+    const int oy = (int)(s.output.ch[AXIS_PITCH] * 1000.f);
+    const int oz = (int)(s.output.ch[AXIS_YAW] * 1000.f);
+    return snprintf(buf, len, "%lu,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+                    (unsigned long)ms, isArmed() ? 1 : 0, gx, gy, gz, sx, sy, sz, ox, oy, oz,
+                    (int)s.input.us[AXIS_ROLL], (int)s.input.us[AXIS_PITCH], (int)s.input.us[AXIS_THRUST],
+                    (int)s.input.us[AXIS_YAW], motorUs(0), motorUs(1), motorUs(2), motorUs(3),
+                    (int)(s.baro.altitudeGround * 100.f), (int)(s.baro.vario * 100.f), (int)s.gps.numSats);
+  }
 
 private:
   Model _model;

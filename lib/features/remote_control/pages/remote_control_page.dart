@@ -198,7 +198,13 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
     final r = (_trimRoll + dr).clamp(-100, 100);
     final p = (_trimPitch + dp).clamp(-100, 100);
     final y = (_trimYaw + dy).clamp(-100, 100);
-    setState(() => _trimBusy = true);
+    // 先落界面再发请求：点击手感不再等一次 HTTP 往返
+    setState(() {
+      _trimBusy = true;
+      _trimRoll = r;
+      _trimPitch = p;
+      _trimYaw = y;
+    });
     final res = await _udp.setTrim(roll: r, pitch: p, yaw: y);
     if (!mounted) return;
     setState(() {

@@ -1,4 +1,5 @@
 # Name,   Type, SubType, Offset,  Size, Flags
-# 16MB layout (actual ESP32-S3 N16R8): 20K NVS + 15.9MB factory app
+# 16MB layout (ESP32-S3 N16R8): 20K NVS + 2MB factory app + 14MB LittleFS flight log
 nvs,      data, nvs,     0x9000,  0x5000,
-factory,  app,  factory, 0x10000, 0xFF0000,
+factory,  app,  factory, 0x10000, 0x1F0000,
+storage,  data, spiffs,  0x200000,0xE00000,

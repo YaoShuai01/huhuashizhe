@@ -1,5 +1,7 @@
 #include <Arduino.h>
+#include <LittleFS.h>
 #include <WiFi.h>
+#include <esp_partition.h>
 #include <Espfc.hpp>
 #include <Hal/FastCode.hpp>
 #include <Hal/Platform.hpp>
@@ -102,11 +104,97 @@ void setup()
   // the core-0 idle task from the task WDT, whose idle hook then logs
   // "esp_task_wdt_reset: task not found" every few milliseconds.
   WiFi.onEvent(wifiEvent);
+
+  // 飞行日志文件系统：首次使用或分区表刚变更时需要格式化
+  {
+    // 打印实际分区表，确认 storage 分区是否真的写进了芯片
+    esp_partition_iterator_t it = esp_partition_find(ESP_PARTITION_TYPE_ANY, ESP_PARTITION_SUBTYPE_ANY, NULL);
+    for (; it != NULL; it = esp_partition_next(it))
+    {
+      const esp_partition_t* p = esp_partition_get(it);
+      printf("[PART] %s type=%d sub=%d off=0x%X size=0x%X\n", p->label, (int)p->type, (int)p->subtype,
+             (unsigned)p->address, (unsigned)p->size);
+    }
+    esp_partition_iterator_release(it);
+    fflush(stdout);
+  }
+
+  if (!LittleFS.begin(false, "/littlefs", 10, "storage"))
+  {
+    printf("[LOG] LittleFS mount failed, formatting...\n");
+    fflush(stdout);
+    if (LittleFS.begin(true, "/littlefs", 10, "storage"))
+    {
+      printf("[LOG] formatted ok\n");
+    }
+    else
+    {
+      printf("[LOG] format failed, flight log disabled\n");
+    }
+    fflush(stdout);
+  }
+  printf("[LOG] fs total=%u used=%u\n", (unsigned)LittleFS.totalBytes(), (unsigned)LittleFS.usedBytes());
+  fflush(stdout);
+
   espfc.load();
   Task::create(gyroTask, "gyroTask", 8192, nullptr, Task::Priority::High, 1);
   Task::create(pidTask, "pidTask", 8192, nullptr, Task::Priority::Low, 0);
   // Keep the Arduino loop task alive: it feeds the task watchdog. Deleting it
   // causes "esp_task_wdt_reset: task not found" and a boot loop on core 3.x.
+}
+
+// 飞行日志：解锁即开始记录，上锁时关闭文件；文件保存在 Flash，手机浏览器可下载
+static File g_log;
+static bool g_logOpen = false;
+static uint32_t g_logFlush = 0;
+
+static void flightLogTick(uint32_t now)
+{
+  const bool armed = espfc.isArmed();
+
+  if (armed && !g_logOpen)
+  {
+    int idx = 0;
+    char path[32];
+    do
+    {
+      snprintf(path, sizeof(path), "/flight_%03d.csv", idx);
+      idx++;
+    } while (LittleFS.exists(path) && idx < 1000);
+
+    g_log = LittleFS.open(path, FILE_WRITE);
+    g_logOpen = (bool)g_log;
+    if (g_logOpen)
+    {
+      g_log.print("ms,armed,gx,gy,gz,sx,sy,sz,ox,oy,oz,ir,ip,it,iy,m0,m1,m2,m3,alt,vario,sats\n");
+      printf("[LOG] recording %s\n", path);
+    }
+    else
+    {
+      printf("[LOG] open %s failed\n", path);
+    }
+    fflush(stdout);
+  }
+
+  if (g_logOpen && armed)
+  {
+    char line[192];
+    const int n = espfc.logFlight(now, line, sizeof(line));
+    if (n > 0) g_log.print(line);
+    if (now - g_logFlush >= 1000)
+    {
+      g_logFlush = now;
+      g_log.flush();
+    }
+  }
+  else if (g_logOpen)
+  {
+    g_log.flush();
+    g_log.close();
+    g_logOpen = false;
+    printf("[LOG] closed, used=%u\n", (unsigned)LittleFS.usedBytes());
+    fflush(stdout);
+  }
 }
 
 // 全彩灯心跳：蓝 1.5 秒一次、绿 3 秒一次
@@ -165,6 +253,20 @@ void loop()
            (int)WiFi.softAPgetStationNum());
     fflush(stdout);
   }
+  // 偏航诊断：解锁后每 200ms 打印一次，用地面手拧机身即可判断方向是否正确
+  static uint32_t lastYaw = 0;
+  if (espfc.isArmed() && now - lastYaw >= 200)
+  {
+    lastYaw = now;
+    printf("[YAW] gyro=%d sp=%d out=%d m=%d,%d,%d,%d\n",
+           (int)espfc.gyroYawDeg(), (int)espfc.setpointYawDeg(),
+           (int)(espfc.outputYaw() * 1000.f),
+           espfc.motorUs(0), espfc.motorUs(1), espfc.motorUs(2), espfc.motorUs(3));
+    fflush(stdout);
+  }
+
+  flightLogTick(now);
+
   vTaskDelay(pdMS_TO_TICKS(20));
 }
 

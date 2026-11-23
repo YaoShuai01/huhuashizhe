@@ -226,10 +226,14 @@ class DroneUdpService {
   }
 
   /// 设置飞行微调（水平 ±100 = ±10 度，旋转 ±100 = ±10 度/秒），飞控立即写入 NVS
+  /// 只发送本次变化的轴，缺省轴由飞控沿用当前值，避免每次多一次读取往返
   Future<Map<String, int>?> setTrim({int? roll, int? pitch, int? yaw}) async {
-    final cur = await getTrim() ?? {'roll': 0, 'pitch': 0, 'yaw': 0};
-    final r = await _httpGet(
-        '/api/trim?r=${roll ?? cur['roll']}&p=${pitch ?? cur['pitch']}&y=${yaw ?? cur['yaw']}');
+    final q = <String>[];
+    if (roll != null) q.add('r=$roll');
+    if (pitch != null) q.add('p=$pitch');
+    if (yaw != null) q.add('y=$yaw');
+    if (q.isEmpty) return null;
+    final r = await _httpGet('/api/trim?${q.join('&')}');
     if (r == null || r['ok'] != 1) return null;
     return {
       'roll': (r['r'] as num).toInt(),
