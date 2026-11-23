@@ -58,5 +58,9 @@
 	<string>护花使者需要使用蓝牙与无人机遥控器通信</string>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>护花使者需要使用蓝牙与无人机遥控器通信</string>
+	<key>NSCameraUsageDescription</key>
+	<string>护花使者需要使用相机拍摄作业照片用于发帖</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>护花使者需要访问相册选择作业照片用于发帖</string>
 </dict>
 </plist>

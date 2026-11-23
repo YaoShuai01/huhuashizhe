@@ -4,8 +4,9 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   connectivity_plus
-  flutter_tts
+  file_selector_windows
   flutter_secure_storage_windows
+  flutter_tts
   permission_handler_windows
 )
 

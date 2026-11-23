@@ -1,8 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import '../../../core/accessibility/elder_care_reader.dart';
 import '../../../core/theme/app_theme.dart';
 import '../data/forum_models.dart';
+import 'forum_post_image.dart';
 
 /// 帖子卡片（版块列表、我的帖子共用）
 class ForumPostCard extends StatelessWidget {
@@ -15,6 +16,7 @@ class ForumPostCard extends StatelessWidget {
     this.favorited = false,
     this.onFavorite,
     this.liked = false,
+    this.margin,
   });
 
   final ForumPost post;
@@ -33,6 +35,9 @@ class ForumPostCard extends StatelessWidget {
   /// 当前用户是否已点赞
   final bool liked;
 
+  /// 卡片外边距，为空时沿用主题默认值（瀑布流内需传零边距）
+  final EdgeInsetsGeometry? margin;
+
   String get _avatarText {
     if (post.author.isEmpty) return '?';
     return String.fromCharCode(post.author.runes.first);
@@ -47,167 +52,181 @@ class ForumPostCard extends StatelessWidget {
 
   Widget _buildCard(BuildContext context) {
     return Card(
+      margin: margin ?? const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
         onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (post.images.isNotEmpty)
+              ForumPostImage(
+                url: post.images.first,
+                aspectRatio: 1,
+                borderRadius: 0,
+              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildAuthorRow(),
+                  const SizedBox(height: 7),
+                  Text(
+                    post.title,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      height: 1.3,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    post.content,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      height: 1.45,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _buildFooter(),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAuthorRow() {
+    return Row(
+      children: [
+        Container(
+          width: 24,
+          height: 24,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: AppColors.primaryLight.withValues(alpha: 0.16),
+            shape: BoxShape.circle,
+          ),
+          child: Text(
+            _avatarText,
+            style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primary,
+            ),
+          ),
+        ),
+        const SizedBox(width: 7),
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Container(
-                    width: 28,
-                    height: 28,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryLight.withValues(alpha: 0.16),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      _avatarText,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      post.author,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Flexible(
-                    child: Text(
-                      forumTimeText(post.createdAt),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: AppColors.textHint,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
               Text(
-                post.title,
-                maxLines: 2,
+                post.author,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
                   color: AppColors.textPrimary,
                 ),
               ),
-              const SizedBox(height: 5),
+              const SizedBox(height: 1),
               Text(
-                post.content,
-                maxLines: 2,
+                forumTimeText(post.createdAt),
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 13,
-                  height: 1.45,
-                  color: AppColors.textSecondary,
+                  fontSize: 10,
+                  color: AppColors.textHint,
                 ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  if (showSection)
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Wrap(
-                          spacing: 6,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            if (post.pendingReview) _pendingTag(),
-                            _tag(post.section),
-                          ],
-                        ),
-                      ),
-                    )
-                  else
-                    const Spacer(),
-                  if (onFavorite != null)
-                    Tooltip(
-                      message: favorited ? '取消收藏' : '收藏',
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(12),
-                        onTap: onFavorite,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          child: Icon(
-                            favorited
-                                ? Icons.bookmark
-                                : Icons.bookmark_border,
-                            size: 16,
-                            color: favorited
-                                ? AppColors.primary
-                                : AppColors.textHint,
-                          ),
-                        ),
-                      ),
-                    ),
-                  InkWell(
-                    borderRadius: BorderRadius.circular(12),
-                    onTap: onLike,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: liked
-                            ? AppColors.accent.withValues(alpha: 0.12)
-                            : AppColors.textHint,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            liked ? Icons.favorite : Icons.favorite_border,
-                            size: 15,
-                            color: liked
-                                ? AppColors.accent
-                                : AppColors.textOnPrimary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            '${post.likes}',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: liked
-                                  ? AppColors.accent
-                                  : AppColors.textOnPrimary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
               ),
             ],
           ),
         ),
-      ),
+      ],
+    );
+  }
+
+  Widget _buildFooter() {
+    return Row(
+      children: [
+        if (showSection)
+          Expanded(
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Wrap(
+                spacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (post.pendingReview) _pendingTag(),
+                  _tag(post.section),
+                ],
+              ),
+            ),
+          )
+        else
+          const Spacer(),
+        if (onFavorite != null)
+          Tooltip(
+            message: favorited ? '取消收藏' : '收藏',
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: onFavorite,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 6,
+                  vertical: 2,
+                ),
+                child: Icon(
+                  favorited ? Icons.bookmark : Icons.bookmark_border,
+                  size: 16,
+                  color: favorited ? AppColors.primary : AppColors.textHint,
+                ),
+              ),
+            ),
+          ),
+        InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onLike,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: liked
+                  ? AppColors.accent.withValues(alpha: 0.12)
+                  : AppColors.surfaceVariant,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  liked ? Icons.favorite : Icons.favorite_border,
+                  size: 14,
+                  color: liked ? AppColors.accent : AppColors.textHint,
+                ),
+                const SizedBox(width: 3),
+                Text(
+                  '${post.likes}',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: liked ? AppColors.accent : AppColors.textHint,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 
 import 'forum_models.dart';
@@ -37,7 +39,18 @@ abstract class ForumRepository extends ChangeNotifier {
     required String title,
     required String content,
     bool pendingReview = false,
+    List<String> images = const [],
   });
+
+  /// 上传一张帖子配图，返回可访问的 URL。
+  ///
+  /// 内存实现返回 data URI，远端实现上传到服务器。
+  Future<String> uploadImage({
+    required Uint8List bytes,
+    required String extension,
+  }) async {
+    throw const ForumException('当前数据源不支持上传图片');
+  }
 
   void toggleLike(ForumPost post);
 
@@ -186,6 +199,7 @@ class InMemoryForumRepository extends ForumRepository {
     required String title,
     required String content,
     bool pendingReview = false,
+    List<String> images = const [],
   }) async {
     final post = ForumPost(
       id: 'local_${DateTime.now().microsecondsSinceEpoch}_${_idSeed++}',
@@ -195,10 +209,21 @@ class InMemoryForumRepository extends ForumRepository {
       author: currentUserName,
       createdAt: DateTime.now(),
       pendingReview: pendingReview,
+      images: List.unmodifiable(images.take(3)),
     );
     _posts.add(post);
     notifyListeners();
     return post;
+  }
+
+  /// 内存实现把图片转成 data URI，便于本地预览与测试
+  @override
+  Future<String> uploadImage({
+    required Uint8List bytes,
+    required String extension,
+  }) async {
+    final mime = extension.toLowerCase() == 'png' ? 'png' : 'jpeg';
+    return 'data:image/$mime;base64,${base64Encode(bytes)}';
   }
 
   @override

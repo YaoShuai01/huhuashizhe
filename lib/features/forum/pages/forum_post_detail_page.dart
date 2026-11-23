@@ -9,6 +9,7 @@ import '../services/forum_moderation_service.dart';
 import '../services/forum_voice_input.dart';
 import '../widgets/forum_back_button.dart';
 import '../widgets/forum_comment_tile.dart';
+import '../widgets/forum_post_image.dart';
 import '../widgets/forum_responsive_body.dart';
 import '../widgets/forum_voice_button.dart';
 
@@ -355,6 +356,14 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                 color: AppColors.textSecondary,
               ),
             ),
+            if (post.images.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              for (final url in post.images)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: ForumPostImage(url: url),
+                ),
+            ],
             const SizedBox(height: 12),
             Row(
               children: [
