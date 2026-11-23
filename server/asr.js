@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { currentUserId } from './token.js';
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const IAT_HOST = 'iat-api.xfyun.cn';
@@ -205,6 +207,10 @@ async function recognizePcm(pcm, accent, creds) {
 /** 注册方言语音识别接口 */
 export function registerAsrRoutes(app) {
   app.post('/api/asr', async (req, res) => {
+    // 讯飞按秒计费，必须登录后才能调用，避免被脚本白嫖额度
+    if (currentUserId(req) <= 0) {
+      return res.status(401).json({ error: '请先登录后再使用语音识别' });
+    }
     const body = req.body ?? {};
     const audio = typeof body.audio === 'string' ? body.audio : '';
     const dialect =

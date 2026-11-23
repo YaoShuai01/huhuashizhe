@@ -9,6 +9,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:record/record.dart';
 
 import '../../auth/data/auth_api.dart';
+import '../../auth/data/auth_session.dart';
+import '../../auth/data/auth_token_interceptor.dart';
 
 /// 语音输入状态
 enum ForumVoiceStatus { idle, listening, processing, error }
@@ -130,13 +132,15 @@ class CloudForumVoiceRecognizer implements ForumVoiceRecognizer {
   CloudForumVoiceRecognizer({Dio? dio, String? baseUrl})
     : _dio =
           dio ??
-          Dio(
+          (Dio(
             BaseOptions(
               baseUrl: _normalizeBase(baseUrl ?? defaultForumApiBase),
               connectTimeout: const Duration(seconds: 10),
               receiveTimeout: const Duration(seconds: 30),
             ),
-          );
+          )..interceptors.add(
+            AuthTokenInterceptor(() => AuthSession.instance.token),
+          ));
 
   static const int _sampleRate = 16000;
   static const int _maxSeconds = 60;

@@ -3,7 +3,9 @@ package com.huhuashizhe.schedule.web;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.huhuashizhe.schedule.config.AiRuntimeConfig;
 import com.huhuashizhe.schedule.config.AppConfig;
+import com.huhuashizhe.schedule.model.TokenPayload;
 import com.huhuashizhe.schedule.service.AiQuota;
+import com.huhuashizhe.schedule.service.TokenService;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
@@ -49,6 +51,7 @@ public class AiProxyServlet extends HttpServlet {
 
     private transient AppConfig config;
     private transient AiQuota quota;
+    private transient TokenService tokenService;
 
     @Override
     public void init(ServletConfig servletConfig) throws ServletException {
@@ -57,6 +60,7 @@ public class AiProxyServlet extends HttpServlet {
             config = AppConfig.load();
             AiRuntimeConfig.init(config);
             quota = new AiQuota();
+            tokenService = new TokenService(config.tokenSecret);
             LOG.info("AI 代理已启动；base=" + AiRuntimeConfig.baseUrl()
                     + "；model=" + AiRuntimeConfig.model()
                     + "；keyConfigured=" + !AiRuntimeConfig.apiKey().isEmpty());
@@ -89,6 +93,12 @@ public class AiProxyServlet extends HttpServlet {
         }
         if (AiRuntimeConfig.apiKey().isEmpty()) {
             writeError(response, 503, "ai_not_configured", "AI 服务尚未配置");
+            return;
+        }
+
+        // 必须登录（论坛账号令牌或轮协令牌均可），否则任何人都能白嫖 AI 额度
+        if (!isAuthorized(request)) {
+            writeError(response, 401, "unauthorized", "请先登录后再使用 AI 助手");
             return;
         }
 
@@ -131,6 +141,21 @@ public class AiProxyServlet extends HttpServlet {
             LOG.log(Level.SEVERE, "[AI] 请求处理失败 ip=" + ip, e);
             writeError(response, 500, "internal_error", "服务暂时不可用，请稍后再试");
         }
+    }
+
+    /** 校验 Bearer 令牌：论坛账号令牌（uid）或轮协令牌（role）都放行。 */
+    private boolean isAuthorized(HttpServletRequest request) {
+        String header = request.getHeader("Authorization");
+        if (header == null || !header.regionMatches(true, 0, "Bearer ", 0, 7)) {
+            return false;
+        }
+        TokenPayload payload = tokenService.verify(header.substring(7).trim());
+        if (payload == null) {
+            return false;
+        }
+        return payload.uid > 0
+                || "admin".equals(payload.role)
+                || "member".equals(payload.role);
     }
 
     private void forward(Map<String, Object> upstream, boolean stream, String ip,

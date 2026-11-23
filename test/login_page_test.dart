@@ -61,7 +61,12 @@ void main() {
 
   test('登录态持久化到本地，重启后可恢复', () {
     final db = LocalDatabase();
-    const account = AuthUser(id: 9, loginId: '30219845', nickname: '农友阿芳');
+    const account = AuthUser(
+      id: 9,
+      loginId: '30219845',
+      nickname: '农友阿芳',
+      token: 'header.signature',
+    );
     AuthSession(database: db).signIn(account);
 
     // 模拟重启：新的会话实例从本地恢复
@@ -69,10 +74,23 @@ void main() {
     expect(restored.user.value?.id, 9);
     expect(restored.user.value?.loginId, '30219845');
     expect(restored.user.value?.nickname, '农友阿芳');
+    expect(restored.token, 'header.signature');
 
     restored.signOut();
     final signedOut = AuthSession(database: db)..restore();
     expect(signedOut.isLoggedIn, isFalse);
+  });
+
+  test('旧版本无令牌的登录记录会被清理，要求重新登录', () {
+    final db = LocalDatabase();
+    // v3.10.15 之前的登录只存 id/登录号/昵称，服务端已不接受这种身份
+    const legacy = AuthUser(id: 12, loginId: '12345678', nickname: '老农友');
+    AuthSession(database: db).signIn(legacy);
+    expect(AuthSession(database: db)..restore(), isNotNull);
+
+    final restored = AuthSession(database: db)..restore();
+    expect(restored.isLoggedIn, isFalse);
+    expect(restored.token, isEmpty);
   });
 
   testWidgets('默认先展示设置密码页，可切换到登录', (tester) async {

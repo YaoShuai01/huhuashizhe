@@ -4,7 +4,6 @@ import 'package:flutter/foundation.dart';
 
 import '../../../data/local_database.dart';
 import 'auth_api.dart';
-
 /// 当前登录状态，登录号与昵称持久化到本地，重启 App 后自动恢复
 class AuthSession {
   AuthSession({LocalDatabase? database}) : _db = database ?? LocalDatabase();
@@ -16,6 +15,7 @@ class AuthSession {
   static const _nicknameKey = 'auth_nickname';
   static const _avatarKey = 'auth_avatar_path';
   static const _adminKey = 'auth_is_admin';
+  static const _tokenKey = 'auth_token';
 
   final LocalDatabase _db;
 
@@ -26,12 +26,24 @@ class AuthSession {
   /// 当前账号是否为论坛管理员
   bool get isAdmin => user.value?.isAdmin ?? false;
 
+  /// 当前访问令牌；未登录或旧版登录（无令牌）时为空
+  String get token => user.value?.token ?? '';
+
   /// 从本地恢复上次登录的账号（App 启动时调用一次）
   void restore() {
     if (user.value != null) return;
     final id = int.tryParse(_db.get(_idKey) ?? '');
     final loginId = _db.get(_loginIdKey);
     final nickname = _db.get(_nicknameKey);
+    final token = _db.get(_tokenKey) ?? '';
+    // v3.10.15 起服务端写操作必须带令牌；旧版本登录留下的记录没有令牌，
+    // 直接沿用会让用户「已登录却处处 401」，这里清掉并要求重新登录。
+    if (token.isEmpty) {
+      if (id != null || loginId != null || nickname != null) {
+        signOut();
+      }
+      return;
+    }
     if (id != null &&
         loginId != null &&
         loginId.isNotEmpty &&
@@ -43,6 +55,7 @@ class AuthSession {
         nickname: nickname,
         avatarPath: _db.get(_avatarKey),
         isAdmin: _db.getBool(_adminKey),
+        token: token,
       );
     }
   }
@@ -99,6 +112,11 @@ class AuthSession {
     _db.set(_loginIdKey, account.loginId);
     _db.set(_nicknameKey, account.nickname);
     _db.setBool(_adminKey, account.isAdmin);
+    if (account.token.isEmpty) {
+      _db.remove(_tokenKey);
+    } else {
+      _db.set(_tokenKey, account.token);
+    }
     final avatar = account.avatarPath;
     if (avatar == null || avatar.isEmpty) {
       _db.remove(_avatarKey);
@@ -134,5 +152,6 @@ class AuthSession {
     _db.remove(_nicknameKey);
     _db.remove(_avatarKey);
     _db.remove(_adminKey);
+    _db.remove(_tokenKey);
   }
 }

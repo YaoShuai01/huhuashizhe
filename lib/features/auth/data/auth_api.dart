@@ -1,5 +1,8 @@
 import 'package:dio/dio.dart';
 
+import 'auth_session.dart';
+import 'auth_token_interceptor.dart';
+
 /// 登录用户：登录号由服务端自动生成，昵称与头像用于展示
 class AuthUser {
   const AuthUser({
@@ -8,6 +11,7 @@ class AuthUser {
     required this.nickname,
     this.avatarPath,
     this.isAdmin = false,
+    this.token = '',
   });
 
   final int id;
@@ -23,9 +27,13 @@ class AuthUser {
   /// 论坛管理员可删除任意帖子与评论
   final bool isAdmin;
 
+  /// 服务端签发的访问令牌，论坛写操作与 AI 助手都靠它证明身份
+  final String token;
+
   AuthUser copyWith({
     String? nickname,
     String? avatarPath,
+    String? token,
     bool clearAvatar = false,
   }) {
     return AuthUser(
@@ -34,6 +42,7 @@ class AuthUser {
       nickname: nickname ?? this.nickname,
       avatarPath: clearAvatar ? null : (avatarPath ?? this.avatarPath),
       isAdmin: isAdmin,
+      token: token ?? this.token,
     );
   }
 }
@@ -88,7 +97,15 @@ class DioAuthApi implements AuthApi {
       connectTimeout: const Duration(seconds: 8),
       receiveTimeout: const Duration(seconds: 8),
     ),
+  )..interceptors.add(
+    AuthTokenInterceptor(() => AuthSession.instance.token),
   );
+
+  /// 手动带令牌的头（登录/注册本身不需要令牌）
+  Map<String, dynamic> _authHeaders() {
+    final token = AuthSession.instance.token;
+    return token.isEmpty ? const {} : {'Authorization': 'Bearer $token'};
+  }
 
   final String _baseUrl;
   final Dio _dio;
@@ -110,9 +127,11 @@ class DioAuthApi implements AuthApi {
     required String nickname,
   }) async {
     try {
+      // 账号以 Authorization 令牌为准，userId 参数仅作兼容保留
       await _dio.post<Map<String, dynamic>>(
         '/api/auth/profile',
-        data: {'userId': userId, 'nickname': nickname},
+        data: {'nickname': nickname},
+        options: Options(headers: _authHeaders()),
       );
     } on DioException catch (error) {
       final data = error.response?.data;
@@ -132,6 +151,7 @@ class DioAuthApi implements AuthApi {
         loginId: data['loginId'] as String,
         nickname: data['nickname'] as String,
         isAdmin: data['isAdmin'] == true,
+        token: data['token'] as String? ?? '',
       );
     } on DioException catch (error) {
       final data = error.response?.data;

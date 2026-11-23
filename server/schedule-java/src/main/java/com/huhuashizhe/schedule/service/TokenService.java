@@ -57,7 +57,10 @@ public class TokenService {
             if (payload.v != 1) {
                 return null;
             }
-            if (!"admin".equals(payload.role) && !"member".equals(payload.role)) {
+            // 轮协令牌带 role，论坛账号令牌带 uid；两者都不具备则视为伪造
+            boolean roleToken = "admin".equals(payload.role) || "member".equals(payload.role);
+            boolean accountToken = payload.uid > 0;
+            if (!roleToken && !accountToken) {
                 return null;
             }
             if (payload.exp <= Instant.now().getEpochSecond()) {

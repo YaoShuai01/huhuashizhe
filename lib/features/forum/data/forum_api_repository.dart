@@ -45,11 +45,10 @@ class ForumApiRepository extends InMemoryForumRepository {
   /// 拉取全部帖子，替换本地缓存
   @override
   Future<void> refresh() async {
-    final me = AuthSession.instance.user.value;
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         '/api/posts',
-        queryParameters: {'limit': 100, if (me != null) 'userId': me.id},
+        queryParameters: {'limit': 100},
       );
       final items = response.data?['items'];
       if (items is! List) return;
@@ -91,7 +90,7 @@ class ForumApiRepository extends InMemoryForumRepository {
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         '/api/messages',
-        queryParameters: {'userId': me.id, 'limit': 100},
+        queryParameters: {'limit': 100},
       );
       final items = response.data?['items'];
       if (items is! List) return;
@@ -137,7 +136,7 @@ class ForumApiRepository extends InMemoryForumRepository {
     try {
       await _dio.post<Map<String, dynamic>>(
         path,
-        data: {'userId': me.id, field: value},
+        data: {field: value},
       );
     } on DioException {
       rollback();
@@ -165,7 +164,7 @@ class ForumApiRepository extends InMemoryForumRepository {
     try {
       await _dio.post<Map<String, dynamic>>(
         '/api/messages/read',
-        data: {'userId': me.id, if (id != null) 'id': id},
+        data: {if (id != null) 'id': id},
       );
     } on DioException {
       // 忽略同步失败
@@ -198,9 +197,8 @@ class ForumApiRepository extends InMemoryForumRepository {
     List<String> images = const [],
     List<String> tags = const [],
   }) async {
-    final me = _requireUser();
+    _requireUser();
     final data = await _post('/api/posts', {
-      'userId': me.id,
       'section': section,
       'title': title.trim(),
       'content': content.trim(),
@@ -217,11 +215,10 @@ class ForumApiRepository extends InMemoryForumRepository {
     required Uint8List bytes,
     required String extension,
   }) async {
-    final me = _requireUser();
+    _requireUser();
     final data = await _post(
       '/api/uploads',
       {
-        'userId': me.id,
         'ext': extension.toLowerCase(),
         'data': base64Encode(bytes),
       },
@@ -251,10 +248,10 @@ class ForumApiRepository extends InMemoryForumRepository {
     required Uint8List bytes,
     required int durationMs,
   }) async {
-    final me = _requireUser();
+    _requireUser();
     final data = await _post(
       '/api/uploads',
-      {'userId': me.id, 'ext': 'wav', 'data': base64Encode(bytes)},
+      {'ext': 'wav', 'data': base64Encode(bytes)},
       options: Options(
         sendTimeout: const Duration(seconds: 60),
         receiveTimeout: const Duration(seconds: 30),
@@ -292,10 +289,9 @@ class ForumApiRepository extends InMemoryForumRepository {
     String? audioUrl,
     int? audioDurationMs,
   }) async {
-    final me = _requireUser();
+    _requireUser();
     final parentId = replyTo == null ? null : int.tryParse(replyTo.id);
     final data = await _post('/api/posts/${post.id}/replies', {
-      'userId': me.id,
       'content': content.trim(),
       if (parentId != null) 'parentId': parentId,
       if (audioUrl != null) 'audioUrl': audioUrl,
@@ -309,13 +305,13 @@ class ForumApiRepository extends InMemoryForumRepository {
 
   @override
   Future<void> setFeatured(ForumPost post, bool featured) async {
-    final me = _requireUser();
+    _requireUser();
     final previous = post.featured;
     await super.setFeatured(post, featured);
     try {
       await _dio.post<Map<String, dynamic>>(
         '/api/posts/${post.id}/feature',
-        data: {'userId': me.id, 'featured': featured},
+        data: {'featured': featured},
       );
     } on DioException catch (error) {
       await super.setFeatured(post, previous);
@@ -325,11 +321,10 @@ class ForumApiRepository extends InMemoryForumRepository {
 
   @override
   Future<void> deletePost(ForumPost post) async {
-    final me = _requireUser();
+    _requireUser();
     try {
       await _dio.delete<Map<String, dynamic>>(
         '/api/posts/${post.id}',
-        queryParameters: {'userId': me.id},
       );
     } on DioException catch (error) {
       throw ForumException(_errorMessage(error));
@@ -339,11 +334,10 @@ class ForumApiRepository extends InMemoryForumRepository {
 
   @override
   Future<void> deleteComment(ForumComment comment) async {
-    final me = _requireUser();
+    _requireUser();
     try {
       await _dio.delete<Map<String, dynamic>>(
         '/api/replies/${comment.id}',
-        queryParameters: {'userId': me.id},
       );
     } on DioException catch (error) {
       throw ForumException(_errorMessage(error));
@@ -357,11 +351,10 @@ class ForumApiRepository extends InMemoryForumRepository {
     required String targetId,
     required String reason,
   }) async {
-    final me = _requireUser();
+    _requireUser();
     final id = int.tryParse(targetId);
     if (id == null) throw const ForumException('该内容不支持投诉');
     await _post('/api/reports', {
-      'userId': me.id,
       'targetType': targetType,
       'targetId': id,
       'reason': reason,
