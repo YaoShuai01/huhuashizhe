@@ -225,8 +225,11 @@ static void serialLogCommand()
     if (c == '\n')
     {
       g_serialCmd.trim();
-      if (g_serialCmd == "DUMP" || g_serialCmd == "LIST")
+      if (g_serialCmd.startsWith("LIST") || g_serialCmd.startsWith("DUMP"))
       {
+        const bool dump = g_serialCmd.startsWith("DUMP");
+        String target = g_serialCmd.substring(4);
+        target.trim();
         File root = LittleFS.open("/");
         File f = root.openNextFile();
         while (f)
@@ -234,18 +237,27 @@ static void serialLogCommand()
           const String n = String(f.name());
           if (!f.isDirectory() && n.endsWith(".csv"))
           {
-            printf("===FILE %s %u===\r\n", f.name(), (unsigned)f.size());
-            fflush(stdout);
-            if (g_serialCmd == "DUMP")
+            String base = n;
+            if (base.startsWith("/")) base = base.substring(1);
+            const bool match = target.length() == 0 || base == target;
+            if (match)
             {
-              uint8_t buf[256];
-              while (f.available())
+              printf("===FILE %s %u===\r\n", base.c_str(), (unsigned)f.size());
+              fflush(stdout);
+              if (dump)
               {
-                const size_t rd = f.read(buf, sizeof(buf));
-                if (!rd) break;
-                HHS_USB.write(buf, rd);
+                uint8_t buf[256];
+                int chunks = 0;
+                while (f.available())
+                {
+                  const size_t rd = f.read(buf, sizeof(buf));
+                  if (!rd) break;
+                  HHS_USB.write(buf, rd);
+                  // 大文件连续发送会长时间占用 loop 任务触发看门狗，定期让出
+                  if ((++chunks & 7) == 0) vTaskDelay(1);
+                }
+                printf("\r\n===END===\r\n");
               }
-              printf("\r\n===END===\r\n");
             }
           }
           f = root.openNextFile();
@@ -258,7 +270,7 @@ static void serialLogCommand()
     }
     else if (c != '\r')
     {
-      if (g_serialCmd.length() < 16) g_serialCmd += c;
+      if (g_serialCmd.length() < 40) g_serialCmd += c;
     }
   }
 }
