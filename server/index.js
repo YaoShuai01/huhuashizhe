@@ -1,10 +1,21 @@
+import { randomUUID } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import express from 'express';
 
 import authRouter from './auth.js';
 import { pool } from './db.js';
 
 const app = express();
-app.use(express.json({ limit: '100kb' }));
+// 图片以 base64 放在 JSON 里上传，最大 8MB 图片约 11MB，留出余量
+app.use(express.json({ limit: '15mb' }));
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const UPLOAD_DIR = path.join(__dirname, 'uploads');
+fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+app.use('/uploads', express.static(UPLOAD_DIR));
 
 // 允许 Flutter Web 跨域调用本服务
 app.use((req, res, next) => {
@@ -22,6 +33,7 @@ const POST_FIELDS = `
   p.section,
   p.title,
   p.content,
+  p.images,
   p.likes,
   DATE_FORMAT(p.created_at, '%Y-%m-%d %H:%i:%s') AS created_at,
   u.id       AS author_id,
@@ -56,6 +68,91 @@ function parsePositiveInt(value, fallback) {
   return Number.isInteger(n) && n >= 0 ? n : fallback;
 }
 
+// 数据库里保存的是 JSON 字符串，返回给客户端时还原成数组
+function parseImages(value) {
+  if (!value) return [];
+  try {
+    const arr = typeof value === 'string' ? JSON.parse(value) : value;
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter((url) => typeof url === 'string' && /^\/uploads\/[\w.-]+$/.test(url))
+      .slice(0, 3);
+  } catch {
+    return [];
+  }
+}
+
+// 只接受本服务上传接口生成的 /uploads/ 路径，非法时返回 null
+function normalizeImages(value) {
+  if (value == null) return [];
+  if (!Array.isArray(value) || value.length > 3) return null;
+  const result = [];
+  for (const item of value) {
+    if (typeof item !== 'string' || !/^\/uploads\/[\w.-]+$/.test(item)) {
+      return null;
+    }
+    result.push(item);
+  }
+  return result;
+}
+
+function withParsedImages(row) {
+  return { ...row, images: parseImages(row.images) };
+}
+
+const ALLOWED_IMAGE_EXT = new Set(['jpg', 'jpeg', 'png', 'webp']);
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+
+// POST /api/uploads
+// body: { userId, ext, data(base64) }
+app.post(
+  '/api/uploads',
+  asyncHandler(async (req, res) => {
+    const body = req.body ?? {};
+    const userId = Number(body.userId);
+    const ext =
+      typeof body.ext === 'string'
+        ? body.ext.toLowerCase().replace(/^\./, '')
+        : '';
+    const data = typeof body.data === 'string' ? body.data : '';
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({ error: 'userId 必须是正整数' });
+    }
+    if (!ALLOWED_IMAGE_EXT.has(ext)) {
+      return res.status(400).json({ error: '仅支持 jpg/jpeg/png/webp 图片' });
+    }
+    if (!data) {
+      return res.status(400).json({ error: '图片数据不能为空' });
+    }
+
+    let buffer;
+    try {
+      buffer = Buffer.from(data, 'base64');
+    } catch {
+      return res.status(400).json({ error: '图片数据格式错误' });
+    }
+    if (buffer.length === 0) {
+      return res.status(400).json({ error: '图片数据格式错误' });
+    }
+    if (buffer.length > MAX_IMAGE_BYTES) {
+      return res.status(400).json({ error: '图片不能超过 8MB' });
+    }
+
+    const [users] = await pool.execute(
+      'SELECT id FROM users WHERE id = ?',
+      [userId],
+    );
+    if (users.length === 0) {
+      return res.status(404).json({ error: '用户不存在' });
+    }
+
+    const fileName = `${randomUUID()}.${ext === 'jpeg' ? 'jpg' : ext}`;
+    await fs.promises.writeFile(path.join(UPLOAD_DIR, fileName), buffer);
+    res.status(201).json({ url: `/uploads/${fileName}` });
+  }),
+);
+
 // GET /api/posts?section=农友留言区&limit=20&offset=0
 app.get(
   '/api/posts',
@@ -80,12 +177,17 @@ app.get(
       section ? [section] : [],
     );
 
-    res.json({ total: countRows[0].total, limit, offset, items });
+    res.json({
+      total: countRows[0].total,
+      limit,
+      offset,
+      items: items.map(withParsedImages),
+    });
   }),
 );
 
 // POST /api/posts
-// body: { userId, section, title, content }
+// body: { userId, section, title, content, images?: string[] }
 app.post(
   '/api/posts',
   asyncHandler(async (req, res) => {
@@ -94,6 +196,7 @@ app.post(
     const section = typeof body.section === 'string' ? body.section.trim() : '';
     const title = typeof body.title === 'string' ? body.title.trim() : '';
     const content = typeof body.content === 'string' ? body.content.trim() : '';
+    const images = normalizeImages(body.images);
 
     if (!Number.isInteger(userId) || userId <= 0) {
       return res.status(400).json({ error: 'userId 必须是正整数' });
@@ -107,6 +210,11 @@ app.post(
     if (!content || content.length > 5000) {
       return res.status(400).json({ error: 'content 不能为空且不超过 5000 字' });
     }
+    if (images === null) {
+      return res
+        .status(400)
+        .json({ error: 'images 最多 3 张且必须是已上传的图片地址' });
+    }
 
     const [users] = await pool.execute(
       'SELECT id FROM users WHERE id = ?',
@@ -117,8 +225,14 @@ app.post(
     }
 
     const [result] = await pool.execute(
-      'INSERT INTO posts (user_id, section, title, content) VALUES (?, ?, ?, ?)',
-      [userId, section, title, content],
+      'INSERT INTO posts (user_id, section, title, content, images) VALUES (?, ?, ?, ?, ?)',
+      [
+        userId,
+        section,
+        title,
+        content,
+        images.length > 0 ? JSON.stringify(images) : null,
+      ],
     );
 
     const [rows] = await pool.execute(
@@ -126,7 +240,7 @@ app.post(
       [result.insertId],
     );
 
-    res.status(201).json(rows[0]);
+    res.status(201).json(withParsedImages(rows[0]));
   }),
 );
 
@@ -209,6 +323,9 @@ app.use((req, res) => {
 app.use((err, req, res, next) => {
   if (err?.type === 'entity.parse.failed') {
     return res.status(400).json({ error: '请求体不是合法的 JSON' });
+  }
+  if (err?.type === 'entity.too.large') {
+    return res.status(413).json({ error: '图片过大，请重新选择后上传' });
   }
   console.error(err);
   res.status(500).json({ error: '服务器内部错误' });

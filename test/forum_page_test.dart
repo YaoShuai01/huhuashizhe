@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:huhuashizhe/core/theme/app_theme.dart';
+import 'package:huhuashizhe/features/auth/data/auth_api.dart';
+import 'package:huhuashizhe/features/auth/data/auth_session.dart';
 import 'package:huhuashizhe/features/forum/data/forum_models.dart';
 import 'package:huhuashizhe/features/forum/data/forum_repository.dart';
 import 'package:huhuashizhe/features/forum/forum_scope.dart';
@@ -16,37 +18,52 @@ import 'package:huhuashizhe/features/forum/services/forum_moderation_service.dar
 import 'package:huhuashizhe/features/forum/services/forum_voice_input.dart';
 import 'package:huhuashizhe/features/forum/widgets/forum_message_bell.dart';
 import 'package:huhuashizhe/features/forum/widgets/forum_post_card.dart';
+import 'package:huhuashizhe/features/forum/widgets/forum_post_image.dart';
 import 'package:huhuashizhe/features/forum/pages/forum_section_page.dart';
 
 void main() {
   Widget wrap(Widget child) => MaterialApp(home: child);
 
-  testWidgets('论坛页展示三个分区与交流区版块', (tester) async {
-    await tester.pumpWidget(wrap(const ForumPage()));
+  testWidgets('论坛页顶部分区横向滚动，下方两列错开显示帖子', (tester) async {
+    final repository = InMemoryForumRepository();
+    await tester.pumpWidget(wrap(ForumPage(repository: repository)));
+    await tester.pumpAndSettle();
 
-    expect(find.text('论坛'), findsOneWidget);
-    expect(find.text('所有分区'), findsOneWidget);
-    expect(find.text('交流区'), findsOneWidget);
-    expect(find.text('问答区'), findsOneWidget);
-    expect(find.text('管理区'), findsOneWidget);
+    // 原来的「所有分区」标题与三个分区按钮已移除
+    expect(find.text('所有分区'), findsNothing);
+    expect(find.text('交流区'), findsNothing);
+    expect(find.text('问答区'), findsNothing);
+    expect(find.text('管理区'), findsNothing);
 
-    // 默认展示交流区版块
+    // 小分区入口位于顶部，默认选中农友留言区
     expect(find.text('农友留言区'), findsOneWidget);
     expect(find.text('飞防作业交流'), findsOneWidget);
-    expect(find.text('新手提问区'), findsNothing);
-    await tester.scrollUntilVisible(
-      find.text('作业晒图'),
-      200,
-      scrollable: find.byType(Scrollable).first,
-    );
-    expect(find.text('作业晒图'), findsOneWidget);
     expect(find.text('发帖'), findsOneWidget);
 
-    // 已按要求去掉的内容
-    expect(find.text('我的关注'), findsNothing);
-    expect(find.text('原创区'), findsNothing);
-    expect(find.text('纯爱区'), findsNothing);
-    expect(find.text('添加关注'), findsNothing);
+    // 下方直接展示农友留言区帖子，两列错开
+    expect(find.text('第一次用护花使者，求作业参数参考'), findsOneWidget);
+    expect(find.text('作业记录导出能不能加个 Excel？'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('第一次用护花使者，求作业参数参考')).dx,
+      lessThan(
+        tester.getTopLeft(find.text('作业记录导出能不能加个 Excel？')).dx,
+      ),
+    );
+    expect(find.text('3 米高度和 2.5 米高度，水稻田哪个更合适？'), findsNothing);
+
+    // 点击另一个小分区，切换下面的帖子
+    await tester.tap(find.text('飞防作业交流'));
+    await tester.pumpAndSettle();
+    expect(find.text('3 米高度和 2.5 米高度，水稻田哪个更合适？'), findsOneWidget);
+    expect(find.text('第一次用护花使者，求作业参数参考'), findsNothing);
+
+    // 小分区较多时横向滚动查看
+    await tester.drag(
+      find.byKey(const Key('forum-sections')),
+      const Offset(-900, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('举报与版规'), findsOneWidget);
   });
 
   testWidgets('论坛右上角铃铛显示未读数并随已读状态更新', (tester) async {
@@ -70,28 +87,21 @@ void main() {
     );
   });
 
-  testWidgets('切换问答区后展示问答区版块', (tester) async {
-    await tester.pumpWidget(wrap(const ForumPage()));
-
-    await tester.tap(find.text('问答区'));
+  testWidgets('横向滚动小分区后可切换到管理区帖子', (tester) async {
+    final repository = InMemoryForumRepository();
+    await tester.pumpWidget(wrap(ForumPage(repository: repository)));
     await tester.pumpAndSettle();
 
-    expect(find.text('病虫害问答'), findsOneWidget);
-    expect(find.text('新手提问区'), findsOneWidget);
-    expect(find.text('药效点评'), findsOneWidget);
-    expect(find.text('农友留言区'), findsNothing);
-  });
-
-  testWidgets('切换管理区后展示管理区版块', (tester) async {
-    await tester.pumpWidget(wrap(const ForumPage()));
-
-    await tester.tap(find.text('管理区'));
+    await tester.drag(
+      find.byKey(const Key('forum-sections')),
+      const Offset(-900, 0),
+    );
     await tester.pumpAndSettle();
 
-    expect(find.text('公告与通知'), findsOneWidget);
-    expect(find.text('意见反馈'), findsOneWidget);
-    expect(find.text('举报与版规'), findsOneWidget);
-    expect(find.text('农友留言区'), findsNothing);
+    await tester.tap(find.text('公告与通知'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('v2.9.6 已发布，修复无法降级安装的问题'), findsOneWidget);
   });
 
   testWidgets('支持通过 ForumScope 注入外部数据源', (tester) async {
@@ -120,8 +130,9 @@ void main() {
       ),
     );
 
-    expect(find.text('注入区'), findsOneWidget);
     expect(find.text('注入版块'), findsOneWidget);
+    expect(find.text('注入区'), findsNothing);
+    expect(find.text('农友留言区'), findsNothing);
     expect(find.text('交流区'), findsNothing);
   });
 
@@ -178,6 +189,44 @@ void main() {
     expect(repository.countOf('新手提问区'), before + 1);
     expect(repository.postsOf('新手提问区').first.id, post.id);
     expect(repository.myPosts.any((p) => p.id == post.id), isTrue);
+  });
+
+  test('发帖可携带配图，最多保留 3 张', () async {
+    final repository = InMemoryForumRepository();
+    final post = await repository.publish(
+      section: '农友留言区',
+      title: '带图帖子',
+      content: '作业效果见图',
+      images: const ['a.jpg', 'b.jpg', 'c.jpg', 'd.jpg'],
+    );
+
+    expect(post.images.length, 3);
+    expect(post.images.first, 'a.jpg');
+  });
+
+  testWidgets('帖子有配图时卡片展示首图', (tester) async {
+    final post = ForumPost(
+      id: 'image_post',
+      section: '农友留言区',
+      title: '带图帖子',
+      content: '作业效果见图',
+      author: '测试用户',
+      createdAt: DateTime(2026, 1, 1),
+      images: const [_tinyPngDataUri],
+    );
+
+    await tester.pumpWidget(
+      wrap(
+        Scaffold(
+          body: SingleChildScrollView(
+            child: ForumPostCard(post: post, onLike: () {}),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(ForumPostImage), findsOneWidget);
   });
 
   testWidgets('版块页带有返回按钮且支持下拉刷新', (tester) async {
@@ -242,7 +291,7 @@ void main() {
     expect(post.likes, 5);
   });
 
-  testWidgets('点赞图标未点赞时为白色空心，点赞后为琥珀橙实心', (tester) async {
+  testWidgets('点赞图标未点赞时为灰色空心，点赞后为琥珀橙实心', (tester) async {
     final post = ForumPost(
       id: 'like_color',
       section: '农友留言区',
@@ -267,7 +316,7 @@ void main() {
     await tester.pumpWidget(buildCard());
     expect(
       tester.widget<Icon>(find.byIcon(Icons.favorite_border)).color,
-      AppColors.textOnPrimary,
+      AppColors.textHint,
     );
 
     repository.toggleLike(post);
@@ -579,12 +628,111 @@ void main() {
     expect(find.text('评论未通过审核'), findsOneWidget);
     expect(repository.commentsOf(post.id).length, before);
   });
+
+  testWidgets('未登录点击发帖会提示登录且不进入发帖页', (tester) async {
+    AuthSession.instance.signOut();
+    addTearDown(AuthSession.instance.signOut);
+
+    final router = GoRouter(
+      initialLocation: '/forum',
+      routes: [
+        GoRoute(
+          path: '/forum',
+          builder: (context, state) => const ForumPage(),
+        ),
+        GoRoute(
+          path: '/forum/compose',
+          builder: (context, state) => const ForumComposePage(),
+        ),
+        GoRoute(
+          path: '/login',
+          builder: (context, state) => const Scaffold(body: Text('登录页')),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('发帖'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('请先登录'), findsOneWidget);
+    expect(find.text('登录后才能发帖，帖子发布后对所有农友可见。'), findsOneWidget);
+    expect(find.text('发布帖子'), findsNothing);
+
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('请先登录'), findsNothing);
+    expect(find.text('发布帖子'), findsNothing);
+    expect(find.text('论坛'), findsOneWidget);
+  });
+
+  testWidgets('已登录点击发帖直接进入发帖页', (tester) async {
+    AuthSession.instance.signIn(
+      const AuthUser(id: 1, loginId: '12345678', nickname: '测试农友'),
+    );
+    addTearDown(AuthSession.instance.signOut);
+
+    final router = GoRouter(
+      initialLocation: '/forum',
+      routes: [
+        GoRoute(
+          path: '/forum',
+          builder: (context, state) => const ForumPage(),
+        ),
+        GoRoute(
+          path: '/forum/compose',
+          builder: (context, state) => const ForumComposePage(),
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('发帖'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('发布帖子'), findsOneWidget);
+  });
+
+  test('论坛时间显示为具体时刻而非相对时间', () {
+    final now = DateTime.now();
+    expect(
+      forumTimeText(DateTime(now.year, now.month, now.day, 9, 5)),
+      '今天 09:05',
+    );
+
+    final tenDaysAgo =
+        DateTime(now.year, now.month, now.day).subtract(const Duration(days: 10));
+    final expected = tenDaysAgo.year == now.year
+        ? '${tenDaysAgo.month}月${tenDaysAgo.day}日 14:30'
+        : '${tenDaysAgo.year}年${tenDaysAgo.month}月${tenDaysAgo.day}日 14:30';
+    expect(
+      forumTimeText(
+        DateTime(tenDaysAgo.year, tenDaysAgo.month, tenDaysAgo.day, 14, 30),
+      ),
+      expected,
+    );
+
+    expect(
+      forumTimeText(DateTime(now.year - 1, 3, 8, 14, 30)),
+      '${now.year - 1}年3月8日 14:30',
+    );
+  });
 }
 
 const ForumAuditResult _passResult = ForumAuditResult(
   verdict: ForumAuditVerdict.pass,
   reason: '内容正常',
 );
+
+/// 1x1 透明 PNG，用于图片展示测试
+const String _tinyPngDataUri =
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJ'
+    'AAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
 
 GoRouter _composeRouter(
   InMemoryForumRepository repository,

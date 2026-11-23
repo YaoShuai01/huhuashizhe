@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 
 import '../../auth/data/auth_api.dart';
@@ -66,6 +69,7 @@ class ForumApiRepository extends InMemoryForumRepository {
     required String title,
     required String content,
     bool pendingReview = false,
+    List<String> images = const [],
   }) async {
     final me = _requireUser();
     final data = await _post('/api/posts', {
@@ -73,10 +77,37 @@ class ForumApiRepository extends InMemoryForumRepository {
       'section': section,
       'title': title.trim(),
       'content': content.trim(),
+      if (images.isNotEmpty) 'images': images.take(3).toList(),
     });
     final post = _postFromJson(data);
     replacePosts([post, ...cachedPosts.where((item) => item.id != post.id)]);
     return post;
+  }
+
+  @override
+  Future<String> uploadImage({
+    required Uint8List bytes,
+    required String extension,
+  }) async {
+    final me = _requireUser();
+    final data = await _post(
+      '/api/uploads',
+      {
+        'userId': me.id,
+        'ext': extension.toLowerCase(),
+        'data': base64Encode(bytes),
+      },
+      options: Options(
+        sendTimeout: const Duration(seconds: 60),
+        receiveTimeout: const Duration(seconds: 30),
+      ),
+    );
+    final url = data['url'];
+    if (url is! String || url.isEmpty) {
+      throw const ForumException('图片上传失败，请重试');
+    }
+    // 发帖时服务端只接受 /uploads/ 相对路径，展示时才补全域名
+    return url;
   }
 
   @override
@@ -113,14 +144,31 @@ class ForumApiRepository extends InMemoryForumRepository {
 
   Future<Map<String, dynamic>> _post(
     String path,
-    Map<String, dynamic> body,
-  ) async {
+    Map<String, dynamic> body, {
+    Options? options,
+  }) async {
     try {
-      final response = await _dio.post<Map<String, dynamic>>(path, data: body);
+      final response = await _dio.post<Map<String, dynamic>>(
+        path,
+        data: body,
+        options: options,
+      );
       return response.data ?? const {};
     } on DioException catch (error) {
       throw ForumException(_errorMessage(error));
     }
+  }
+
+  /// 服务端返回的是 `/uploads/xxx.jpg` 相对路径，这里补全为可访问地址
+  String _absoluteUrl(String raw) {
+    if (raw.isEmpty ||
+        raw.startsWith('http://') ||
+        raw.startsWith('https://') ||
+        raw.startsWith('data:')) {
+      return raw;
+    }
+    final base = _dio.options.baseUrl;
+    return raw.startsWith('/') ? '$base$raw' : '$base/$raw';
   }
 
   String _errorMessage(DioException error) {
@@ -139,7 +187,18 @@ class ForumApiRepository extends InMemoryForumRepository {
         author: json['author'] as String? ?? '农友',
         createdAt: _parseTime(json['created_at']),
         likes: (json['likes'] as num?)?.toInt() ?? 0,
+        images: _parseImages(json['images']),
       );
+
+  List<String> _parseImages(Object? value) {
+    if (value is! List) return const [];
+    return value
+        .whereType<String>()
+        .where((url) => url.isNotEmpty)
+        .take(3)
+        .map(_absoluteUrl)
+        .toList(growable: false);
+  }
 
   ForumComment _commentFromJson(Map<String, dynamic> json) => ForumComment(
         id: '${json['id']}',

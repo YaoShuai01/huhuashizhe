@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../data/forum_repository.dart';
+import '../forum_login_guard.dart';
 import '../forum_scope.dart';
 import '../widgets/forum_back_button.dart';
 import '../widgets/forum_empty_state.dart';
@@ -25,7 +26,10 @@ class ForumMyPostsPage extends StatelessWidget {
         title: const Text('我的帖子'),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/forum/compose'),
+        onPressed: () async {
+          if (!await ensureForumLoggedIn(context) || !context.mounted) return;
+          context.push('/forum/compose');
+        },
         icon: const Icon(Icons.edit_outlined),
         label: const Text('发帖'),
         backgroundColor: AppColors.primary,
@@ -40,7 +44,12 @@ class ForumMyPostsPage extends StatelessWidget {
               icon: Icons.article_outlined,
               text: '还没有发过帖子',
               actionLabel: '去发帖',
-              onAction: () => context.push('/forum/compose'),
+              onAction: () async {
+                if (!await ensureForumLoggedIn(context) || !context.mounted) {
+                  return;
+                }
+                context.push('/forum/compose');
+              },
             );
           }
           return ForumPostList(

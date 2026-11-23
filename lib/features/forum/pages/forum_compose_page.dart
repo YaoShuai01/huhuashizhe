@@ -1,5 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../data/forum_repository.dart';
@@ -39,12 +42,16 @@ class ForumComposePage extends StatefulWidget {
 class _ForumComposePageState extends State<ForumComposePage> {
   static const int _titleMaxLength = 40;
   static const int _contentMaxLength = 1000;
+  static const int _maxImages = 3;
 
   final _titleCtrl = TextEditingController();
   final _contentCtrl = TextEditingController();
+  final ImagePicker _picker = ImagePicker();
+  final List<_PickedImage> _images = [];
 
   String? _section;
   bool _submitting = false;
+  String _submittingLabel = 'AI 审核中，请稍候…';
 
   @override
   void dispose() {
@@ -69,6 +76,60 @@ class _ForumComposePageState extends State<ForumComposePage> {
 
   ForumModerationService get _moderator =>
       widget.moderationService ?? defaultForumModerationService;
+
+  Future<void> _addImage() async {
+    if (_images.length >= _maxImages) return;
+
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('拍照'),
+              onTap: () => Navigator.of(sheetContext).pop(ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('从相册选择'),
+              onTap: () => Navigator.of(sheetContext).pop(ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+
+    try {
+      final file = await _picker.pickImage(
+        source: source,
+        maxWidth: 1280,
+        imageQuality: 70,
+      );
+      if (file == null) return;
+      final bytes = await file.readAsBytes();
+      if (!mounted) return;
+      setState(() {
+        _images.add(
+          _PickedImage(bytes: bytes, extension: _extensionOf(file.name)),
+        );
+      });
+    } catch (_) {
+      if (mounted) _toast('选择图片失败，请重试');
+    }
+  }
+
+  String _extensionOf(String name) {
+    final dot = name.lastIndexOf('.');
+    final ext = dot < 0 ? '' : name.substring(dot + 1).toLowerCase();
+    return const {'jpg', 'jpeg', 'png', 'webp'}.contains(ext) ? ext : 'jpg';
+  }
+
+  void _removeImage(int index) {
+    setState(() => _images.removeAt(index));
+  }
 
   Future<void> _publish() async {
     if (_submitting) return;
@@ -115,13 +176,26 @@ class _ForumComposePageState extends State<ForumComposePage> {
     required String content,
     bool pendingReview = false,
   }) async {
-    setState(() => _submitting = true);
+    setState(() {
+      _submitting = true;
+      _submittingLabel = _images.isEmpty ? 'AI 审核中，请稍候…' : '正在上传图片…';
+    });
     try {
+      final imageUrls = <String>[];
+      for (final image in _images) {
+        imageUrls.add(
+          await _repository.uploadImage(
+            bytes: image.bytes,
+            extension: image.extension,
+          ),
+        );
+      }
       await _repository.publish(
         section: section,
         title: title,
         content: content,
         pendingReview: pendingReview,
+        images: imageUrls,
       );
     } on ForumException catch (error) {
       if (!mounted) return;
@@ -164,6 +238,102 @@ class _ForumComposePageState extends State<ForumComposePage> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Widget _imagePicker() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text(
+              '配图（选填）',
+              style: TextStyle(fontSize: 13, color: AppColors.textSecondary),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              '${_images.length}/$_maxImages',
+              style: const TextStyle(fontSize: 12, color: AppColors.textHint),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            for (var i = 0; i < _images.length; i++) _thumbnail(i),
+            if (_images.length < _maxImages) _addImageTile(),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _thumbnail(int index) {
+    return SizedBox(
+      width: 76,
+      height: 76,
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.memory(_images[index].bytes, fit: BoxFit.cover),
+            ),
+          ),
+          Positioned(
+            top: 2,
+            right: 2,
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () => _removeImage(index),
+              child: Container(
+                padding: const EdgeInsets.all(2),
+                decoration: const BoxDecoration(
+                  color: Colors.black54,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.close, size: 13, color: Colors.white),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _addImageTile() {
+    return InkWell(
+      borderRadius: BorderRadius.circular(10),
+      onTap: _addImage,
+      child: Container(
+        width: 76,
+        height: 76,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceVariant,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: AppColors.textHint.withValues(alpha: 0.3),
+          ),
+        ),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.add_a_photo_outlined,
+              size: 20,
+              color: AppColors.textHint,
+            ),
+            SizedBox(height: 4),
+            Text(
+              '添加图片',
+              style: TextStyle(fontSize: 10, color: AppColors.textHint),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -219,7 +389,7 @@ class _ForumComposePageState extends State<ForumComposePage> {
             const SizedBox(height: 12),
             TextField(
               controller: _contentCtrl,
-              maxLines: 9,
+              maxLines: 14,
               maxLength: _contentMaxLength,
               decoration: InputDecoration(
                 hintText: '正文：描述你的问题、经验或作业情况…',
@@ -233,6 +403,8 @@ class _ForumComposePageState extends State<ForumComposePage> {
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+            _imagePicker(),
             const SizedBox(height: 8),
             Text(
               '发布后所有用户可见，请遵守社区版规，勿发布广告与违规内容。',
@@ -242,15 +414,15 @@ class _ForumComposePageState extends State<ForumComposePage> {
               const SizedBox(height: 12),
               Row(
                 children: [
-                  SizedBox(
+                  const SizedBox(
                     width: 14,
                     height: 14,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   ),
-                  SizedBox(width: 8),
+                  const SizedBox(width: 8),
                   Text(
-                    'AI 审核中，请稍候…',
-                    style: TextStyle(
+                    _submittingLabel,
+                    style: const TextStyle(
                       fontSize: 12,
                       color: context.palette.textSecondary,
                     ),
@@ -263,4 +435,12 @@ class _ForumComposePageState extends State<ForumComposePage> {
       ),
     );
   }
+}
+
+/// 待上传的本地图片
+class _PickedImage {
+  const _PickedImage({required this.bytes, required this.extension});
+
+  final Uint8List bytes;
+  final String extension;
 }
