@@ -3,14 +3,17 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../auth/data/auth_session.dart';
 import '../data/forum_models.dart';
 import '../data/forum_repository.dart';
 import '../forum_scope.dart';
+import '../services/forum_moderation_service.dart';
 import '../widgets/forum_back_button.dart';
 import '../widgets/forum_empty_state.dart';
 import '../widgets/forum_message_category_card.dart';
 import '../widgets/forum_message_tile.dart';
 import '../widgets/forum_responsive_body.dart';
+import '../widgets/forum_voice_comment.dart';
 
 /// 消息提醒：点赞 / 回复两个分支
 class ForumMessagesPage extends StatefulWidget {
@@ -33,6 +36,11 @@ class _ForumMessagesPageState extends State<ForumMessagesPage> {
   ForumRepository? _repository;
   Timer? _messageTimer;
 
+  /// 正在内联回复的消息 id
+  String? _replyingMessageId;
+  final TextEditingController _replyController = TextEditingController();
+  bool _sendingReply = false;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -53,6 +61,7 @@ class _ForumMessagesPageState extends State<ForumMessagesPage> {
   @override
   void dispose() {
     _messageTimer?.cancel();
+    _replyController.dispose();
     super.dispose();
   }
 
@@ -204,16 +213,170 @@ class _ForumMessagesPageState extends State<ForumMessagesPage> {
                       ),
                     )
                   else
-                    for (final message in messages)
+                    for (final message in messages) ...[
                       ForumMessageTile(
                         message: message,
                         onTap: () => repository.markMessageRead(message),
+                        onReply:
+                            message.kind == ForumMessageKind.reply &&
+                                    message.postId != null
+                                ? () => _toggleReply(message)
+                                : null,
                       ),
+                      if (_replyingMessageId == message.id)
+                        _inlineReplyComposer(repository, message),
+                    ],
                 ],
               ),
             ),
           );
         },
+      ),
+    );
+  }
+
+  void _toggleReply(ForumMessage message) {
+    setState(() {
+      if (_replyingMessageId == message.id) {
+        _replyingMessageId = null;
+      } else {
+        _replyingMessageId = message.id;
+        _replyController.clear();
+      }
+    });
+  }
+
+  void _toast(String text) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  /// 在消息内直接回复到对应帖子
+  Future<void> _sendInlineReply(
+    ForumRepository repository,
+    ForumMessage message,
+  ) async {
+    if (!AuthSession.instance.isLoggedIn) {
+      _toast('登录后才能回复');
+      return;
+    }
+    final text = _replyController.text.trim();
+    if (text.isEmpty || _sendingReply) return;
+    setState(() => _sendingReply = true);
+
+    try {
+      final audit = await defaultForumModerationService.review(
+        title: '评论：${message.title}',
+        content: text,
+      );
+      if (audit.rejected) {
+        if (mounted) _toast('内容未通过审核：${audit.reason}');
+        return;
+      }
+
+      final postId = message.postId;
+      var post = postId == null ? null : repository.postById(postId);
+      if (post == null) {
+        try {
+          await repository.refresh();
+        } on ForumException {
+          // 刷新失败时继续按未加载处理
+        }
+        post = postId == null ? null : repository.postById(postId);
+      }
+      if (post == null) {
+        if (mounted) _toast('帖子已被删除或暂未加载');
+        return;
+      }
+
+      await repository.addComment(post: post, content: text);
+      repository.markMessageRead(message);
+      _replyController.clear();
+      if (!mounted) return;
+      setState(() => _replyingMessageId = null);
+      _toast('回复已发送');
+    } on ForumException catch (error) {
+      if (mounted) _toast(error.message);
+    } finally {
+      if (mounted) setState(() => _sendingReply = false);
+    }
+  }
+
+  Widget _inlineReplyComposer(
+    ForumRepository repository,
+    ForumMessage message,
+  ) {
+    final post = repository.postById(message.postId ?? '');
+    return Container(
+      color: AppColors.surfaceVariant.withValues(alpha: 0.35),
+      padding: const EdgeInsets.fromLTRB(16, 2, 10, 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _replyController,
+              minLines: 1,
+              maxLines: 3,
+              maxLength: 450,
+              buildCounter:
+                  (
+                    context, {
+                    required currentLength,
+                    required isFocused,
+                    required maxLength,
+                  }) => null,
+              style: const TextStyle(fontSize: 13),
+              decoration: InputDecoration(
+                hintText: '回复这条消息…',
+                hintStyle: const TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textHint,
+                ),
+                isDense: true,
+                filled: true,
+                fillColor: AppColors.surface,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ),
+          if (post != null)
+            ForumVoiceCommentButton(
+              repository: repository,
+              post: post,
+              onSent: () {
+                repository.markMessageRead(message);
+                if (!mounted) return;
+                setState(() => _replyingMessageId = null);
+              },
+            ),
+          IconButton.filled(
+            tooltip: '发送回复',
+            onPressed:
+                _sendingReply
+                    ? null
+                    : () => _sendInlineReply(repository, message),
+            icon:
+                _sendingReply
+                    ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.textOnPrimary,
+                      ),
+                    )
+                    : const Icon(Icons.send, size: 18),
+          ),
+        ],
       ),
     );
   }

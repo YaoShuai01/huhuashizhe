@@ -14,6 +14,7 @@ import '../widgets/forum_comment_tile.dart';
 import '../widgets/forum_post_image.dart';
 import '../widgets/forum_responsive_body.dart';
 import '../widgets/forum_voice_button.dart';
+import '../widgets/forum_voice_comment.dart';
 
 /// 帖子详情：查看正文、点赞、收藏与评论
 class ForumPostDetailPage extends StatefulWidget {
@@ -878,6 +879,14 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                     ),
                   ),
                   const ForumVoiceDialectSelector(),
+                  ForumVoiceCommentButton(
+                    repository: repository,
+                    post: widget.post,
+                    replyTo: _replyTo,
+                    onSent: () {
+                      if (mounted) setState(() => _replyTo = null);
+                    },
+                  ),
                   ForumVoiceButton(
                     controller: _controller,
                     recognizer: widget.voiceRecognizer,

@@ -1,12 +1,17 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../services/update_service.dart';
 import '../../../providers/update_provider.dart';
 import '../../../widgets/update_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_version.dart' show appVersion;
+import '../../auth/data/auth_session.dart';
 import '../../forum/data/forum_models.dart';
 import '../../forum/data/forum_repository.dart';
 import '../../forum/forum_scope.dart';
@@ -238,10 +243,138 @@ class AccountPage extends StatefulWidget {
 }
 
 class _AccountPageState extends State<AccountPage> {
-  final _nicknameCtrl = TextEditingController();
+  late final TextEditingController _nicknameCtrl;
+  String? _avatarPath;
+
+  @override
+  void initState() {
+    super.initState();
+    final account = AuthSession.instance.user.value;
+    _nicknameCtrl = TextEditingController(text: account?.nickname ?? '');
+    _avatarPath = account?.avatarPath;
+  }
+
+  @override
+  void dispose() {
+    _nicknameCtrl.dispose();
+    super.dispose();
+  }
+
+  void _toast(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  /// 点击头像：拍照或从相册选择新头像
+  Future<void> _pickAvatar() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('拍照'),
+              onTap: () => Navigator.of(sheetContext).pop(ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('从相册选择'),
+              onTap: () => Navigator.of(sheetContext).pop(ImageSource.gallery),
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+    if (source == null || !mounted) return;
+    if (!await _ensureImagePermission(source)) return;
+
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: source,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 85,
+      );
+      if (picked == null) return;
+      // 复制到应用数据目录，避免系统清理缓存导致头像丢失
+      final dir = await getApplicationDocumentsDirectory();
+      final folder = Directory('${dir.path}/huhuashizhe_data');
+      if (!await folder.exists()) await folder.create(recursive: true);
+      final name = picked.name;
+      final ext =
+          name.contains('.') ? name.split('.').last.toLowerCase() : 'jpg';
+      final target = File(
+        '${folder.path}/avatar_${DateTime.now().millisecondsSinceEpoch}.$ext',
+      );
+      await target.copy(picked.path);
+      final old = _avatarPath;
+      if (old != null && old != target.path) {
+        try {
+          await File(old).delete();
+        } catch (_) {
+          // 旧头像删除失败不影响新头像使用
+        }
+      }
+      if (!mounted) return;
+      setState(() => _avatarPath = target.path);
+    } catch (_) {
+      if (mounted) _toast('选择头像失败，请重试');
+    }
+  }
+
+  /// 选择头像前申请相机 / 相册权限
+  Future<bool> _ensureImagePermission(ImageSource source) async {
+    final permission = source == ImageSource.camera
+        ? Permission.camera
+        : (Platform.isIOS ? Permission.photos : null);
+    // Android 相册走系统选择器，由系统按次授权，无需额外申请
+    if (permission == null) return true;
+
+    var status = await permission.status;
+    if (!status.isGranted) {
+      status = await permission.request();
+    }
+    if (status.isGranted || status.isLimited) return true;
+
+    if (mounted) {
+      _toast(
+        status.isPermanentlyDenied
+            ? (source == ImageSource.camera
+                ? '相机权限已被拒绝，请在系统设置中开启'
+                : '相册权限已被拒绝，请在系统设置中开启')
+            : (source == ImageSource.camera
+                ? '需要相机权限才能拍照'
+                : '需要相册权限才能选择照片'),
+      );
+    }
+    return false;
+  }
+
+  void _save() {
+    final nickname = _nicknameCtrl.text.trim();
+    if (nickname.isEmpty) {
+      _toast('昵称不能为空');
+      return;
+    }
+    final session = AuthSession.instance;
+    if (session.user.value == null) {
+      _toast('请先登录后再修改昵称和头像');
+      return;
+    }
+    session.updateProfile(nickname: nickname, avatarPath: _avatarPath);
+    _toast('资料已保存');
+    Navigator.pop(context);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final avatarFile = _avatarPath == null ? null : File(_avatarPath!);
+    final hasAvatar = avatarFile != null && avatarFile.existsSync();
     return Scaffold(
       appBar: AppBar(title: const Text('我的账户')),
       body: SingleChildScrollView(
@@ -249,27 +382,48 @@ class _AccountPageState extends State<AccountPage> {
         child: Column(
           children: [
             Center(
-              child: Stack(
-                children: [
-                  CircleAvatar(
-                    radius: 44,
-                    backgroundColor: AppColors.primaryLight.withValues(alpha: 0.15),
-                    child: const Icon(Icons.person, size: 48, color: AppColors.primary),
-                  ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: const BoxDecoration(
-                        color: AppColors.primary,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.edit, size: 16, color: Colors.white),
+              child: GestureDetector(
+                onTap: _pickAvatar,
+                child: Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 44,
+                      backgroundColor:
+                          AppColors.primaryLight.withValues(alpha: 0.15),
+                      backgroundImage:
+                          hasAvatar ? FileImage(avatarFile) : null,
+                      child: hasAvatar
+                          ? null
+                          : const Icon(
+                              Icons.person,
+                              size: 48,
+                              color: AppColors.primary,
+                            ),
                     ),
-                  ),
-                ],
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: AppColors.primary,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.edit,
+                          size: 16,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              '点击头像更换',
+              style: TextStyle(fontSize: 12, color: AppColors.textHint),
             ),
             const SizedBox(height: 24),
             TextField(
@@ -300,11 +454,7 @@ class _AccountPageState extends State<AccountPage> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  if (_nicknameCtrl.text.trim().isNotEmpty) {
-                    Navigator.pop(context);
-                  }
-                },
+                onPressed: _save,
                 child: const Text('保存'),
               ),
             ),
@@ -313,12 +463,6 @@ class _AccountPageState extends State<AccountPage> {
       ),
       bottomNavigationBar: null,
     );
-  }
-
-  @override
-  void dispose() {
-    _nicknameCtrl.dispose();
-    super.dispose();
   }
 }
 

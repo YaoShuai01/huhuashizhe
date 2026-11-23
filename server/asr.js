@@ -223,6 +223,13 @@ export function registerAsrRoutes(app) {
     } catch {
       return res.status(400).json({ error: '音频数据格式不正确' });
     }
+    // 兼容 WAV 文件：跳过文件头，只保留 PCM 数据
+    if (pcm.length > 12 && pcm.toString('ascii', 0, 4) === 'RIFF') {
+      const dataIndex = pcm.indexOf(Buffer.from('data', 'ascii'));
+      if (dataIndex >= 0 && dataIndex + 8 <= pcm.length) {
+        pcm = pcm.subarray(dataIndex + 8);
+      }
+    }
     if (pcm.length < SAMPLE_RATE) {
       return res.status(400).json({ error: '录音太短，请说完整一句再结束' });
     }

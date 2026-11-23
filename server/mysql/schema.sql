@@ -46,6 +46,8 @@ CREATE TABLE IF NOT EXISTS replies (
   user_id    INT UNSIGNED    NOT NULL,
   parent_id  BIGINT UNSIGNED          DEFAULT NULL COMMENT '回复的评论 id',
   content    TEXT            NOT NULL,
+  audio_url  VARCHAR(255)             DEFAULT NULL COMMENT '语音评论地址',
+  audio_duration INT UNSIGNED         DEFAULT NULL COMMENT '语音时长（毫秒）',
   created_at DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
   KEY idx_replies_post (post_id, created_at),

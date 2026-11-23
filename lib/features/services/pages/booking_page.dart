@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import '../../../core/accessibility/elder_care_reader.dart';
 import '../../../core/theme/app_theme.dart';
+import '../data/booking_orders.dart';
 import '../data/booking_role.dart';
 import '../widgets/booking_role_switch.dart';
 
@@ -114,12 +115,30 @@ class _BookingPageState extends State<BookingPage> {
       return;
     }
     if (!_formKey.currentState!.validate()) return;
+
+    // 写入共享订单存储，飞手工作台可实时看到这条农户订单
+    BookingOrderStore.instance.add(
+      BookingOrder(
+        id: DateTime.now().microsecondsSinceEpoch.toString(),
+        crop: _crop == _otherCrop ? _cropCtrl.text.trim() : _crop,
+        area: double.parse(_areaCtrl.text.trim()),
+        unitPrice: double.parse(_priceCtrl.text.trim()),
+        address: _addressCtrl.text.trim(),
+        time: _dateText,
+        pilotName: pilot.name,
+        contactName: _nameCtrl.text.trim(),
+        phone: _phoneCtrl.text.trim(),
+        note: _noteCtrl.text.trim(),
+        createdAt: DateTime.now(),
+      ),
+    );
+
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('预约已提交'),
         content: Text(
-          '飞手：${pilot.name}\n作业时间：$_dateText\n作业地点：${_addressCtrl.text.trim()}\n作业面积：${_areaCtrl.text.trim()} 亩\n按亩单价：${_priceCtrl.text.trim()} 元/亩\n预估费用：$_estimatedText\n\n飞手确认后会电话联系你，请保持手机畅通。',
+          '飞手：${pilot.name}\n作业时间：$_dateText\n作业地点：${_addressCtrl.text.trim()}\n作业面积：${_areaCtrl.text.trim()} 亩\n按亩单价：${_priceCtrl.text.trim()} 元/亩\n预估费用：$_estimatedText\n\n订单已同步到飞手工作台，飞手确认后会电话联系你，请保持手机畅通。',
         ),
         actions: [
           TextButton(
