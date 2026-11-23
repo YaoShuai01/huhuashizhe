@@ -161,12 +161,14 @@ final appRouter = GoRouter(
       path: '/classroom/course',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
-        final extra = state.extra as Map<String, String>?;
+        final extra = state.extra is Map ? state.extra as Map : const <String, dynamic>{};
         return CourseDetailPage(
-          title: extra?['title'] ?? '',
-          content: extra?['content'] ?? '',
-          cropType: extra?['cropType'] ?? '',
-          category: extra?['category'] ?? '',
+          courseId: (extra['id'] ?? '').toString(),
+          title: (extra['title'] ?? '').toString(),
+          content: (extra['content'] ?? '').toString(),
+          cropType: (extra['cropType'] ?? '').toString(),
+          category: (extra['category'] ?? '').toString(),
+          readCount: int.tryParse('${extra['readCount'] ?? 0}') ?? 0,
         );
       },
     ),
