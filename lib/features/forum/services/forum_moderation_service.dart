@@ -120,15 +120,13 @@ class AiForumModerationService implements ForumModerationService {
 ''';
 
   static Dio _createDio() => Dio(
-        BaseOptions(
-          baseUrl: '$serverBaseUrl/schedule/ai',
-          connectTimeout: const Duration(seconds: 12),
-          receiveTimeout: const Duration(seconds: 60),
-          headers: const {
-            'Content-Type': 'application/json',
-          },
-        ),
-      );
+    BaseOptions(
+      baseUrl: '$serverBaseUrl/schedule/ai',
+      connectTimeout: const Duration(seconds: 12),
+      receiveTimeout: const Duration(seconds: 60),
+      headers: const {'Content-Type': 'application/json'},
+    ),
+  );
 
   final Dio _dio;
 
@@ -138,10 +136,11 @@ class AiForumModerationService implements ForumModerationService {
     String content = '',
     String extraText = '',
   }) async {
-    final buffer = StringBuffer()
-      ..writeln('待审核内容：')
-      ..writeln('标题：$title')
-      ..writeln('正文：$content');
+    final buffer =
+        StringBuffer()
+          ..writeln('待审核内容：')
+          ..writeln('标题：$title')
+          ..writeln('正文：$content');
     if (extraText.trim().isNotEmpty) {
       buffer.writeln('图片OCR/水印文字：${extraText.trim()}');
     }
@@ -161,10 +160,12 @@ class AiForumModerationService implements ForumModerationService {
       );
 
       final choices = response.data['choices'] as List<dynamic>?;
-      final message = choices?.isNotEmpty == true
-          ? choices!.first['message'] as Map<String, dynamic>?
-          : null;
-      final text = message?['content']?.toString() ??
+      final message =
+          choices?.isNotEmpty == true
+              ? choices!.first['message'] as Map<String, dynamic>?
+              : null;
+      final text =
+          message?['content']?.toString() ??
           message?['reasoning_content']?.toString() ??
           '';
       if (text.trim().isEmpty) {
@@ -189,30 +190,47 @@ class AiForumModerationService implements ForumModerationService {
 /// 本地屏蔽词审核：命中词库直接驳回，否则立即通过，无网络请求。
 class BannedWordForumModerationService implements ForumModerationService {
   BannedWordForumModerationService({List<String>? bannedWords})
-      : _bannedWords = (bannedWords ?? defaultBannedWords)
-            .map(_normalize)
-            .where((word) => word.isNotEmpty)
-            .toSet()
-            .toList(growable: false);
+    : _bannedWords = (bannedWords ?? defaultBannedWords)
+          .map(_normalize)
+          .where((word) => word.isNotEmpty)
+          .toSet()
+          .toList(growable: false);
 
   /// 屏蔽词库：维护时直接在这里增删（大小写、空格与标点会被忽略）
   static const List<String> defaultBannedWords = [
-    // 导流 / 广告
-    '加微信', '加我微信', '微信号', '微信同号', '加vx', 'vx号',
-    '加qq', 'qq群', '加群', '私聊', '扫码加', '扫码进群', '关注公众号',
-    '代购', '刷单', '返利', '兼职日结', '日赚', '躺赚',
-    '荐股', '炒股群', '理财群', '博彩', '网赌', '赌博', '赌球',
-    '六合彩', '时时彩', '彩票代购', '贷款秒批', '无抵押贷款',
-    '代开发票', '办假证', '刻章', '医保套现', '提取公积金',
     // 色情低俗
-    '裸聊', '约炮', '一夜情', '色情', '成人视频', '黄片',
-    '招嫖', '卖淫', '嫖娼', '援交',
-    // 违法违禁
-    '毒品', '冰毒', '海洛因', '大麻', '摇头丸', '吸毒', '贩毒',
-    '枪支', '弹药', '炸药', '炸弹', '管制刀具',
-    '自杀', '自残', '恐怖袭击', '邪教', '法轮功',
-    // 辱骂 / 隐私
-    '傻逼', '操你妈', '草泥马', '去死', '弄死你', '人肉', '开盒',
+    '色情', '淫秽', '裸聊', '嫖娼', '约炮', '援交', '卖淫', '嫖妓',
+    '色情网站', '色情视频', '色情图片', '黄片', '成人片', '骚聊',
+    '一夜情', '招嫖', '成人视频',
+    // 暴力血腥
+    '自杀', '自残', '割腕', '跳楼', '上吊', '爆炸', '纵火', '杀人',
+    '砍人', '虐杀', '血腥', '血腥暴力', '尸体', '分尸', '碎尸', '肢解',
+    '抛尸', '毁尸', '焚尸', '尸块', '凶杀', '报复社会',
+    // 毒品违禁
+    '冰毒', '海洛因', '大麻', '可卡因', '摇头丸', '罂粟', '吸毒',
+    '贩毒', '制毒', '卖毒品', '大麻烟', '毒品',
+    // 赌博诈骗
+    '赌博', '博彩', '网赌', '彩票外挂', '杀猪盘', '刷单返利', '跑分',
+    '洗钱', '银行卡收购', '对公账户出售', '破解密码', '盗号',
+    '赌球', '六合彩', '时时彩', '彩票代购',
+    // 非法物品与灰产
+    '枪支', '弹药', '仿真枪', '管制刀具', '爆炸物', '私售炸药',
+    '窃听器', '针孔摄像头', '非法窃听', '假证', '毕业证造假', '发票造假',
+    '炸药', '炸弹',
+    // 辱骂歧视
+    '傻逼', '脑残', '去死', '杂种', '地域黑', '种族歧视', '性别歧视',
+    '操你妈', '草泥马', '弄死你', '人肉', '开盒',
+    // 邪教恐怖
+    '法轮功', '邪教', '恐怖组织', '极端主义', '恐怖袭击',
+    // 引流违规
+    '私服', '外挂', '破解版', '资源群', '加微信领资源', '翻墙工具',
+    '科学上网', '加微信', '加我微信', '微信号', '微信同号', '加vx',
+    'vx号', '加qq', 'qq群', '加群', '私聊', '扫码加', '扫码进群',
+    '关注公众号', '代购', '刷单', '返利', '兼职日结', '日赚', '躺赚',
+    '荐股', '炒股群', '理财群', '贷款秒批', '无抵押贷款', '代开发票',
+    '办假证', '刻章', '医保套现', '提取公积金',
+    // 其他违规
+    '买卖个人信息', '公民信息', '手机号库', '身份证信息',
     // 英文
     'porn', 'casino',
   ];

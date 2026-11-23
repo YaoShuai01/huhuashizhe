@@ -7,6 +7,7 @@ class AuthUser {
     required this.loginId,
     required this.nickname,
     this.avatarPath,
+    this.isAdmin = false,
   });
 
   final int id;
@@ -19,6 +20,9 @@ class AuthUser {
   /// 本地头像文件路径，未设置时为空
   final String? avatarPath;
 
+  /// 论坛管理员可删除任意帖子与评论
+  final bool isAdmin;
+
   AuthUser copyWith({
     String? nickname,
     String? avatarPath,
@@ -29,6 +33,7 @@ class AuthUser {
       loginId: loginId,
       nickname: nickname ?? this.nickname,
       avatarPath: clearAvatar ? null : (avatarPath ?? this.avatarPath),
+      isAdmin: isAdmin,
     );
   }
 }
@@ -52,10 +57,10 @@ abstract class AuthApi {
   });
 
   /// 用登录号 + 密码登录
-  Future<AuthUser> login({
-    required String loginId,
-    required String password,
-  });
+  Future<AuthUser> login({required String loginId, required String password});
+
+  /// 同步昵称到服务端，论坛里的历史帖子与评论会随 users.nickname 一起更新
+  Future<void> updateNickname({required int userId, required String nickname});
 }
 
 /// 默认后端地址：直接使用已部署的云服务器，手机任意网络都能访问，无需同一 Wi-Fi。
@@ -70,20 +75,20 @@ String get defaultForumApiBase =>
 
 class DioAuthApi implements AuthApi {
   DioAuthApi({Dio? dio, String? baseUrl})
-      : _baseUrl = _normalizeBase(baseUrl ?? defaultForumApiBase),
-        _dio = dio ?? _createDio(baseUrl ?? defaultForumApiBase);
+    : _baseUrl = _normalizeBase(baseUrl ?? defaultForumApiBase),
+      _dio = dio ?? _createDio(baseUrl ?? defaultForumApiBase);
 
   /// 去掉末尾斜杠，避免拼接出双斜杠地址
   static String _normalizeBase(String base) =>
       base.endsWith('/') ? base.substring(0, base.length - 1) : base;
 
   static Dio _createDio(String baseUrl) => Dio(
-        BaseOptions(
-          baseUrl: baseUrl,
-          connectTimeout: const Duration(seconds: 8),
-          receiveTimeout: const Duration(seconds: 8),
-        ),
-      );
+    BaseOptions(
+      baseUrl: baseUrl,
+      connectTimeout: const Duration(seconds: 8),
+      receiveTimeout: const Duration(seconds: 8),
+    ),
+  );
 
   final String _baseUrl;
   final Dio _dio;
@@ -93,30 +98,40 @@ class DioAuthApi implements AuthApi {
     required String nickname,
     required String password,
   }) =>
-      _post('/api/auth/register', {
-        'nickname': nickname,
-        'password': password,
-      });
+      _post('/api/auth/register', {'nickname': nickname, 'password': password});
 
   @override
-  Future<AuthUser> login({
-    required String loginId,
-    required String password,
-  }) =>
-      _post('/api/auth/login', {
-        'loginId': loginId,
-        'password': password,
-      });
+  Future<AuthUser> login({required String loginId, required String password}) =>
+      _post('/api/auth/login', {'loginId': loginId, 'password': password});
+
+  @override
+  Future<void> updateNickname({
+    required int userId,
+    required String nickname,
+  }) async {
+    try {
+      await _dio.post<Map<String, dynamic>>(
+        '/api/auth/profile',
+        data: {'userId': userId, 'nickname': nickname},
+      );
+    } on DioException catch (error) {
+      final data = error.response?.data;
+      if (data is Map && data['error'] is String) {
+        throw AuthException(data['error'] as String);
+      }
+      throw const AuthException('网络异常，昵称暂未同步到论坛');
+    }
+  }
 
   Future<AuthUser> _post(String path, Map<String, dynamic> body) async {
     try {
-      final response =
-          await _dio.post<Map<String, dynamic>>(path, data: body);
+      final response = await _dio.post<Map<String, dynamic>>(path, data: body);
       final data = response.data ?? const {};
       return AuthUser(
         id: (data['id'] as num).toInt(),
         loginId: data['loginId'] as String,
         nickname: data['nickname'] as String,
+        isAdmin: data['isAdmin'] == true,
       );
     } on DioException catch (error) {
       final data = error.response?.data;

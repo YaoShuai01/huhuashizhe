@@ -11,15 +11,16 @@ import 'forum_repository.dart';
 /// 对接论坛后端的实现：帖子、评论、点赞、收藏与消息提醒都保存在服务器。
 class ForumApiRepository extends InMemoryForumRepository {
   ForumApiRepository({Dio? dio, String? baseUrl})
-      : _dio = dio ??
-            Dio(
-              BaseOptions(
-                baseUrl: _normalizeBase(baseUrl ?? defaultForumApiBase),
-                connectTimeout: const Duration(seconds: 8),
-                receiveTimeout: const Duration(seconds: 8),
-              ),
+    : _dio =
+          dio ??
+          Dio(
+            BaseOptions(
+              baseUrl: _normalizeBase(baseUrl ?? defaultForumApiBase),
+              connectTimeout: const Duration(seconds: 8),
+              receiveTimeout: const Duration(seconds: 8),
             ),
-        super(seed: false) {
+          ),
+      super(seed: false) {
     // 登录 / 退出后同步私有数据（消息、点赞、收藏），避免不同账号串号
     AuthSession.instance.user.addListener(_onAccountChanged);
   }
@@ -48,10 +49,7 @@ class ForumApiRepository extends InMemoryForumRepository {
     try {
       final response = await _dio.get<Map<String, dynamic>>(
         '/api/posts',
-        queryParameters: {
-          'limit': 100,
-          if (me != null) 'userId': me.id,
-        },
+        queryParameters: {'limit': 100, if (me != null) 'userId': me.id},
       );
       final items = response.data?['items'];
       if (items is! List) return;
@@ -256,11 +254,7 @@ class ForumApiRepository extends InMemoryForumRepository {
     final me = _requireUser();
     final data = await _post(
       '/api/uploads',
-      {
-        'userId': me.id,
-        'ext': 'wav',
-        'data': base64Encode(bytes),
-      },
+      {'userId': me.id, 'ext': 'wav', 'data': base64Encode(bytes)},
       options: Options(
         sendTimeout: const Duration(seconds: 60),
         receiveTimeout: const Duration(seconds: 30),
@@ -374,13 +368,15 @@ class ForumApiRepository extends InMemoryForumRepository {
     });
   }
 
-  /// 我的帖子：按当前登录昵称匹配
+  /// 我的帖子：按当前账号用过的昵称匹配（改昵称前的帖子也算）
   @override
   List<ForumPost> get myPosts {
     final me = AuthSession.instance.user.value;
     if (me == null) return const [];
     final list =
-        cachedPosts.where((post) => post.author == me.nickname).toList();
+        cachedPosts
+            .where((post) => AuthSession.instance.isMyUserId(post.authorId))
+            .toList();
     list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return list;
   }
@@ -429,25 +425,26 @@ class ForumApiRepository extends InMemoryForumRepository {
   }
 
   ForumPost _postFromJson(Map<String, dynamic> json) => ForumPost(
-        id: '${json['id']}',
-        section: json['section'] as String? ?? '',
-        title: json['title'] as String? ?? '',
-        content: json['content'] as String? ?? '',
-        author: json['author'] as String? ?? '农友',
-        createdAt: _parseTime(json['created_at']),
-        likes: (json['likes'] as num?)?.toInt() ?? 0,
-        replyCount: (json['reply_count'] as num?)?.toInt() ?? 0,
-        featured: json['featured'] == true,
-        images: _parseImages(json['images']),
-        tags: _parseTags(json['tags']),
-      );
+    id: '${json['id']}',
+    section: json['section'] as String? ?? '',
+    title: json['title'] as String? ?? '',
+    content: json['content'] as String? ?? '',
+    author: json['author'] as String? ?? '农友',
+    authorId: json['author_id'] == null ? null : '${json['author_id']}',
+    createdAt: _parseTime(json['created_at']),
+    likes: (json['likes'] as num?)?.toInt() ?? 0,
+    replyCount: (json['reply_count'] as num?)?.toInt() ?? 0,
+    featured: json['featured'] == true,
+    images: _parseImages(json['images']),
+    tags: _parseTags(json['tags']),
+  );
 
   /// 服务端时间不带时区，按 UTC 解析后再转本地，避免显示慢 8 小时
   DateTime _parseTime(Object? value) {
     final text = value?.toString().trim() ?? '';
     if (text.isEmpty) return DateTime.now();
-    final hasZone = text.endsWith('Z') ||
-        RegExp(r'[+-]\d{2}:?\d{2}$').hasMatch(text);
+    final hasZone =
+        text.endsWith('Z') || RegExp(r'[+-]\d{2}:?\d{2}$').hasMatch(text);
     final parsed = DateTime.tryParse(hasZone ? text : '${text}Z');
     return (parsed ?? DateTime.now()).toLocal();
   }
@@ -473,32 +470,34 @@ class ForumApiRepository extends InMemoryForumRepository {
   }
 
   ForumComment _commentFromJson(Map<String, dynamic> json) => ForumComment(
-        id: '${json['id']}',
-        postId: '${json['post_id']}',
-        author: json['author'] as String? ?? '农友',
-        content: json['content'] as String? ?? '',
-        createdAt: _parseTime(json['created_at']),
-        parentId: json['parent_id'] == null ? null : '${json['parent_id']}',
-        replyToAuthor: json['parent_author'] as String?,
-        audioUrl: (json['audio_url'] as String?)?.isNotEmpty == true
+    id: '${json['id']}',
+    postId: '${json['post_id']}',
+    author: json['author'] as String? ?? '农友',
+    authorId: json['author_id'] == null ? null : '${json['author_id']}',
+    content: json['content'] as String? ?? '',
+    createdAt: _parseTime(json['created_at']),
+    parentId: json['parent_id'] == null ? null : '${json['parent_id']}',
+    replyToAuthor: json['parent_author'] as String?,
+    audioUrl:
+        (json['audio_url'] as String?)?.isNotEmpty == true
             ? _absoluteUrl(json['audio_url'] as String)
             : null,
-        audioDurationMs: (json['audio_duration'] as num?)?.toInt(),
-      );
+    audioDurationMs: (json['audio_duration'] as num?)?.toInt(),
+  );
 
   ForumMessage _messageFromJson(Map<String, dynamic> json) => ForumMessage(
-        id: '${json['id']}',
-        kind: switch (json['kind']) {
-          'reply' => ForumMessageKind.reply,
-          'favorite' => ForumMessageKind.favorite,
-          _ => ForumMessageKind.like,
-        },
-        title: json['title'] as String? ?? '新的消息',
-        body: json['body'] as String? ?? '',
-        createdAt: _parseTime(json['created_at']),
-        unread: json['unread'] == true,
-        postId: json['post_id'] == null ? null : '${json['post_id']}',
-      );
+    id: '${json['id']}',
+    kind: switch (json['kind']) {
+      'reply' => ForumMessageKind.reply,
+      'favorite' => ForumMessageKind.favorite,
+      _ => ForumMessageKind.like,
+    },
+    title: json['title'] as String? ?? '新的消息',
+    body: json['body'] as String? ?? '',
+    createdAt: _parseTime(json['created_at']),
+    unread: json['unread'] == true,
+    postId: json['post_id'] == null ? null : '${json['post_id']}',
+  );
 }
 
 /// App 默认论坛数据源：所有登录用户共享服务器数据

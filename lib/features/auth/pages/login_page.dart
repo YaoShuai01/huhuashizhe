@@ -53,15 +53,16 @@ class _LoginPageState extends State<LoginPage> {
 
     setState(() => _submitting = true);
     try {
-      final user = _registerMode
-          ? await _api.register(
-              nickname: _nicknameController.text.trim(),
-              password: password,
-            )
-          : await _api.login(
-              loginId: _loginIdController.text.trim(),
-              password: password,
-            );
+      final user =
+          _registerMode
+              ? await _api.register(
+                nickname: _nicknameController.text.trim(),
+                password: password,
+              )
+              : await _api.login(
+                loginId: _loginIdController.text.trim(),
+                password: password,
+              );
       _session.signIn(user);
       if (!mounted) return;
       Navigator.of(context).pop(user);
@@ -84,9 +85,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_registerMode ? '设置密码' : '登录'),
-      ),
+      appBar: AppBar(title: Text(_registerMode ? '设置密码' : '登录')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 40),
         child: Form(
@@ -100,17 +99,17 @@ class _LoginPageState extends State<LoginPage> {
                 TextFormField(
                   controller: _nicknameController,
                   textInputAction: TextInputAction.next,
-                  maxLength: 20,
+                  maxLength: 6,
                   decoration: _decoration(
                     context,
                     label: '昵称',
-                    hint: '2-20 字，仅用于展示',
+                    hint: '5-6 个字',
                     icon: Icons.person_outline,
                   ),
                   validator: (value) {
                     final text = (value ?? '').trim();
                     if (text.isEmpty) return '请输入昵称';
-                    if (text.length < 2) return '昵称至少 2 个字符';
+                    if (text.runes.length < 5) return '昵称需为 5-6 个字';
                     return null;
                   },
                 ),
@@ -199,15 +198,19 @@ class _LoginPageState extends State<LoginPage> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.error_outline,
-                        size: 16, color: Theme.of(context).colorScheme.error),
+                    Icon(
+                      Icons.error_outline,
+                      size: 16,
+                      color: Theme.of(context).colorScheme.error,
+                    ),
                     const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         _error!,
                         style: TextStyle(
-                            fontSize: 13,
-                            color: Theme.of(context).colorScheme.error),
+                          fontSize: 13,
+                          color: Theme.of(context).colorScheme.error,
+                        ),
                       ),
                     ),
                   ],
@@ -221,26 +224,30 @@ class _LoginPageState extends State<LoginPage> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
                     foregroundColor: AppColors.textOnPrimary,
-                    disabledBackgroundColor:
-                        AppColors.primary.withValues(alpha: 0.6),
+                    disabledBackgroundColor: AppColors.primary.withValues(
+                      alpha: 0.6,
+                    ),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: _submitting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: AppColors.textOnPrimary,
+                  child:
+                      _submitting
+                          ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: AppColors.textOnPrimary,
+                            ),
+                          )
+                          : Text(
+                            _registerMode ? '设置密码并生成登录号' : '登录',
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
-                        )
-                      : Text(
-                          _registerMode ? '设置密码并生成登录号' : '登录',
-                          style: const TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.w600),
-                        ),
                 ),
               ),
               const SizedBox(height: 12),
@@ -303,8 +310,7 @@ class _LoginPageState extends State<LoginPage> {
       filled: true,
       fillColor: context.palette.surface,
       counterText: '',
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,

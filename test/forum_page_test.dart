@@ -19,6 +19,7 @@ import 'package:huhuashizhe/features/forum/services/forum_voice_input.dart';
 import 'package:huhuashizhe/features/forum/widgets/forum_message_bell.dart';
 import 'package:huhuashizhe/features/forum/widgets/forum_post_card.dart';
 import 'package:huhuashizhe/features/forum/widgets/forum_post_image.dart';
+import 'package:huhuashizhe/features/forum/widgets/forum_voice_comment.dart';
 import 'package:huhuashizhe/features/forum/pages/forum_section_page.dart';
 
 void main() {
@@ -549,11 +550,15 @@ void main() {
 
   testWidgets('作者可删除自己的帖子', (tester) async {
     final repository = InMemoryForumRepository();
-    final post = repository.postsOf('农友留言区').first;
     AuthSession.instance.signIn(
-      AuthUser(id: 99, loginId: '13800000000', nickname: post.author),
+      const AuthUser(id: 99, loginId: '13800000000', nickname: '农友阿芳'),
     );
     addTearDown(AuthSession.instance.signOut);
+    final post = await repository.publish(
+      section: '农友留言区',
+      title: '分享今天的作业经验',
+      content: '供各位农友参考',
+    );
 
     await tester.pumpWidget(
       wrap(ForumPostDetailPage(post: post, repository: repository)),
@@ -572,16 +577,46 @@ void main() {
     );
   });
 
-  testWidgets('作者可删除自己的评论', (tester) async {
-    final repository = InMemoryForumRepository();
-    final post = repository.postsOf('农友留言区').first;
-    final comment = repository
-        .commentsOf(post.id)
-        .firstWhere((item) => item.author != post.author);
+  testWidgets('修改昵称后论坛帖子立即展示新昵称', (tester) async {
     AuthSession.instance.signIn(
-      AuthUser(id: 98, loginId: '13900000000', nickname: comment.author),
+      const AuthUser(id: 95, loginId: '13500000000', nickname: '老昵称'),
     );
     addTearDown(AuthSession.instance.signOut);
+
+    final post = ForumPost(
+      id: 'rename_post',
+      section: '农友留言区',
+      title: '油菜什么时候打药',
+      content: '请教各位',
+      author: '老昵称',
+      createdAt: DateTime.now(),
+      likes: 0,
+      replyCount: 0,
+      featured: false,
+      images: const [],
+      tags: const [],
+    );
+
+    await tester.pumpWidget(wrap(ForumPostCard(post: post, onLike: () {})));
+    expect(find.text('老昵称'), findsWidgets);
+
+    AuthSession.instance.updateProfile(nickname: '新昵称');
+    await tester.pump();
+
+    expect(find.text('新昵称'), findsWidgets);
+    expect(find.text('老昵称'), findsNothing);
+    // 改昵称前的帖子仍算自己的，可继续删除
+    expect(AuthSession.instance.isSelf('老昵称'), isTrue);
+  });
+
+  testWidgets('作者可删除自己的评论', (tester) async {
+    final repository = InMemoryForumRepository();
+    AuthSession.instance.signIn(
+      const AuthUser(id: 98, loginId: '13900000000', nickname: '农友阿芳'),
+    );
+    addTearDown(AuthSession.instance.signOut);
+    final post = repository.postsOf('农友留言区').first;
+    final comment = await repository.addComment(post: post, content: '这是我的评论');
 
     await tester.pumpWidget(
       wrap(ForumPostDetailPage(post: post, repository: repository)),
@@ -740,37 +775,19 @@ void main() {
     expect(find.text('还没有收藏的帖子'), findsNothing);
   });
 
-  testWidgets('语音输入把识别结果写入评论框', (tester) async {
+  testWidgets('评论栏合并为一个按住说话按钮', (tester) async {
     final repository = InMemoryForumRepository();
     final post = repository.postsOf('农友留言区').first;
-    final voice = _FakeVoiceRecognizer();
 
     await tester.pumpWidget(
-      wrap(
-        ForumPostDetailPage(
-          post: post,
-          repository: repository,
-          voiceRecognizer: voice,
-        ),
-      ),
+      wrap(ForumPostDetailPage(post: post, repository: repository)),
     );
 
-    await tester.tap(find.byIcon(Icons.mic_none));
-    await tester.pump();
-
-    expect(voice.started, isTrue);
+    expect(find.byType(ForumVoiceHoldButton), findsOneWidget);
     expect(find.byIcon(Icons.mic), findsOneWidget);
-
-    voice.emit('这片地需要补喷一次');
-    await tester.pump();
-
-    final field = tester.widget<TextField>(find.byType(TextField));
-    expect(field.controller!.text, '这片地需要补喷一次');
-
-    await tester.tap(find.byIcon(Icons.mic));
-    await tester.pump();
-
-    expect(find.byIcon(Icons.mic_none), findsOneWidget);
+    // 原来的语音识别与语音评论两个按钮都已合并
+    expect(find.byIcon(Icons.mic_none), findsNothing);
+    expect(find.byIcon(Icons.graphic_eq), findsNothing);
   });
 
   testWidgets('评论支持表情面板插入表情', (tester) async {
@@ -825,6 +842,15 @@ void main() {
     // 空格、标点无法绕过词库
     final evaded = await service.review(title: '加 微，信', content: '');
     expect(evaded.rejected, isTrue);
+
+    // 血腥暴力类内容直接驳回
+    final gore = await service.review(title: '血腥视频', content: '');
+    expect(gore.rejected, isTrue);
+    expect(gore.reason, contains('血腥'));
+    expect(
+      (await service.review(title: '有人分尸吗', content: '')).rejected,
+      isTrue,
+    );
 
     // 支持注入自定义词库
     final custom = BannedWordForumModerationService(bannedWords: ['违禁词']);
