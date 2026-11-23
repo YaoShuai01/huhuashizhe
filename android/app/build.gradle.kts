@@ -39,6 +39,14 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    // minSdk 23 起 AGP 默认不压缩 .so，APK 会从约 82MB 涨到 134MB；
+    // 这里保留传统压缩打包，控制下载体积（安装时解压）。
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
 }
 
 flutter {
