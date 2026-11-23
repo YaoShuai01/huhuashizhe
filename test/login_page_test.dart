@@ -30,28 +30,38 @@ class _FakeAuthApi implements AuthApi {
     if (error != null) throw AuthException(error!);
     return AuthUser(id: 7, loginId: '30219845', nickname: nickname);
   }
+
+  @override
+  Future<void> updateNickname({
+    required int userId,
+    required String nickname,
+  }) async {
+    calls++;
+    if (error != null) throw AuthException(error!);
+  }
 }
 
 Widget _harness(AuthApi api) => MaterialApp(
-      home: Builder(
-        builder: (context) => Scaffold(
+  home: Builder(
+    builder:
+        (context) => Scaffold(
           body: TextButton(
-            onPressed: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => LoginPage(api: api)),
-            ),
+            onPressed:
+                () => Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => LoginPage(api: api))),
             child: const Text('去登录'),
           ),
         ),
-      ),
-    );
+  ),
+);
 
 void main() {
   setUp(() => AuthSession.instance.signOut());
 
   test('登录态持久化到本地，重启后可恢复', () {
     final db = LocalDatabase();
-    const account =
-        AuthUser(id: 9, loginId: '30219845', nickname: '农友阿芳');
+    const account = AuthUser(id: 9, loginId: '30219845', nickname: '农友阿芳');
     AuthSession(database: db).signIn(account);
 
     // 模拟重启：新的会话实例从本地恢复
@@ -72,8 +82,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('设置密码，自动生成登录号'), findsOneWidget);
-    expect(find.widgetWithText(ElevatedButton, '设置密码并生成登录号'),
-        findsOneWidget);
+    expect(find.widgetWithText(ElevatedButton, '设置密码并生成登录号'), findsOneWidget);
 
     await tester.tap(find.text('已有登录号？去登录'));
     await tester.pumpAndSettle();
@@ -161,7 +170,7 @@ void main() {
     await tester.tap(find.text('去登录'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).at(0), '农友阿芳');
+    await tester.enterText(find.byType(TextFormField).at(0), '农友小阿芳');
     await tester.enterText(find.byType(TextFormField).at(1), '123456');
     await tester.enterText(find.byType(TextFormField).at(2), '654321');
     await tester.tap(find.widgetWithText(ElevatedButton, '设置密码并生成登录号'));
@@ -177,7 +186,7 @@ void main() {
     await tester.tap(find.text('去登录'));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextFormField).at(0), '农友阿芳');
+    await tester.enterText(find.byType(TextFormField).at(0), '农友小阿芳');
     await tester.enterText(find.byType(TextFormField).at(1), '123456');
     await tester.enterText(find.byType(TextFormField).at(2), '123456');
     await tester.tap(find.widgetWithText(ElevatedButton, '设置密码并生成登录号'));

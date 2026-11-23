@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/accessibility/elder_care_reader.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../auth/data/auth_api.dart';
+import '../../auth/data/auth_session.dart';
 import '../data/forum_models.dart';
 import 'forum_post_image.dart';
 
@@ -38,17 +40,27 @@ class ForumPostCard extends StatelessWidget {
   /// 卡片外边距，为空时沿用主题默认值（瀑布流内需传零边距）
   final EdgeInsetsGeometry? margin;
 
+  /// 作者名：自己改过昵称后，历史帖子也展示新昵称
+  String get _authorName => AuthSession.instance.displayName(post.author);
+
   String get _avatarText {
-    if (post.author.isEmpty) return '?';
-    return String.fromCharCode(post.author.runes.first);
+    if (_authorName.isEmpty) return '?';
+    return String.fromCharCode(_authorName.runes.first);
   }
 
   @override
-  Widget build(BuildContext context) => ElderCareBlock(
-    // 只朗读昵称与提问/回答内容，跳过时间、版块与点赞
-    readText: '${post.author}。${post.title}。${post.content}',
-    child: _buildCard(context),
-  );
+  Widget build(BuildContext context) {
+    // 监听登录用户变化，资料改昵称后论坛立即同步
+    return ValueListenableBuilder<AuthUser?>(
+      valueListenable: AuthSession.instance.user,
+      builder:
+          (context, _, __) => ElderCareBlock(
+            // 只朗读昵称与提问/回答内容，跳过时间、版块与点赞
+            readText: '$_authorName。${post.title}。${post.content}',
+            child: _buildCard(context),
+          ),
+    );
+  }
 
   Widget _buildCard(BuildContext context) {
     return Card(
@@ -131,7 +143,7 @@ class ForumPostCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                post.author,
+                _authorName,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(

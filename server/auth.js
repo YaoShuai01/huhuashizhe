@@ -3,11 +3,12 @@ import { randomBytes, randomInt, scryptSync, timingSafeEqual } from 'node:crypto
 import { Router } from 'express';
 
 import { pool } from './db.js';
+import { isAdminUserId } from './admin.js';
 
 const router = Router();
 
-const NICKNAME_MIN = 2;
-const NICKNAME_MAX = 20;
+const NICKNAME_MIN = 5;
+const NICKNAME_MAX = 6;
 const PASSWORD_MIN = 6;
 const PASSWORD_MAX = 32;
 const LOGIN_ID_PATTERN = /^\d{8}$/;
@@ -74,9 +75,12 @@ router.post(
           'INSERT INTO users (login_id, nickname, password_hash) VALUES (?, ?, ?)',
           [loginId, nickname, passwordHash],
         );
-        return res
-          .status(201)
-          .json({ id: result.insertId, loginId, nickname });
+        return res.status(201).json({
+          id: result.insertId,
+          loginId,
+          nickname,
+          isAdmin: isAdminUserId(result.insertId),
+        });
       } catch (error) {
         if (error?.code !== 'ER_DUP_ENTRY') throw error;
         if (String(error.message).includes('uk_users_nickname')) {
@@ -114,7 +118,55 @@ router.post(
       return res.status(401).json({ error: '登录号或密码错误' });
     }
 
-    res.json({ id: user.id, loginId: user.login_id, nickname: user.nickname });
+    res.json({
+      id: user.id,
+      loginId: user.login_id,
+      nickname: user.nickname,
+      isAdmin: isAdminUserId(user.id),
+    });
+  }),
+);
+
+// POST /api/auth/profile  { userId, nickname }
+// 修改昵称：论坛帖子/评论查询时 JOIN users，历史内容会同步展示新昵称
+router.post(
+  '/profile',
+  asyncHandler(async (req, res) => {
+    const userId = Number(req.body?.userId);
+    const nickname =
+      typeof req.body?.nickname === 'string' ? req.body.nickname.trim() : '';
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({ error: '账号信息不正确' });
+    }
+    if (!validNickname(nickname)) {
+      return res
+        .status(400)
+        .json({ error: `昵称需为 ${NICKNAME_MIN}-${NICKNAME_MAX} 个字符` });
+    }
+
+    try {
+      const [result] = await pool.execute(
+        'UPDATE users SET nickname = ? WHERE id = ?',
+        [nickname, userId],
+      );
+      // 昵称未变化时 affectedRows 也是 0，需再确认账号是否存在
+      if (result.affectedRows === 0) {
+        const [exists] = await pool.execute(
+          'SELECT id FROM users WHERE id = ?',
+          [userId],
+        );
+        if (exists.length === 0) {
+          return res.status(404).json({ error: '账号不存在，请重新登录' });
+        }
+      }
+      return res.json({ id: userId, nickname });
+    } catch (error) {
+      if (error?.code === 'ER_DUP_ENTRY') {
+        return res.status(409).json({ error: '该昵称已被使用，请换一个' });
+      }
+      throw error;
+    }
   }),
 );
 

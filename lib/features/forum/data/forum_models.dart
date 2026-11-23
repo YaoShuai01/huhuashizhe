@@ -2,10 +2,7 @@ import 'package:flutter/material.dart';
 
 /// 论坛分区（顶部分区入口的数据模型）
 class ForumCategory {
-  const ForumCategory({
-    required this.name,
-    required this.icon,
-  });
+  const ForumCategory({required this.name, required this.icon});
 
   final String name;
   final IconData icon;
@@ -37,6 +34,7 @@ class ForumPost {
     required this.content,
     required this.author,
     required this.createdAt,
+    this.authorId,
     this.likes = 0,
     this.replyCount = 0,
     this.featured = false,
@@ -50,6 +48,9 @@ class ForumPost {
   final String title;
   final String content;
   final String author;
+
+  /// 作者账号 id，删除权限只按 id 判断（昵称可以改，也可能重名）
+  final String? authorId;
   final DateTime createdAt;
   int likes;
   int replyCount;
@@ -78,6 +79,7 @@ class ForumComment {
     required this.author,
     required this.content,
     required this.createdAt,
+    this.authorId,
     this.parentId,
     this.replyToAuthor,
     this.audioUrl,
@@ -88,6 +90,9 @@ class ForumComment {
   final String postId;
   final String author;
   final String content;
+
+  /// 作者账号 id，删除权限只按 id 判断
+  final String? authorId;
   final DateTime createdAt;
 
   /// 回复的评论 id，为空表示直接评论帖子
@@ -151,51 +156,19 @@ const List<ForumSection> forumSections = [
     desc: '航线规划、作业参数、避障技巧，一起交流实战经验',
     category: '交流区',
   ),
-  ForumSection(
-    title: '设备与保养',
-    desc: '电池、桨叶、喷头的日常维护与故障处理心得',
-    category: '交流区',
-  ),
-  ForumSection(
-    title: '作业晒图',
-    desc: '晒作业航线、作业面积与喷洒效果，分享你的成果',
-    category: '交流区',
-  ),
-  ForumSection(
-    title: '病虫害问答',
-    desc: '水稻、小麦、玉米等作物病虫害识别与防治讨论',
-    category: '问答区',
-  ),
+  ForumSection(title: '设备与保养', desc: '电池、桨叶、喷头的日常维护与故障处理心得', category: '交流区'),
+  ForumSection(title: '作业晒图', desc: '晒作业航线、作业面积与喷洒效果，分享你的成果', category: '交流区'),
+  ForumSection(title: '病虫害问答', desc: '水稻、小麦、玉米等作物病虫害识别与防治讨论', category: '问答区'),
   ForumSection(
     title: '新手提问区',
     desc: '零基础上手、参数设置、常见报错，新手问题都放这里',
     category: '问答区',
   ),
-  ForumSection(
-    title: '药效点评',
-    desc: '施药效果、配药方案的点评与讨论',
-    category: '问答区',
-  ),
-  ForumSection(
-    title: '作业复盘',
-    desc: '分享作业记录，交流改进建议',
-    category: '问答区',
-  ),
-  ForumSection(
-    title: '公告与通知',
-    desc: 'APP 版本更新、活动公告与重要通知',
-    category: '管理区',
-  ),
-  ForumSection(
-    title: '意见反馈',
-    desc: '使用问题、功能建议与投诉处理',
-    category: '管理区',
-  ),
-  ForumSection(
-    title: '举报与版规',
-    desc: '社区版规说明、违规内容举报与处理公示',
-    category: '管理区',
-  ),
+  ForumSection(title: '药效点评', desc: '施药效果、配药方案的点评与讨论', category: '问答区'),
+  ForumSection(title: '作业复盘', desc: '分享作业记录，交流改进建议', category: '问答区'),
+  ForumSection(title: '公告与通知', desc: 'APP 版本更新、活动公告与重要通知', category: '管理区'),
+  ForumSection(title: '意见反馈', desc: '使用问题、功能建议与投诉处理', category: '管理区'),
+  ForumSection(title: '举报与版规', desc: '社区版规说明、违规内容举报与处理公示', category: '管理区'),
 ];
 
 /// 时间展示：直接显示发布时刻（时分/日期），不使用“几分钟前”这类相对时间
