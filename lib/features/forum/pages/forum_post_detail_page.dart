@@ -426,113 +426,123 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
     // 监听登录用户变化，资料改昵称后详情页昵称与操作权限立即同步
     return ValueListenableBuilder<AuthUser?>(
       valueListenable: AuthSession.instance.user,
-      builder: (context, _, __) => Scaffold(
-        appBar: AppBar(
-          leading: const ForumBackButton(),
-          title: const Text('帖子详情'),
-          actions: [
-            if (AuthSession.instance.isAdmin)
-              AnimatedBuilder(
-                animation: repository,
-                builder:
-                    (context, _) => IconButton(
-                      tooltip: widget.post.featured ? '取消精选' : '设为精选',
-                      onPressed: () => _toggleFeatured(repository),
+      builder:
+          (context, _, __) => Scaffold(
+            appBar: AppBar(
+              leading: const ForumBackButton(),
+              title: const Text('帖子详情'),
+              actions: [
+                if (AuthSession.instance.isAdmin)
+                  AnimatedBuilder(
+                    animation: repository,
+                    builder:
+                        (context, _) => IconButton(
+                          tooltip: widget.post.featured ? '取消精选' : '设为精选',
+                          onPressed: () => _toggleFeatured(repository),
+                          icon: Icon(
+                            widget.post.featured
+                                ? Icons.star
+                                : Icons.star_border,
+                            color: AppColors.textOnPrimary,
+                          ),
+                        ),
+                  ),
+                AnimatedBuilder(
+                  animation: repository,
+                  builder: (context, _) {
+                    final favorited = repository.isFavorite(widget.post);
+                    return IconButton(
+                      tooltip: favorited ? '取消收藏' : '收藏',
+                      onPressed: () => _toggleFavorite(repository),
                       icon: Icon(
-                        widget.post.featured ? Icons.star : Icons.star_border,
+                        favorited ? Icons.bookmark : Icons.bookmark_border,
                         color: AppColors.textOnPrimary,
                       ),
-                    ),
-              ),
-            AnimatedBuilder(
+                    );
+                  },
+                ),
+              ],
+            ),
+            body: AnimatedBuilder(
               animation: repository,
               builder: (context, _) {
-                final favorited = repository.isFavorite(widget.post);
-                return IconButton(
-                  tooltip: favorited ? '取消收藏' : '收藏',
-                  onPressed: () => _toggleFavorite(repository),
-                  icon: Icon(
-                    favorited ? Icons.bookmark : Icons.bookmark_border,
-                    color: AppColors.textOnPrimary,
+                final comments = repository.commentsOf(widget.post.id);
+                return ForumResponsiveBody(
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: RefreshIndicator(
+                          color: AppColors.primary,
+                          onRefresh: () => _refresh(repository),
+                          child: ListView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.only(top: 10, bottom: 10),
+                            children: [
+                              _postHeader(repository),
+                              Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  16,
+                                  16,
+                                  16,
+                                  4,
+                                ),
+                                child: Text(
+                                  '全部评论 ${comments.length}',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: context.palette.textPrimary,
+                                  ),
+                                ),
+                              ),
+                              if (comments.isEmpty)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 32,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      '还没有评论，来说两句',
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: context.palette.textHint,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              else
+                                for (final comment in comments)
+                                  ForumCommentTile(
+                                    comment: comment,
+                                    onReply: () => _startReply(comment),
+                                    onReport:
+                                        () => _report(
+                                          repository,
+                                          targetType: 'reply',
+                                          targetId: comment.id,
+                                        ),
+                                    onDelete:
+                                        AuthSession.instance.isMyUserId(
+                                                  comment.authorId,
+                                                ) ||
+                                                AuthSession.instance.isAdmin
+                                            ? () => _confirmDeleteComment(
+                                              repository,
+                                              comment,
+                                            )
+                                            : null,
+                                  ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      _commentBar(repository),
+                    ],
                   ),
                 );
               },
             ),
-          ],
-        ),
-        body: AnimatedBuilder(
-          animation: repository,
-          builder: (context, _) {
-            final comments = repository.commentsOf(widget.post.id);
-            return ForumResponsiveBody(
-            child: Column(
-              children: [
-                Expanded(
-                  child: RefreshIndicator(
-                    color: AppColors.primary,
-                    onRefresh: () => _refresh(repository),
-                    child: ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.only(top: 10, bottom: 10),
-                      children: [
-                        _postHeader(repository),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-                          child: Text(
-                            '全部评论 ${comments.length}',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: context.palette.textPrimary,
-                            ),
-                          ),
-                        ),
-                        if (comments.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 32),
-                            child: Center(
-                              child: Text(
-                                '还没有评论，来说两句',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  color: context.palette.textHint,
-                                ),
-                              ),
-                            ),
-                          )
-                        else
-                          for (final comment in comments)
-                            ForumCommentTile(
-                              comment: comment,
-                              onReply: () => _startReply(comment),
-                              onReport:
-                                  () => _report(
-                                    repository,
-                                    targetType: 'reply',
-                                    targetId: comment.id,
-                                  ),
-                              onDelete:
-                                  AuthSession.instance.isMyUserId(
-                                        comment.authorId,
-                                      ) ||
-                                      AuthSession.instance.isAdmin
-                                  ? () => _confirmDeleteComment(
-                                    repository,
-                                    comment,
-                                  )
-                                  : null,
-                            ),
-                      ],
-                    ),
-                  ),
-                ),
-                _commentBar(repository),
-              ],
-            ),
-          );
-        },
-        ),
-      ),
+          ),
     );
   }
 

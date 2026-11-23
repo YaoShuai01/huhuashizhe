@@ -120,15 +120,13 @@ class AiForumModerationService implements ForumModerationService {
 ''';
 
   static Dio _createDio() => Dio(
-        BaseOptions(
-          baseUrl: '$serverBaseUrl/schedule/ai',
-          connectTimeout: const Duration(seconds: 12),
-          receiveTimeout: const Duration(seconds: 60),
-          headers: const {
-            'Content-Type': 'application/json',
-          },
-        ),
-      );
+    BaseOptions(
+      baseUrl: '$serverBaseUrl/schedule/ai',
+      connectTimeout: const Duration(seconds: 12),
+      receiveTimeout: const Duration(seconds: 60),
+      headers: const {'Content-Type': 'application/json'},
+    ),
+  );
 
   final Dio _dio;
 

@@ -1,4 +1,3 @@
-﻿import 'package:flutter/material.dart';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -7,12 +6,12 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../services/update_service.dart';
 import '../../../providers/update_provider.dart';
 import '../../../widgets/update_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_version.dart' show appVersion;
+import '../../auth/data/auth_api.dart';
 import '../../auth/data/auth_session.dart';
 import '../../forum/data/forum_models.dart';
 import '../../forum/data/forum_repository.dart';
@@ -25,11 +24,36 @@ class ManualPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final manuals = [
-      {'title': '快速入门指南', 'icon': Icons.rocket_launch, 'content': '1. 打开APP，确保 WiFi 已开启\n2. 点击"设备连接"扫描并连接 HuHuaShiZhe-Drone 热点\n3. 在首页点击"创建飞行任务"\n4. 在地图上圈选作业区域\n5. 确认飞行参数后启动任务\n\n首次使用建议在空旷场地进行试飞，熟悉操作流程。'},
-      {'title': '飞行参数设置说明', 'icon': Icons.settings, 'content': '飞行高度：建议1.5-3米，根据作物高度调整\n飞行速度：建议3-6米/秒，喷洒作业建议4米/秒\n行距：根据喷幅宽度设置，通常为喷幅的80%\n喷洒量：根据农药说明和作物类型设置\n\n以上参数可在AI助手中获取智能推荐。'},
-      {'title': '安全操作规范', 'icon': Icons.security, 'content': '1. 作业前检查无人机电池、螺旋桨状态\n2. 远离高压线、人群、建筑物\n3. 风速超过5级禁止飞行\n4. 佩戴防护口罩和手套\n5. 作业区域设置警示标识\n6. 禁止在雨天或大雾天气作业\n7. 农药配制时远离水源\n8. 作业完成后及时清洗设备'},
-      {'title': '农药使用指南', 'icon': Icons.science, 'content': '安全间隔期：\n- 水稻：不少于15天\n- 小麦：不少于20天\n- 蔬菜：不少于7-14天\n\n混用禁忌：\n- 酸性农药不能与碱性农药混用\n- 铜制剂与多数农药不能混用\n- 有机磷类与碱性农药不能混用\n\n药液配制：\n- 先加水再加药\n- 充分搅拌至完全溶解\n- 现配现用，不宜久置'},
-      {'title': '设备维护保养', 'icon': Icons.build, 'content': '日常保养：\n- 每次作业后清洗喷洒系统\n- 检查螺旋桨有无裂纹变形\n- 清洁机身和传感器\n\n定期维护：\n- 每50小时检查电机轴承\n- 每100小时更换喷洒泵密封圈\n- 每季度校准GPS和流量计\n\n存储要求：\n- 电池存放在干燥阴凉处\n- 长期不用时电池保持50%电量\n- 机身存放在防尘防潮环境中'},
+      {
+        'title': '快速入门指南',
+        'icon': Icons.rocket_launch,
+        'content':
+            '1. 打开APP，确保 WiFi 已开启\n2. 点击"设备连接"扫描并连接 HuHuaShiZhe-Drone 热点\n3. 在首页点击"创建飞行任务"\n4. 在地图上圈选作业区域\n5. 确认飞行参数后启动任务\n\n首次使用建议在空旷场地进行试飞，熟悉操作流程。',
+      },
+      {
+        'title': '飞行参数设置说明',
+        'icon': Icons.settings,
+        'content':
+            '飞行高度：建议1.5-3米，根据作物高度调整\n飞行速度：建议3-6米/秒，喷洒作业建议4米/秒\n行距：根据喷幅宽度设置，通常为喷幅的80%\n喷洒量：根据农药说明和作物类型设置\n\n以上参数可在AI助手中获取智能推荐。',
+      },
+      {
+        'title': '安全操作规范',
+        'icon': Icons.security,
+        'content':
+            '1. 作业前检查无人机电池、螺旋桨状态\n2. 远离高压线、人群、建筑物\n3. 风速超过5级禁止飞行\n4. 佩戴防护口罩和手套\n5. 作业区域设置警示标识\n6. 禁止在雨天或大雾天气作业\n7. 农药配制时远离水源\n8. 作业完成后及时清洗设备',
+      },
+      {
+        'title': '农药使用指南',
+        'icon': Icons.science,
+        'content':
+            '安全间隔期：\n- 水稻：不少于15天\n- 小麦：不少于20天\n- 蔬菜：不少于7-14天\n\n混用禁忌：\n- 酸性农药不能与碱性农药混用\n- 铜制剂与多数农药不能混用\n- 有机磷类与碱性农药不能混用\n\n药液配制：\n- 先加水再加药\n- 充分搅拌至完全溶解\n- 现配现用，不宜久置',
+      },
+      {
+        'title': '设备维护保养',
+        'icon': Icons.build,
+        'content':
+            '日常保养：\n- 每次作业后清洗喷洒系统\n- 检查螺旋桨有无裂纹变形\n- 清洁机身和传感器\n\n定期维护：\n- 每50小时检查电机轴承\n- 每100小时更换喷洒泵密封圈\n- 每季度校准GPS和流量计\n\n存储要求：\n- 电池存放在干燥阴凉处\n- 长期不用时电池保持50%电量\n- 机身存放在防尘防潮环境中',
+      },
     ];
 
     return Scaffold(
@@ -43,12 +67,20 @@ class ManualPage extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 12),
             child: ExpansionTile(
               leading: Icon(m['icon'] as IconData, color: AppColors.primary),
-              title: Text(m['title'] as String, style: const TextStyle(fontWeight: FontWeight.w600)),
+              title: Text(
+                m['title'] as String,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                  child: Text(m['content'] as String,
-                    style:  TextStyle(fontSize: 14, height: 1.7, color: context.palette.textSecondary),
+                  child: Text(
+                    m['content'] as String,
+                    style: TextStyle(
+                      fontSize: 14,
+                      height: 1.7,
+                      color: context.palette.textSecondary,
+                    ),
                   ),
                 ),
               ],
@@ -73,21 +105,66 @@ class FeatureIntroPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _featureCard(context, '飞行任务', Icons.flight_takeoff, '创建植保作业任务，在地图上圈选作业区域，自动规划飞行路线，支持航点编辑和微调。'),
-            _featureCard(context, 'AI助手', Icons.auto_awesome, '基于千问AI大模型的智能植保助手，提供病虫害诊断、用药推荐、飞行参数优化等专业建议。'),
-            _featureCard(context, '预设管理', Icons.bookmark, '保存常用作业参数为预设，一键调用。支持飞行高度、速度、喷洒量等参数的自定义配置。'),
-            _featureCard(context, '天气信息', Icons.cloud, '实时显示当前位置天气（数据来源：中国气象局），包括温度、风向、风速、湿度，支持风力预警。'),
-            _featureCard(context, '设备连接', Icons.wifi, '扫描周边 WiFi 并连接无人机热点，实时查看连接状态与信号强度。'),
-            _featureCard(context, '小课堂', Icons.school, '内置植保知识库，涵盖水稻、小麦、玉米等多种作物的病虫害防治技术，持续更新中。'),
-            _featureCard(context, '作业记录', Icons.history, '查看历史作业详情，包括作业面积、飞行时长、用药量等统计信息。'),
-            _featureCard(context, '在线更新', Icons.system_update, '自动检测自有服务器最新版本，支持在线下载和安装更新。'),
+            _featureCard(
+              context,
+              '飞行任务',
+              Icons.flight_takeoff,
+              '创建植保作业任务，在地图上圈选作业区域，自动规划飞行路线，支持航点编辑和微调。',
+            ),
+            _featureCard(
+              context,
+              'AI助手',
+              Icons.auto_awesome,
+              '基于千问AI大模型的智能植保助手，提供病虫害诊断、用药推荐、飞行参数优化等专业建议。',
+            ),
+            _featureCard(
+              context,
+              '预设管理',
+              Icons.bookmark,
+              '保存常用作业参数为预设，一键调用。支持飞行高度、速度、喷洒量等参数的自定义配置。',
+            ),
+            _featureCard(
+              context,
+              '天气信息',
+              Icons.cloud,
+              '实时显示当前位置天气（数据来源：中国气象局），包括温度、风向、风速、湿度，支持风力预警。',
+            ),
+            _featureCard(
+              context,
+              '设备连接',
+              Icons.wifi,
+              '扫描周边 WiFi 并连接无人机热点，实时查看连接状态与信号强度。',
+            ),
+            _featureCard(
+              context,
+              '小课堂',
+              Icons.school,
+              '内置植保知识库，涵盖水稻、小麦、玉米等多种作物的病虫害防治技术，持续更新中。',
+            ),
+            _featureCard(
+              context,
+              '作业记录',
+              Icons.history,
+              '查看历史作业详情，包括作业面积、飞行时长、用药量等统计信息。',
+            ),
+            _featureCard(
+              context,
+              '在线更新',
+              Icons.system_update,
+              '自动检测自有服务器最新版本，支持在线下载和安装更新。',
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _featureCard(BuildContext context, String title, IconData icon, String desc) {
+  Widget _featureCard(
+    BuildContext context,
+    String title,
+    IconData icon,
+    String desc,
+  ) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -96,7 +173,8 @@ class FeatureIntroPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 44, height: 44,
+              width: 44,
+              height: 44,
               decoration: BoxDecoration(
                 color: AppColors.primaryLight.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(12),
@@ -108,9 +186,22 @@ class FeatureIntroPage extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16)),
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                  Text(desc, style:  TextStyle(color: context.palette.textSecondary, fontSize: 14, height: 1.5)),
+                  Text(
+                    desc,
+                    style: TextStyle(
+                      color: context.palette.textSecondary,
+                      fontSize: 14,
+                      height: 1.5,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -148,19 +239,30 @@ class OpenSourceLicensePage extends StatelessWidget {
     );
   }
 
-  Widget _licenseItem(BuildContext context, String name, String license, String author) {
+  Widget _licenseItem(
+    BuildContext context,
+    String name,
+    String license,
+    String author,
+  ) {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         title: Text(name, style: const TextStyle(fontWeight: FontWeight.w500)),
-        subtitle: Text(author, style:  TextStyle(fontSize: 13, color: context.palette.textHint)),
+        subtitle: Text(
+          author,
+          style: TextStyle(fontSize: 13, color: context.palette.textHint),
+        ),
         trailing: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
             color: AppColors.primaryLight.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
-          child: Text(license, style: const TextStyle(fontSize: 12, color: AppColors.primary)),
+          child: Text(
+            license,
+            style: const TextStyle(fontSize: 12, color: AppColors.primary),
+          ),
         ),
       ),
     );
@@ -172,7 +274,11 @@ class LegalDetailPage extends StatelessWidget {
   final String title;
   final String content;
 
-  const LegalDetailPage({super.key, required this.title, required this.content});
+  const LegalDetailPage({
+    super.key,
+    required this.title,
+    required this.content,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -182,7 +288,11 @@ class LegalDetailPage extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Text(
           content,
-          style:  TextStyle(fontSize: 15, height: 1.8, color: context.palette.textSecondary),
+          style: TextStyle(
+            fontSize: 15,
+            height: 1.8,
+            color: context.palette.textSecondary,
+          ),
         ),
       ),
     );
@@ -201,11 +311,24 @@ class NotificationPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.notifications_none, size: 80, color: context.palette.textDisabled.withValues(alpha: 0.5)),
+            Icon(
+              Icons.notifications_none,
+              size: 80,
+              color: context.palette.textDisabled.withValues(alpha: 0.5),
+            ),
             const SizedBox(height: 16),
-             Text('暂无通知', style: TextStyle(fontSize: 18, color: context.palette.textHint)),
+            Text(
+              '暂无通知',
+              style: TextStyle(fontSize: 18, color: context.palette.textHint),
+            ),
             const SizedBox(height: 8),
-             Text('作业完成、天气预警等通知将显示在这里', style: TextStyle(fontSize: 14, color: context.palette.textDisabled)),
+            Text(
+              '作业完成、天气预警等通知将显示在这里',
+              style: TextStyle(
+                fontSize: 14,
+                color: context.palette.textDisabled,
+              ),
+            ),
           ],
         ),
       ),
@@ -225,11 +348,24 @@ class MissionHistoryPage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.history, size: 80, color: context.palette.textDisabled.withValues(alpha: 0.5)),
+            Icon(
+              Icons.history,
+              size: 80,
+              color: context.palette.textDisabled.withValues(alpha: 0.5),
+            ),
             const SizedBox(height: 16),
-             Text('暂无作业记录', style: TextStyle(fontSize: 18, color: context.palette.textHint)),
+            Text(
+              '暂无作业记录',
+              style: TextStyle(fontSize: 18, color: context.palette.textHint),
+            ),
             const SizedBox(height: 8),
-             Text('完成飞行任务后，作业记录将显示在这里', style: TextStyle(fontSize: 14, color: context.palette.textDisabled)),
+            Text(
+              '完成飞行任务后，作业记录将显示在这里',
+              style: TextStyle(
+                fontSize: 14,
+                color: context.palette.textDisabled,
+              ),
+            ),
           ],
         ),
       ),
@@ -238,13 +374,17 @@ class MissionHistoryPage extends StatelessWidget {
 }
 
 class AccountPage extends StatefulWidget {
-  const AccountPage({super.key});
+  const AccountPage({super.key, this.api});
+
+  /// 账号接口，测试时可注入假实现
+  final AuthApi? api;
 
   @override
   State<AccountPage> createState() => _AccountPageState();
 }
 
 class _AccountPageState extends State<AccountPage> {
+  late final AuthApi _api = widget.api ?? DioAuthApi();
   late final TextEditingController _nicknameCtrl;
   String? _avatarPath;
 
@@ -273,24 +413,27 @@ class _AccountPageState extends State<AccountPage> {
     final source = await showModalBottomSheet<ImageSource>(
       context: context,
       showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('拍照'),
-              onTap: () => Navigator.of(sheetContext).pop(ImageSource.camera),
+      builder:
+          (sheetContext) => SafeArea(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: const Icon(Icons.photo_camera_outlined),
+                  title: const Text('拍照'),
+                  onTap:
+                      () => Navigator.of(sheetContext).pop(ImageSource.camera),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.photo_library_outlined),
+                  title: const Text('从相册选择'),
+                  onTap:
+                      () => Navigator.of(sheetContext).pop(ImageSource.gallery),
+                ),
+                const SizedBox(height: 8),
+              ],
             ),
-            ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('从相册选择'),
-              onTap: () => Navigator.of(sheetContext).pop(ImageSource.gallery),
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
+          ),
     );
     if (source == null || !mounted) return;
     if (!await _ensureImagePermission(source)) return;
@@ -331,9 +474,10 @@ class _AccountPageState extends State<AccountPage> {
 
   /// 选择头像前申请相机 / 相册权限
   Future<bool> _ensureImagePermission(ImageSource source) async {
-    final permission = source == ImageSource.camera
-        ? Permission.camera
-        : (Platform.isIOS ? Permission.photos : null);
+    final permission =
+        source == ImageSource.camera
+            ? Permission.camera
+            : (Platform.isIOS ? Permission.photos : null);
     // Android 相册走系统选择器，由系统按次授权，无需额外申请
     if (permission == null) return true;
 
@@ -349,27 +493,43 @@ class _AccountPageState extends State<AccountPage> {
             ? (source == ImageSource.camera
                 ? '相机权限已被拒绝，请在系统设置中开启'
                 : '相册权限已被拒绝，请在系统设置中开启')
-            : (source == ImageSource.camera
-                ? '需要相机权限才能拍照'
-                : '需要相册权限才能选择照片'),
+            : (source == ImageSource.camera ? '需要相机权限才能拍照' : '需要相册权限才能选择照片'),
       );
     }
     return false;
   }
 
-  void _save() {
+  Future<void> _save() async {
     final nickname = _nicknameCtrl.text.trim();
     if (nickname.isEmpty) {
       _toast('昵称不能为空');
       return;
     }
+    if (nickname.runes.length < 5 || nickname.runes.length > 6) {
+      _toast('昵称需为 5-6 个字');
+      return;
+    }
     final session = AuthSession.instance;
-    if (session.user.value == null) {
+    final me = session.user.value;
+    if (me == null) {
       _toast('请先登录后再修改昵称和头像');
       return;
     }
+    // 昵称改动先同步服务端，论坛的历史帖子与评论也会一起显示新昵称
+    var synced = true;
+    if (nickname != me.nickname) {
+      try {
+        await _api.updateNickname(userId: me.id, nickname: nickname);
+      } on AuthException catch (error) {
+        _toast(error.message);
+        return;
+      } on Exception {
+        synced = false;
+      }
+    }
+    if (!mounted) return;
     session.updateProfile(nickname: nickname, avatarPath: _avatarPath);
-    _toast('资料已保存');
+    _toast(synced ? '资料已保存' : '资料已保存，昵称暂未同步到论坛，请检查网络');
     Navigator.pop(context);
   }
 
@@ -390,17 +550,18 @@ class _AccountPageState extends State<AccountPage> {
                   children: [
                     CircleAvatar(
                       radius: 44,
-                      backgroundColor:
-                          AppColors.primaryLight.withValues(alpha: 0.15),
+                      backgroundColor: AppColors.primaryLight.withValues(
+                        alpha: 0.15,
+                      ),
                       backgroundImage: hasAvatar ? FileImage(avatarFile) : null,
                       child:
                           hasAvatar
                               ? null
                               : const Icon(
-                                  Icons.person,
-                                  size: 48,
-                                  color: AppColors.primary,
-                                ),
+                                Icons.person,
+                                size: 48,
+                                color: AppColors.primary,
+                              ),
                     ),
                     Positioned(
                       bottom: 0,
@@ -430,23 +591,35 @@ class _AccountPageState extends State<AccountPage> {
             const SizedBox(height: 24),
             TextField(
               controller: _nicknameCtrl,
+              maxLength: 6,
               decoration: const InputDecoration(
                 labelText: '昵称',
                 hintText: '请输入昵称',
+                helperText: '昵称需为 5-6 个字',
               ),
             ),
             const SizedBox(height: 24),
-             Card(
+            Card(
               child: Padding(
                 padding: EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('数据说明', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                    Text(
+                      '数据说明',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
                     SizedBox(height: 8),
                     Text(
                       '当前版本所有数据存储在本地设备中。卸载APP将导致所有数据丢失，包括预设、作业记录、设备配对信息等。后续版本将支持云端备份功能。',
-                      style: TextStyle(color: context.palette.textSecondary, fontSize: 14, height: 1.6),
+                      style: TextStyle(
+                        color: context.palette.textSecondary,
+                        fontSize: 14,
+                        height: 1.6,
+                      ),
                     ),
                   ],
                 ),
@@ -455,10 +628,7 @@ class _AccountPageState extends State<AccountPage> {
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
-                onPressed: _save,
-                child: const Text('保存'),
-              ),
+              child: ElevatedButton(onPressed: _save, child: const Text('保存')),
             ),
           ],
         ),
@@ -466,7 +636,6 @@ class _AccountPageState extends State<AccountPage> {
       bottomNavigationBar: null,
     );
   }
-
 }
 
 class FeedbackPage extends StatefulWidget {
@@ -526,8 +695,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
           content: Text('已提交，可在论坛「管理区 - 意见反馈」查看'),
           action: SnackBarAction(
             label: '去查看',
-            onPressed: () =>
-                context.push('/forum/section', extra: _section),
+            onPressed: () => context.push('/forum/section', extra: _section),
           ),
         ),
       );
@@ -541,9 +709,10 @@ class _FeedbackPageState extends State<FeedbackPage> {
       body: AnimatedBuilder(
         animation: repository,
         builder: (context, _) {
-          final records = repository.myPosts
-              .where((post) => post.section == _section)
-              .toList();
+          final records =
+              repository.myPosts
+                  .where((post) => post.section == _section)
+                  .toList();
           return ListView(
             padding: EdgeInsets.all(16),
             children: [
@@ -572,10 +741,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
               SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _submit,
-                  child: Text('提交反馈'),
-                ),
+                child: ElevatedButton(onPressed: _submit, child: Text('提交反馈')),
               ),
               SizedBox(height: 24),
               Text(
@@ -601,8 +767,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                   ),
                 )
               else
-                for (final post in records)
-                  _recordTile(repository, post),
+                for (final post in records) _recordTile(repository, post),
               SizedBox(height: 16),
             ],
           );
@@ -648,10 +813,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
                   ),
                   SizedBox(width: 8),
                   Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
+                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
                       color: (replied ? AppColors.primary : AppColors.accent)
                           .withValues(alpha: 0.12),
@@ -671,10 +833,7 @@ class _FeedbackPageState extends State<FeedbackPage> {
               SizedBox(height: 6),
               Text(
                 forumTimeText(post.createdAt),
-                style: TextStyle(
-                  fontSize: 11,
-                  color: context.palette.textHint,
-                ),
+                style: TextStyle(fontSize: 11, color: context.palette.textHint),
               ),
             ],
           ),
@@ -703,18 +862,38 @@ class AboutPage extends ConsumerWidget {
                     height: 90,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(22),
-                      border: Border.all(color: AppColors.primaryLight, width: 2),
+                      border: Border.all(
+                        color: AppColors.primaryLight,
+                        width: 2,
+                      ),
                     ),
                     clipBehavior: Clip.antiAlias,
-                    child: Image.asset('assets/images/icom.png', fit: BoxFit.cover),
+                    child: Image.asset(
+                      'assets/images/icom.png',
+                      fit: BoxFit.cover,
+                    ),
                   ),
                   const SizedBox(height: 16),
-                  const Text('护花使者', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                  const Text(
+                    '护花使者',
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                  ),
                   const SizedBox(height: 4),
-                   Text('v$appVersion', style: TextStyle(color: context.palette.textHint, fontSize: 14)),
+                  Text(
+                    'v$appVersion',
+                    style: TextStyle(
+                      color: context.palette.textHint,
+                      fontSize: 14,
+                    ),
+                  ),
                   const SizedBox(height: 4),
-                   Text('智能植保无人机操控平台',
-                      style: TextStyle(color: context.palette.textSecondary, fontSize: 14)),
+                  Text(
+                    '智能植保无人机操控平台',
+                    style: TextStyle(
+                      color: context.palette.textSecondary,
+                      fontSize: 14,
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -737,17 +916,23 @@ class AboutPage extends ConsumerWidget {
             ),
             const Divider(),
             const SizedBox(height: 16),
-             Padding(
+            Padding(
               padding: EdgeInsets.symmetric(horizontal: 24),
               child: Text(
                 '本应用地图数据来源于国内互联网地图服务，版权归相应服务提供方所有，仅用于非商业教学演示用途。',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: context.palette.textHint, fontSize: 12, height: 1.5),
+                style: TextStyle(
+                  color: context.palette.textHint,
+                  fontSize: 12,
+                  height: 1.5,
+                ),
               ),
             ),
             const SizedBox(height: 8),
-             Text('Copyright 2025 护花使者团队',
-                style: TextStyle(color: context.palette.textHint, fontSize: 12)),
+            Text(
+              'Copyright 2025 护花使者团队',
+              style: TextStyle(color: context.palette.textHint, fontSize: 12),
+            ),
             const SizedBox(height: 40),
           ],
         ),
@@ -762,7 +947,11 @@ class HelpPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final faqs = [
-      {'q': '如何连接无人机？', 'a': '给无人机上电后会建立 HuHuaShiZhe-Drone WiFi 热点。在APP中点击"设备连接"，选择该热点后按系统提示连接，返回APP即可看到已连接状态。'},
+      {
+        'q': '如何连接无人机？',
+        'a':
+            '给无人机上电后会建立 HuHuaShiZhe-Drone WiFi 热点。在APP中点击"设备连接"，选择该热点后按系统提示连接，返回APP即可看到已连接状态。',
+      },
       {'q': '如何创建飞行任务？', 'a': '在首页点击"创建飞行任务"，在地图上圈选作业区域，AI将自动为您推荐最佳飞行参数。'},
       {'q': '作业区域面积太小怎么办？', 'a': '无人机的作业区域不能小于0.5亩。请扩大圈选范围或选择更大的作业区域。'},
       {'q': '离线可以使用吗？', 'a': '地图圈选、预设管理、作业记录等核心功能支持离线使用。天气数据和AI助手需要网络连接。'},
@@ -774,19 +963,33 @@ class HelpPage extends StatelessWidget {
       body: ListView(
         children: [
           const SizedBox(height: 8),
-          ...faqs.map((faq) => Card(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                child: ExpansionTile(
-                  title: Text(faq['q']!, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500)),
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                      child: Text(faq['a']!,
-                          style:  TextStyle(color: context.palette.textSecondary, fontSize: 14, height: 1.6)),
-                    ),
-                  ],
+          ...faqs.map(
+            (faq) => Card(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              child: ExpansionTile(
+                title: Text(
+                  faq['q']!,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              )),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: Text(
+                      faq['a']!,
+                      style: TextStyle(
+                        color: context.palette.textSecondary,
+                        fontSize: 14,
+                        height: 1.6,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
           const SizedBox(height: 16),
         ],
       ),
@@ -806,73 +1009,88 @@ class LegalPage extends StatelessWidget {
           ListTile(
             title: const Text('用户协议'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/mine/legal-detail', extra: {
-              'title': '用户协议',
-              'content': '护花使者用户协议\n\n'
-                  '欢迎使用护花使者智能植保无人机操控平台。\n\n'
-                  '一、服务说明\n'
-                  '护花使者是一款专业的植保无人机操控APP，提供飞行任务规划、预设管理、病虫害防治知识库、AI智能建议等功能。\n\n'
-                  '二、用户责任\n'
-                  '1. 用户应确保无人机操作符合当地法律法规\n'
-                  '2. 飞行作业前应取得必要的许可和资质\n'
-                  '3. 用户对飞行作业的安全负全部责任\n'
-                  '4. 不得在禁飞区、人群密集区进行飞行作业\n\n'
-                  '三、免责声明\n'
-                  '1. AI助手建议仅供参考，实际用药请以当地农技部门指导为准\n'
-                  '2. 天气数据来源于中国气象局，可能存在延迟\n'
-                  '3. 因操作不当造成的损失，本软件不承担责任\n\n'
-                  '四、知识产权\n'
-                  '护花使者及其相关知识产权归开发团队所有。\n\n'
-                  '五、协议变更\n'
-                  '我们保留随时修改本协议的权利，修改后的协议将在APP内公布。',
-            }),
+            onTap:
+                () => context.push(
+                  '/mine/legal-detail',
+                  extra: {
+                    'title': '用户协议',
+                    'content':
+                        '护花使者用户协议\n\n'
+                        '欢迎使用护花使者智能植保无人机操控平台。\n\n'
+                        '一、服务说明\n'
+                        '护花使者是一款专业的植保无人机操控APP，提供飞行任务规划、预设管理、病虫害防治知识库、AI智能建议等功能。\n\n'
+                        '二、用户责任\n'
+                        '1. 用户应确保无人机操作符合当地法律法规\n'
+                        '2. 飞行作业前应取得必要的许可和资质\n'
+                        '3. 用户对飞行作业的安全负全部责任\n'
+                        '4. 不得在禁飞区、人群密集区进行飞行作业\n\n'
+                        '三、免责声明\n'
+                        '1. AI助手建议仅供参考，实际用药请以当地农技部门指导为准\n'
+                        '2. 天气数据来源于中国气象局，可能存在延迟\n'
+                        '3. 因操作不当造成的损失，本软件不承担责任\n\n'
+                        '四、知识产权\n'
+                        '护花使者及其相关知识产权归开发团队所有。\n\n'
+                        '五、协议变更\n'
+                        '我们保留随时修改本协议的权利，修改后的协议将在APP内公布。',
+                  },
+                ),
           ),
           const Divider(indent: 16),
           ListTile(
             title: const Text('隐私政策'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/mine/legal-detail', extra: {
-              'title': '隐私政策',
-              'content': '护花使者隐私政策\n\n'
-                  '我们非常重视您的隐私保护。\n\n'
-                  '一、信息收集\n'
-                  '1. 位置信息：用于获取当地天气和地图定位\n'
-                  '2. WiFi 信息：用于扫描并连接无人机热点\n'
-                  '3. 设备信息：APP版本、设备型号等基础信息\n\n'
-                  '二、信息使用\n'
-                  '1. 位置信息仅用于天气显示和地图服务\n'
-                  '2. 所有数据存储在本地设备，不上传至服务器\n'
-                  '3. AI对话记录仅保存在本地，不进行云端同步\n\n'
-                  '三、信息保护\n'
-                  '1. 卸载APP将清除所有本地数据\n'
-                  '2. 我们不会向第三方分享您的个人信息\n\n'
-                  '四、权限说明\n'
-                  '1. 位置权限：用于GPS定位和天气获取\n'
-                  '2. WiFi 与定位权限：用于扫描周边 WiFi 网络\n'
-                  '3. 存储权限：用于APK更新下载和本地数据存储',
-            }),
+            onTap:
+                () => context.push(
+                  '/mine/legal-detail',
+                  extra: {
+                    'title': '隐私政策',
+                    'content':
+                        '护花使者隐私政策\n\n'
+                        '我们非常重视您的隐私保护。\n\n'
+                        '一、信息收集\n'
+                        '1. 位置信息：用于获取当地天气和地图定位\n'
+                        '2. WiFi 信息：用于扫描并连接无人机热点\n'
+                        '3. 设备信息：APP版本、设备型号等基础信息\n\n'
+                        '二、信息使用\n'
+                        '1. 位置信息仅用于天气显示和地图服务\n'
+                        '2. 所有数据存储在本地设备，不上传至服务器\n'
+                        '3. AI对话记录仅保存在本地，不进行云端同步\n\n'
+                        '三、信息保护\n'
+                        '1. 卸载APP将清除所有本地数据\n'
+                        '2. 我们不会向第三方分享您的个人信息\n\n'
+                        '四、权限说明\n'
+                        '1. 位置权限：用于GPS定位和天气获取\n'
+                        '2. WiFi 与定位权限：用于扫描周边 WiFi 网络\n'
+                        '3. 存储权限：用于APK更新下载和本地数据存储',
+                  },
+                ),
           ),
           const Divider(indent: 16),
           ListTile(
             title: const Text('免责声明'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/mine/legal-detail', extra: {
-              'title': '免责声明',
-              'content': '护花使者免责声明\n\n'
-                  '一、AI助手\n'
-                  'AI植保助手提供的病虫害诊断、用药推荐等建议仅供参考，不构成专业的农业技术指导。实际用药请以当地农业技术推广部门的指导为准，严格遵守农药使用规范。\n\n'
-                  '二、天气数据\n'
-                  '天气信息来源于中国气象局公开数据，可能存在一定延迟或误差。在极端天气条件下，请以当地气象部门发布的预警信息为准。\n\n'
-                  '三、飞行安全\n'
-                  '1. 用户应确保无人机操作符合《无人驾驶航空器飞行管理暂行条例》等法律法规\n'
-                  '2. 飞行作业前应对设备进行全面检查\n'
-                  '3. 恶劣天气条件下应停止飞行作业\n'
-                  '4. 操作人员应具备相应的操作技能和安全意识\n\n'
-                  '四、数据安全\n'
-                  '用户数据存储在本地设备中，卸载APP将导致数据丢失。建议用户定期备份重要数据。\n\n'
-                  '五、责任限制\n'
-                  '因使用本软件产生的任何直接或间接损失，在法律允许的范围内，本软件不承担责任。',
-            }),
+            onTap:
+                () => context.push(
+                  '/mine/legal-detail',
+                  extra: {
+                    'title': '免责声明',
+                    'content':
+                        '护花使者免责声明\n\n'
+                        '一、AI助手\n'
+                        'AI植保助手提供的病虫害诊断、用药推荐等建议仅供参考，不构成专业的农业技术指导。实际用药请以当地农业技术推广部门的指导为准，严格遵守农药使用规范。\n\n'
+                        '二、天气数据\n'
+                        '天气信息来源于中国气象局公开数据，可能存在一定延迟或误差。在极端天气条件下，请以当地气象部门发布的预警信息为准。\n\n'
+                        '三、飞行安全\n'
+                        '1. 用户应确保无人机操作符合《无人驾驶航空器飞行管理暂行条例》等法律法规\n'
+                        '2. 飞行作业前应对设备进行全面检查\n'
+                        '3. 恶劣天气条件下应停止飞行作业\n'
+                        '4. 操作人员应具备相应的操作技能和安全意识\n\n'
+                        '四、数据安全\n'
+                        '用户数据存储在本地设备中，卸载APP将导致数据丢失。建议用户定期备份重要数据。\n\n'
+                        '五、责任限制\n'
+                        '因使用本软件产生的任何直接或间接损失，在法律允许的范围内，本软件不承担责任。',
+                  },
+                ),
           ),
         ],
       ),
@@ -881,7 +1099,12 @@ class LegalPage extends StatelessWidget {
 }
 
 /// 显示状态提示弹窗（2秒后自动消失）
-void _showStatusDialog(BuildContext context, IconData icon, String title, String message) {
+void _showStatusDialog(
+  BuildContext context,
+  IconData icon,
+  String title,
+  String message,
+) {
   showDialog(
     context: context,
     barrierDismissible: true,
@@ -909,7 +1132,8 @@ void _showStatusDialog(BuildContext context, IconData icon, String title, String
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 52, height: 52,
+                width: 52,
+                height: 52,
                 decoration: BoxDecoration(
                   color: AppColors.primaryLight.withValues(alpha: 0.12),
                   shape: BoxShape.circle,
@@ -917,13 +1141,21 @@ void _showStatusDialog(BuildContext context, IconData icon, String title, String
                 child: Icon(icon, color: AppColors.primary, size: 28),
               ),
               const SizedBox(height: 12),
-              Text(title,
-                style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w600),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               const SizedBox(height: 6),
-              Text(message,
+              Text(
+                message,
                 textAlign: TextAlign.center,
-                style:  TextStyle(fontSize: 13, color: context.palette.textSecondary),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: context.palette.textSecondary,
+                ),
               ),
             ],
           ),
@@ -958,7 +1190,10 @@ class VersionInfoPage extends ConsumerWidget {
                 updateState.background)
               _buildBackgroundDownloadCard(context, updateState),
             const SizedBox(height: 24),
-            const Text('更新日志', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const Text(
+              '更新日志',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
             const SizedBox(height: 12),
             ..._buildUpdateHistory(),
             const SizedBox(height: 40),
@@ -981,9 +1216,10 @@ class VersionInfoPage extends ConsumerWidget {
         color: context.palette.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: failed
-              ? AppColors.error.withValues(alpha: 0.4)
-              : AppColors.primary.withValues(alpha: 0.3),
+          color:
+              failed
+                  ? AppColors.error.withValues(alpha: 0.4)
+                  : AppColors.primary.withValues(alpha: 0.3),
         ),
       ),
       child: Column(
@@ -995,8 +1231,8 @@ class VersionInfoPage extends ConsumerWidget {
                 failed
                     ? Icons.error_outline
                     : downloading
-                        ? Icons.cloud_download_outlined
-                        : Icons.check_circle_outline,
+                    ? Icons.cloud_download_outlined
+                    : Icons.check_circle_outline,
                 size: 18,
                 color: failed ? AppColors.error : AppColors.primary,
               ),
@@ -1006,9 +1242,12 @@ class VersionInfoPage extends ConsumerWidget {
                   failed
                       ? '更新下载失败'
                       : downloading
-                          ? '正在后台下载 v${info?.versionName ?? ''}...'
-                          : 'v${info?.versionName ?? ''} 下载完成，正在安装...',
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                      ? '正在后台下载 v${info?.versionName ?? ''}...'
+                      : 'v${info?.versionName ?? ''} 下载完成，正在安装...',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               if (downloading)
@@ -1030,7 +1269,9 @@ class VersionInfoPage extends ConsumerWidget {
                 value: state.progress,
                 minHeight: 6,
                 backgroundColor: context.palette.surfaceVariant,
-                valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  AppColors.primary,
+                ),
               ),
             ),
           ],
@@ -1038,7 +1279,7 @@ class VersionInfoPage extends ConsumerWidget {
             const SizedBox(height: 8),
             Text(
               state.errorMessage,
-              style:  TextStyle(fontSize: 12, color: context.palette.textHint),
+              style: TextStyle(fontSize: 12, color: context.palette.textHint),
             ),
           ],
         ],
@@ -1051,16 +1292,31 @@ class VersionInfoPage extends ConsumerWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [AppColors.primary, AppColors.primaryLight]),
+        gradient: LinearGradient(
+          colors: [AppColors.primary, AppColors.primaryLight],
+        ),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         children: [
-          const Text('当前版本', style: TextStyle(color: Colors.white70, fontSize: 13)),
+          const Text(
+            '当前版本',
+            style: TextStyle(color: Colors.white70, fontSize: 13),
+          ),
           const SizedBox(height: 8),
-          Text('v$appVersion', style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+          Text(
+            'v$appVersion',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
           const SizedBox(height: 4),
-          const Text('智能植保无人机操控平台', style: TextStyle(color: Colors.white70, fontSize: 13)),
+          const Text(
+            '智能植保无人机操控平台',
+            style: TextStyle(color: Colors.white70, fontSize: 13),
+          ),
         ],
       ),
     );
@@ -1078,11 +1334,26 @@ class VersionInfoPage extends ConsumerWidget {
             if (state.status == UpdateStatus.updateAvailable) {
               UpdateDialog.show(context);
             } else if (state.status == UpdateStatus.upToDate) {
-              _showStatusDialog(context, Icons.check_circle, '已是最新版本', '当前版本 v$appVersion，无需更新');
+              _showStatusDialog(
+                context,
+                Icons.check_circle,
+                '已是最新版本',
+                '当前版本 v$appVersion，无需更新',
+              );
             } else if (state.status == UpdateStatus.noRelease) {
-              _showStatusDialog(context, Icons.info_outline, '暂无更新', '暂未发布更新信息，请稍后再试');
+              _showStatusDialog(
+                context,
+                Icons.info_outline,
+                '暂无更新',
+                '暂未发布更新信息，请稍后再试',
+              );
             } else if (state.status == UpdateStatus.error) {
-              _showStatusDialog(context, Icons.error_outline, '检查失败', state.errorMessage);
+              _showStatusDialog(
+                context,
+                Icons.error_outline,
+                '检查失败',
+                state.errorMessage,
+              );
             }
           }
         },
@@ -1099,6 +1370,18 @@ class VersionInfoPage extends ConsumerWidget {
 
   List<Widget> _buildUpdateHistory() {
     final histories = [
+      {
+        'version': 'v3.10.13',
+        'date': '2026-11-23',
+        'content': [
+          '论坛删除权限改按账号 ID 判定，管理员可删除任意帖子与评论、设置精选',
+          '发帖与评论增加服务端屏蔽词校验，覆盖色情、暴力、赌博、导流等类别',
+          '发帖频率限制：同一账号 24 小时内最多发布 3 条',
+          '板块帖子按点赞量排序，热门内容更靠前',
+          '昵称规则调整为 5-6 个字，修改后论坛历史帖子与评论同步显示新昵称',
+          '评论栏合并为一个「按住说话」按钮：按住录音，右上滑转文字',
+        ],
+      },
       {
         'version': 'v3.10.12',
         'date': '2026-11-23',
@@ -1607,9 +1890,7 @@ class VersionInfoPage extends ConsumerWidget {
       {
         'version': 'v2.4.4',
         'date': '2026-11-07',
-        'content': [
-          '病虫害详情页布局调整：预警描述→采集图片→AI处理建议（AI建议放最后完整展示）',
-        ],
+        'content': ['病虫害详情页布局调整：预警描述→采集图片→AI处理建议（AI建议放最后完整展示）'],
       },
       {
         'version': 'v2.4.3',
@@ -1651,23 +1932,17 @@ class VersionInfoPage extends ConsumerWidget {
       {
         'version': 'v2.3.5',
         'date': '2026-11-03',
-        'content': [
-          '关于页新增地图数据版权与用途声明，规范非商业教学演示使用边界',
-        ],
+        'content': ['关于页新增地图数据版权与用途声明，规范非商业教学演示使用边界'],
       },
       {
         'version': 'v2.3.4',
         'date': '2026-09-24',
-        'content': [
-          '紧急修复：v2.3.3因构建时漏打包原生代码(MainActivity.kt)导致启动闪退，本次重新完整构建',
-        ],
+        'content': ['紧急修复：v2.3.3因构建时漏打包原生代码(MainActivity.kt)导致启动闪退，本次重新完整构建'],
       },
       {
         'version': 'v2.3.3',
         'date': '2026-09-24',
-        'content': [
-          '紧急修复：v2.3.2安装包因构建路径问题缺失渲染资源，导致图标不显示、定位失效，改用纯英文真实路径重新构建',
-        ],
+        'content': ['紧急修复：v2.3.2安装包因构建路径问题缺失渲染资源，导致图标不显示、定位失效，改用纯英文真实路径重新构建'],
       },
       {
         'version': 'v2.3.2',
@@ -1698,102 +1973,72 @@ class VersionInfoPage extends ConsumerWidget {
       {
         'version': 'v2.2.1',
         'date': '2026-08-11',
-        'content': [
-          '修复APP版本号与GitHub Release不一致导致的重复更新提示',
-        ],
+        'content': ['修复APP版本号与GitHub Release不一致导致的重复更新提示'],
       },
       {
         'version': 'v2.2.0',
         'date': '2026-08-07',
-        'content': [
-          '无人机遥控优化：矢量混控+飞行状态机+一键起降+摇杆修复',
-        ],
+        'content': ['无人机遥控优化：矢量混控+飞行状态机+一键起降+摇杆修复'],
       },
       {
         'version': 'v2.1.2',
         'date': '2026-08-07',
-        'content': [
-          '修复遥控器横屏布局：强制横屏+移除AppBar+优化摇杆尺寸+设置/退出图标悬浮左上角',
-        ],
+        'content': ['修复遥控器横屏布局：强制横屏+移除AppBar+优化摇杆尺寸+设置/退出图标悬浮左上角'],
       },
       {
         'version': 'v2.1.1',
         'date': '2026-08-06',
-        'content': [
-          '遥控器横屏布局优化：居中摄像头+两侧摇杆+设置/退出图标',
-        ],
+        'content': ['遥控器横屏布局优化：居中摄像头+两侧摇杆+设置/退出图标'],
       },
       {
         'version': 'v2.1.0',
         'date': '2026-08-06',
-        'content': [
-          '新增WiFi虚拟遥控器（UDP 50Hz）：虚拟摇杆+解锁/喷洒/一键起降+飞行状态显示',
-        ],
+        'content': ['新增WiFi虚拟遥控器（UDP 50Hz）：虚拟摇杆+解锁/喷洒/一键起降+飞行状态显示'],
       },
       {
         'version': 'v2.0.1',
         'date': '2026-08-05',
-        'content': [
-          '修复历史遗留问题，稳定数据管理与预设功能',
-        ],
+        'content': ['修复历史遗留问题，稳定数据管理与预设功能'],
       },
       {
         'version': 'v2.0.0',
         'date': '2026-08-05',
-        'content': [
-          '重大更新：全新数据管理中心，底部导航重组，全项目深化油菜主题',
-        ],
+        'content': ['重大更新：全新数据管理中心，底部导航重组，全项目深化油菜主题'],
       },
       {
         'version': 'v1.5.5',
         'date': '2026-07-07',
-        'content': [
-          '数据管理卡片简化：去描述+垂直布局+防换行',
-        ],
+        'content': ['数据管理卡片简化：去描述+垂直布局+防换行'],
       },
       {
         'version': 'v1.5.4',
         'date': '2026-07-07',
-        'content': [
-          '数据管理卡片优化：改2列布局+增描述文字',
-        ],
+        'content': ['数据管理卡片优化：改2列布局+增描述文字'],
       },
       {
         'version': 'v1.5.3',
         'date': '2026-07-07',
-        'content': [
-          '三项UI修复：数据管理子页隐藏底部栏、药量小数位、AI回答去星号',
-        ],
+        'content': ['三项UI修复：数据管理子页隐藏底部栏、药量小数位、AI回答去星号'],
       },
       {
         'version': 'v1.5.2',
         'date': '2026-07-07',
-        'content': [
-          '修复数据管理和预设页面返回逻辑',
-        ],
+        'content': ['修复数据管理和预设页面返回逻辑'],
       },
       {
         'version': 'v1.5.1',
         'date': '2026-07-07',
-        'content': [
-          'UI重组：数据管理中心升为底部导航，全项目深化油菜主题',
-        ],
+        'content': ['UI重组：数据管理中心升为底部导航，全项目深化油菜主题'],
       },
       {
         'version': 'v1.4.3',
         'date': '2026-07-06',
-        'content': [
-          '修复系统大字体下功能卡片溢出报错',
-          '全局限制字体缩放最大1.2倍，兼顾可读性与布局稳定性',
-        ],
+        'content': ['修复系统大字体下功能卡片溢出报错', '全局限制字体缩放最大1.2倍，兼顾可读性与布局稳定性'],
       },
       {
         'version': 'v1.4.2',
         'date': '2026-07-06',
-        'content': [
-          '修复构建环境导致图标和布局丢失的问题',
-          '重新全量构建APK确保所有资源完整打包',
-        ],
+        'content': ['修复构建环境导致图标和布局丢失的问题', '重新全量构建APK确保所有资源完整打包'],
       },
       {
         'version': 'v1.4.1',
@@ -1929,10 +2174,7 @@ class VersionInfoPage extends ConsumerWidget {
       {
         'version': 'v1.1.9',
         'date': '2026-06-27',
-        'content': [
-          '新增GPS全局缓存，应用重启后复用上次定位位置',
-          '使用加载动画替代上海硬编码初始位置，定位前显示加载状态',
-        ],
+        'content': ['新增GPS全局缓存，应用重启后复用上次定位位置', '使用加载动画替代上海硬编码初始位置，定位前显示加载状态'],
       },
       {
         'version': 'v1.1.8',
@@ -1945,18 +2187,12 @@ class VersionInfoPage extends ConsumerWidget {
       {
         'version': 'v1.1.7',
         'date': '2026-06-27',
-        'content': [
-          '优化GPS定位精度：优先等待高精度新定位，而非直接使用缓存位置',
-          '定位成功前持续监听位置流，获取最高精度定位',
-        ],
+        'content': ['优化GPS定位精度：优先等待高精度新定位，而非直接使用缓存位置', '定位成功前持续监听位置流，获取最高精度定位'],
       },
       {
         'version': 'v1.1.6',
         'date': '2026-06-27',
-        'content': [
-          '修复天气卡片位置文本过长导致溢出问题',
-          '优化地名显示样式，长文本自动截断处理',
-        ],
+        'content': ['修复天气卡片位置文本过长导致溢出问题', '优化地名显示样式，长文本自动截断处理'],
       },
       {
         'version': 'v1.1.5',
@@ -1989,9 +2225,7 @@ class VersionInfoPage extends ConsumerWidget {
       {
         'version': 'v1.1.2',
         'date': '2025-06-27',
-        'content': [
-          '修复创建飞行任务时地图初始化未完成导致的致命错误（通过_mapReady标记保护camera访问）',
-        ],
+        'content': ['修复创建飞行任务时地图初始化未完成导致的致命错误（通过_mapReady标记保护camera访问）'],
       },
       {
         'version': 'v1.1.1',
@@ -2022,10 +2256,7 @@ class VersionInfoPage extends ConsumerWidget {
       {
         'version': 'v1.0.10',
         'date': '2025-06-27',
-        'content': [
-          '修复卫星图切换无效问题',
-          '修复初始显示标准地图而非卫星图的问题',
-        ],
+        'content': ['修复卫星图切换无效问题', '修复初始显示标准地图而非卫星图的问题'],
       },
       {
         'version': 'v1.0.9',
@@ -2161,16 +2392,38 @@ class VersionInfoPage extends ConsumerWidget {
                   child: Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: AppColors.primary.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: Text(item['version'], style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13)),
+                        child: Text(
+                          item['version'],
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
                       ),
                       const SizedBox(width: 12),
-                      Expanded(child: Text(item['date'], style:  TextStyle(color: context.palette.textHint, fontSize: 13))),
-                      Icon(expanded ? Icons.expand_less : Icons.expand_more, color: context.palette.textHint, size: 20),
+                      Expanded(
+                        child: Text(
+                          item['date'],
+                          style: TextStyle(
+                            color: context.palette.textHint,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        expanded ? Icons.expand_less : Icons.expand_more,
+                        color: context.palette.textHint,
+                        size: 20,
+                      ),
                     ],
                   ),
                 ),
@@ -2181,16 +2434,35 @@ class VersionInfoPage extends ConsumerWidget {
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: (item['content'] as List).map((c) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('• ', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
-                          Expanded(child: Text(c, style: const TextStyle(fontSize: 13, height: 1.5))),
-                        ],
-                      ),
-                    )).toList(),
+                    children:
+                        (item['content'] as List)
+                            .map(
+                              (c) => Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      '• ',
+                                      style: TextStyle(
+                                        color: AppColors.primary,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Text(
+                                        c,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          height: 1.5,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                            .toList(),
                   ),
                 ),
               ],

@@ -198,7 +198,8 @@ class ForumPostCard extends StatelessWidget {
                 child: Icon(
                   favorited ? Icons.bookmark : Icons.bookmark_border,
                   size: 16,
-                  color: favorited ? AppColors.primary : context.palette.textHint,
+                  color:
+                      favorited ? AppColors.primary : context.palette.textHint,
                 ),
               ),
             ),

@@ -97,7 +97,7 @@ class ForumCommentTile extends StatelessWidget {
                         _authorName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style:  TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: context.palette.textPrimary,
@@ -110,7 +110,7 @@ class ForumCommentTile extends StatelessWidget {
                         forumTimeText(comment.createdAt),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style:  TextStyle(
+                        style: TextStyle(
                           fontSize: 11,
                           color: context.palette.textHint,
                         ),
