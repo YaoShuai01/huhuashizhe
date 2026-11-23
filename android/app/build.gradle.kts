@@ -25,7 +25,8 @@ android {
         applicationId = "com.huhuashizhe.huhuashizhe"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // record 录音插件要求 Android 6.0（API 23）及以上
+        minSdk = 23
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName

@@ -42,6 +42,7 @@ class ForumPost {
     this.featured = false,
     this.pendingReview = false,
     this.images = const [],
+    this.tags = const [],
   });
 
   final String id;
@@ -58,6 +59,9 @@ class ForumPost {
 
   /// 帖子配图（服务器可访问的 URL，最多 3 张）
   final List<String> images;
+
+  /// 附加 #标签（不含版块，最多 3 个）
+  final List<String> tags;
 
   /// 是否等待人工复审（AI 初审无法直接判定时标记）
   final bool pendingReview;

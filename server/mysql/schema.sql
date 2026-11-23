@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS posts (
   title      VARCHAR(120)    NOT NULL,
   content    TEXT            NOT NULL,
   images     TEXT                     DEFAULT NULL COMMENT '配图 JSON 数组，最多 3 张',
+  tags       JSON                     DEFAULT NULL COMMENT '附加 #标签 JSON 数组，最多 3 个',
   likes      INT             NOT NULL DEFAULT 0,
   featured   TINYINT(1)      NOT NULL DEFAULT 0 COMMENT '是否精选（推荐分区优先展示）',
   created_at DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,

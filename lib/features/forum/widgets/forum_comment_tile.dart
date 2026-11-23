@@ -34,12 +34,13 @@ class ForumCommentTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ElderCareBlock(
-        // 只朗读昵称与评论内容，跳过时间
-        readText: _isReply
+    // 只朗读昵称与评论内容，跳过时间
+    readText:
+        _isReply
             ? '${comment.author} 回复 ${comment.replyToAuthor}。${comment.content}'
             : '${comment.author}。${comment.content}',
-        child: _buildTile(context),
-      );
+    child: _buildTile(context),
+  );
 
   Widget _buildTile(BuildContext context) {
     return Padding(
@@ -116,7 +117,9 @@ class ForumCommentTile extends StatelessWidget {
                     color: AppColors.textSecondary,
                   ),
                 ),
-                if (onReply != null || onReport != null || onDelete != null) ...[
+                if (onReply != null ||
+                    onReport != null ||
+                    onDelete != null) ...[
                   const SizedBox(height: 2),
                   Align(
                     alignment: Alignment.centerRight,
