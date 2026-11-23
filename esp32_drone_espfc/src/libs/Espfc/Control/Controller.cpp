@@ -349,8 +349,9 @@ void Controller::reloadPid()
     }
     else
     {
-      pid.iLimitLow = -_model.config.iterm.limit * 0.01f;
-      pid.iLimitHigh = _model.config.iterm.limit * 0.01f;
+      // roll/pitch 保持 15%：放宽到 35% 会让姿态有偏差时积分过度累积，表现为缓慢漂移
+      pid.iLimitLow = -0.15f;
+      pid.iLimitHigh = 0.15f;
     }
     pid.oLimitLow = -0.66f;
     pid.oLimitHigh = 0.66f;

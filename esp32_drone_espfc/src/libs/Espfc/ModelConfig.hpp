@@ -1140,6 +1140,9 @@ public:
     // Needed body frame: forward = -sensor Y, left = +sensor X, which is yaw 270
     // in esp-fc's rotation matrix (yaw 90 gives the opposite 180-degree frame).
     boardAlignment[2] = 270;
+    // MPU6050 与机架硬连接时电机振动会直接进入陀螺仪，256Hz 截止滤不掉，
+    // 悬停实测角速度标准差达 31deg/s 并把 PID 打到限幅，降到 98Hz
+    gyro.dlpf = GYRO_DLPF_98;
 
     // Enable auto-detection of HMC5883L magnetometer on the same I2C bus (addr 0x1E)
     mag.dev = MAG_DEFAULT;
@@ -1160,8 +1163,9 @@ public:
 
     // conservative starting point for a 250-450mm quad, tune with Betaflight Configurator
     // P=30 reduced from 35 to prevent high-frequency oscillation that flips the quad
-    pid[FC_PID_ROLL] = {30, 20, 20, 60};
-    pid[FC_PID_PITCH] = {30, 20, 20, 60};
+    // D 项对振动最敏感，实测悬停时 D 输出跟着振动乱跳，20 -> 10
+    pid[FC_PID_ROLL] = {30, 20, 10, 60};
+    pid[FC_PID_PITCH] = {30, 20, 10, 60};
     // 偏航 P/I 提高：日志显示 136deg/s 自旋时 PID 只输出 12% 差速，压不住
     pid[FC_PID_YAW] = {40, 60, 0, 0};
     pid[FC_PID_LEVEL] = {35, 0, 0, 0};
