@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/accessibility/elder_care_reader.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../auth/data/auth_api.dart';
+import '../../auth/data/auth_session.dart';
 import '../data/forum_models.dart';
 import 'forum_voice_bubble.dart';
 
@@ -28,22 +30,36 @@ class ForumCommentTile extends StatelessWidget {
 
   bool get _isReply => comment.parentId != null;
 
+  /// 作者名与被回复人名：自己改过昵称后展示新昵称
+  String get _authorName => AuthSession.instance.displayName(comment.author);
+  String? get _replyToName {
+    final name = comment.replyToAuthor;
+    return name == null ? null : AuthSession.instance.displayName(name);
+  }
+
   String get _avatarText {
-    if (comment.author.isEmpty) return '?';
-    return String.fromCharCode(comment.author.runes.first);
+    if (_authorName.isEmpty) return '?';
+    return String.fromCharCode(_authorName.runes.first);
   }
 
   @override
-  Widget build(BuildContext context) => ElderCareBlock(
-    // 只朗读昵称与评论内容，跳过时间
-    readText:
-        _isReply
-            ? '${comment.author} 回复 ${comment.replyToAuthor}。'
-                '${comment.isVoice ? '语音评论：' : ''}${comment.content}'
-            : '${comment.author}。'
-                '${comment.isVoice ? '语音评论：' : ''}${comment.content}',
-    child: _buildTile(context),
-  );
+  Widget build(BuildContext context) {
+    // 监听登录用户变化，资料改昵称后评论区的昵称立即同步
+    return ValueListenableBuilder<AuthUser?>(
+      valueListenable: AuthSession.instance.user,
+      builder:
+          (context, _, __) => ElderCareBlock(
+            // 只朗读昵称与评论内容，跳过时间
+            readText:
+                _isReply
+                    ? '$_authorName 回复 $_replyToName。'
+                        '${comment.isVoice ? '语音评论：' : ''}${comment.content}'
+                    : '$_authorName。'
+                        '${comment.isVoice ? '语音评论：' : ''}${comment.content}',
+            child: _buildTile(context),
+          ),
+    );
+  }
 
   Widget _buildTile(BuildContext context) {
     return Padding(
@@ -78,7 +94,7 @@ class ForumCommentTile extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        comment.author,
+                        _authorName,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
@@ -108,7 +124,7 @@ class ForumCommentTile extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.only(bottom: 4),
                       child: Text(
-                        '回复 @${comment.replyToAuthor}：',
+                        '回复 @$_replyToName：',
                         style: const TextStyle(
                           fontSize: 13,
                           color: AppColors.primary,
@@ -126,7 +142,7 @@ class ForumCommentTile extends StatelessWidget {
                       children: [
                         if (_isReply)
                           TextSpan(
-                            text: '回复 @${comment.replyToAuthor}：',
+                            text: '回复 @$_replyToName：',
                             style: const TextStyle(color: AppColors.primary),
                           ),
                         TextSpan(text: comment.content),

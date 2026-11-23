@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 
 import authRouter from './auth.js';
+import { isAdminUserId } from './admin.js';
+import { findBannedWord } from './blocklist.js';
 import { registerAsrRoutes } from './asr.js';
 import { pool } from './db.js';
 
@@ -22,7 +24,7 @@ app.use('/uploads', express.static(UPLOAD_DIR));
 app.use((req, res, next) => {
   res.set('Access-Control-Allow-Origin', '*');
   res.set('Access-Control-Allow-Headers', 'Content-Type');
-  res.set('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.set('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
   if (req.method === 'OPTIONS') return res.sendStatus(204);
   next();
 });
@@ -260,10 +262,10 @@ app.get(
     if (section) params.push(section);
     params.push(limit, offset);
 
-    // 全部走占位符，杜绝 SQL 注入
+    // 全部走占位符，杜绝 SQL 注入；点赞量越高越靠前
     const [items] = await pool.execute(
       `SELECT ${POST_FIELDS}, ${userFields} ${POST_FROM} ${where}
-       ORDER BY p.created_at DESC, p.id DESC
+       ORDER BY p.likes DESC, p.created_at DESC, p.id DESC
        LIMIT ? OFFSET ?`,
       params,
     );
@@ -317,12 +319,31 @@ app.post(
         .json({ error: 'tags 最多 3 个且每个不超过 10 个字' });
     }
 
+    const bannedPostWord = findBannedWord(title, content, ...tags);
+    if (bannedPostWord) {
+      return res
+        .status(400)
+        .json({ error: `内容包含屏蔽词「${bannedPostWord}」` });
+    }
+
     const [users] = await pool.execute(
       'SELECT id FROM users WHERE id = ?',
       [userId],
     );
     if (users.length === 0) {
       return res.status(404).json({ error: '用户不存在' });
+    }
+
+    // 发帖频率限制：同一账号 24 小时内最多 3 条
+    const [recent] = await pool.execute(
+      `SELECT COUNT(*) AS total FROM posts
+       WHERE user_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)`,
+      [userId],
+    );
+    if (Number(recent[0].total) >= 3) {
+      return res.status(429).json({
+        error: '发布太频繁了，24 小时内最多发布 3 条帖子，请稍后再试',
+      });
     }
 
     const [result] = await pool.execute(
@@ -402,6 +423,13 @@ app.post(
     }
     if (parentId != null && (!Number.isInteger(parentId) || parentId <= 0)) {
       return res.status(400).json({ error: '回复的评论 id 不合法' });
+    }
+
+    const bannedReplyWord = findBannedWord(content);
+    if (bannedReplyWord) {
+      return res
+        .status(400)
+        .json({ error: `内容包含屏蔽词「${bannedReplyWord}」` });
     }
 
     const [posts] = await pool.execute(
@@ -593,7 +621,7 @@ app.post(
 );
 
 // POST /api/posts/:id/feature
-// body: { userId, featured: boolean }，仅作者可设置自己的帖子为精选
+// body: { userId, featured: boolean }，仅管理员可设置精选
 app.post(
   '/api/posts/:id/feature',
   asyncHandler(async (req, res) => {
@@ -615,8 +643,8 @@ app.post(
     if (posts.length === 0) {
       return res.status(404).json({ error: '帖子不存在' });
     }
-    if (Number(posts[0].user_id) !== userId) {
-      return res.status(403).json({ error: '只能将自己的帖子设为精选' });
+    if (!isForumAdmin(userId)) {
+      return res.status(403).json({ error: '只有管理员可以设置精选' });
     }
 
     await pool.execute('UPDATE posts SET featured = ? WHERE id = ?', [
@@ -628,7 +656,12 @@ app.post(
   }),
 );
 
-// DELETE /api/posts/:id?userId=1，仅作者可删除自己的帖子
+// 判断用户是否为论坛管理员（管理员可删除任意帖子与评论）
+function isForumAdmin(userId) {
+  return isAdminUserId(userId);
+}
+
+// DELETE /api/posts/:id?userId=1，作者或管理员可删除
 app.delete(
   '/api/posts/:id',
   asyncHandler(async (req, res) => {
@@ -649,7 +682,10 @@ app.delete(
     if (posts.length === 0) {
       return res.status(404).json({ error: '帖子不存在' });
     }
-    if (Number(posts[0].user_id) !== userId) {
+    if (
+      Number(posts[0].user_id) !== userId &&
+      !(await isForumAdmin(userId))
+    ) {
       return res.status(403).json({ error: '只能删除自己的帖子' });
     }
 
@@ -659,7 +695,7 @@ app.delete(
   }),
 );
 
-// DELETE /api/replies/:id?userId=1，仅作者可删除自己的评论
+// DELETE /api/replies/:id?userId=1，作者或管理员可删除
 app.delete(
   '/api/replies/:id',
   asyncHandler(async (req, res) => {
@@ -680,7 +716,10 @@ app.delete(
     if (rows.length === 0) {
       return res.status(404).json({ error: '评论不存在' });
     }
-    if (Number(rows[0].user_id) !== userId) {
+    if (
+      Number(rows[0].user_id) !== userId &&
+      !(await isForumAdmin(userId))
+    ) {
       return res.status(403).json({ error: '只能删除自己的评论' });
     }
 

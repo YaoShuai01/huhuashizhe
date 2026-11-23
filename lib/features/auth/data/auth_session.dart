@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/foundation.dart';
 
 import '../../../data/local_database.dart';
@@ -13,12 +15,16 @@ class AuthSession {
   static const _loginIdKey = 'auth_login_id';
   static const _nicknameKey = 'auth_nickname';
   static const _avatarKey = 'auth_avatar_path';
+  static const _adminKey = 'auth_is_admin';
 
   final LocalDatabase _db;
 
   final ValueNotifier<AuthUser?> user = ValueNotifier<AuthUser?>(null);
 
   bool get isLoggedIn => user.value != null;
+
+  /// 当前账号是否为论坛管理员
+  bool get isAdmin => user.value?.isAdmin ?? false;
 
   /// 从本地恢复上次登录的账号（App 启动时调用一次）
   void restore() {
@@ -36,15 +42,63 @@ class AuthSession {
         loginId: loginId,
         nickname: nickname,
         avatarPath: _db.get(_avatarKey),
+        isAdmin: _db.getBool(_adminKey),
       );
     }
   }
 
+  /// 昵称修改历史按账号保存，用于把论坛里旧的昵称显示为当前昵称
+  static String _historyKey(int id) => 'auth_nickname_history_$id';
+
+  void _rememberNickname(int id, String nickname) {
+    if (nickname.isEmpty) return;
+    final names = _historyNamesOf(id)..add(nickname);
+    _db.set(_historyKey(id), jsonEncode(names.toList()));
+  }
+
+  Set<String> _historyNamesOf(int id) {
+    final raw = _db.get(_historyKey(id));
+    if (raw == null || raw.isEmpty) return <String>{};
+    try {
+      return Set<String>.from(jsonDecode(raw) as List);
+    } catch (_) {
+      return <String>{};
+    }
+  }
+
+  /// 当前账号用过的全部昵称（含当前昵称）
+  Set<String> get myNicknames {
+    final me = user.value;
+    if (me == null) return <String>{};
+    return {..._historyNamesOf(me.id), me.nickname};
+  }
+
+  /// 判断论坛里的作者名是否属于当前账号（仅用于昵称展示映射）
+  bool isSelf(String author) => myNicknames.contains(author);
+
+  /// 删除权限判断：只认账号 id，昵称相同不代表是本人
+  bool isMyUserId(String? authorId) {
+    final me = user.value;
+    if (me == null || authorId == null) return false;
+    return authorId == '${me.id}';
+  }
+
+  /// 把论坛里展示的作者名映射为当前昵称
+  String displayName(String author) =>
+      isSelf(author) ? user.value!.nickname : author;
+
   void signIn(AuthUser account) {
+    final current = user.value;
+    if (current != null &&
+        current.id == account.id &&
+        current.nickname != account.nickname) {
+      _rememberNickname(current.id, current.nickname);
+    }
     user.value = account;
     _db.set(_idKey, '${account.id}');
     _db.set(_loginIdKey, account.loginId);
     _db.set(_nicknameKey, account.nickname);
+    _db.setBool(_adminKey, account.isAdmin);
     final avatar = account.avatarPath;
     if (avatar == null || avatar.isEmpty) {
       _db.remove(_avatarKey);
@@ -57,6 +111,9 @@ class AuthSession {
   void updateProfile({required String nickname, String? avatarPath}) {
     final current = user.value;
     if (current == null) return;
+    if (current.nickname.isNotEmpty && current.nickname != nickname) {
+      _rememberNickname(current.id, current.nickname);
+    }
     user.value = current.copyWith(
       nickname: nickname,
       avatarPath: avatarPath,
@@ -76,5 +133,6 @@ class AuthSession {
     _db.remove(_loginIdKey);
     _db.remove(_nicknameKey);
     _db.remove(_avatarKey);
+    _db.remove(_adminKey);
   }
 }

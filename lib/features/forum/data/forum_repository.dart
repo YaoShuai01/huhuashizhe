@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import '../../auth/data/auth_session.dart';
 import 'forum_models.dart';
 
 /// 论坛操作失败，[message] 可直接展示给用户
@@ -149,8 +150,8 @@ class InMemoryForumRepository extends ForumRepository {
     Map<String, List<ForumComment>>? comments,
     List<String>? favoritePostIds,
     bool seed = true,
-  })  : _categories = List.unmodifiable(categories ?? forumCategories),
-        _sections = List.unmodifiable(sections ?? forumSections) {
+  }) : _categories = List.unmodifiable(categories ?? forumCategories),
+       _sections = List.unmodifiable(sections ?? forumSections) {
     if (posts != null) {
       _posts.addAll(posts);
     } else if (seed) {
@@ -181,6 +182,7 @@ class InMemoryForumRepository extends ForumRepository {
   final List<ForumMessage> _messages = [];
   final Map<String, List<ForumComment>> _comments = {};
   final Set<String> favoriteIds = {};
+
   /// 当前用户点过赞的帖子 id，用于正确的点赞/取消点赞切换
   @protected
   final Set<String> likedIds = {};
@@ -204,6 +206,7 @@ class InMemoryForumRepository extends ForumRepository {
   List<ForumPost> postsOf(String section) {
     if (section == forumRecommendedSection) return _recommendedPosts();
     final list = _posts.where((p) => p.section == section).toList();
+    // 内存实现保持最新在前；线上版块排序由服务端按点赞量处理
     list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return list;
   }
@@ -227,16 +230,17 @@ class InMemoryForumRepository extends ForumRepository {
   static const int recommendedMinCount = 12;
 
   List<ForumPost> _recommendedPosts() {
-    final result = _posts.where((p) => p.featured).toList()
-      ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final result =
+        _posts.where((p) => p.featured).toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
     if (result.length >= recommendedMinCount) return result;
 
     final chosen = result.map((p) => p.id).toSet();
-    final hot = _posts.where((p) => !chosen.contains(p.id)).toList()
-      ..sort((a, b) {
-        final diff = _heatOf(b).compareTo(_heatOf(a));
-        return diff != 0 ? diff : b.createdAt.compareTo(a.createdAt);
-      });
+    final hot =
+        _posts.where((p) => !chosen.contains(p.id)).toList()..sort((a, b) {
+          final diff = _heatOf(b).compareTo(_heatOf(a));
+          return diff != 0 ? diff : b.createdAt.compareTo(a.createdAt);
+        });
     for (final post in hot) {
       if (result.length >= recommendedMinCount) break;
       result.add(post);
@@ -249,16 +253,16 @@ class InMemoryForumRepository extends ForumRepository {
 
   @override
   List<ForumPost> get myPosts {
-    final list =
-        _posts.where((p) => p.author == currentUserName).toList();
+    final list = _posts.where((p) => p.author == currentUserName).toList();
     list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return list;
   }
 
   @override
-  int countOf(String section) => section == forumRecommendedSection
-      ? _recommendedPosts().length
-      : _posts.where((p) => p.section == section).length;
+  int countOf(String section) =>
+      section == forumRecommendedSection
+          ? _recommendedPosts().length
+          : _posts.where((p) => p.section == section).length;
 
   /// 供远端实现读取当前缓存
   @protected
@@ -304,6 +308,7 @@ class InMemoryForumRepository extends ForumRepository {
       title: title.trim(),
       content: content.trim(),
       author: currentUserName,
+      authorId: AuthSession.instance.user.value?.id.toString(),
       createdAt: DateTime.now(),
       pendingReview: pendingReview,
       images: List.unmodifiable(images.take(3)),
@@ -332,7 +337,10 @@ class InMemoryForumRepository extends ForumRepository {
 
   @override
   void toggleLike(ForumPost post) {
-    final target = _posts.firstWhere((p) => p.id == post.id, orElse: () => post);
+    final target = _posts.firstWhere(
+      (p) => p.id == post.id,
+      orElse: () => post,
+    );
     // 本地没有该帖（理论上不会出现）时直接忽略
     if (!_posts.contains(target)) return;
 
@@ -369,6 +377,7 @@ class InMemoryForumRepository extends ForumRepository {
       id: 'comment_${DateTime.now().microsecondsSinceEpoch}_${_idSeed++}',
       postId: post.id,
       author: currentUserName,
+      authorId: AuthSession.instance.user.value?.id.toString(),
       content: content.trim(),
       createdAt: DateTime.now(),
       parentId: replyTo?.id,
@@ -377,8 +386,10 @@ class InMemoryForumRepository extends ForumRepository {
       audioDurationMs: audioDurationMs,
     );
     _comments.putIfAbsent(post.id, () => []).add(comment);
-    final target =
-        _posts.firstWhere((p) => p.id == post.id, orElse: () => post);
+    final target = _posts.firstWhere(
+      (p) => p.id == post.id,
+      orElse: () => post,
+    );
     if (_posts.contains(target)) target.replyCount += 1;
     post.replyCount = target.replyCount;
     notifyListeners();
@@ -387,8 +398,10 @@ class InMemoryForumRepository extends ForumRepository {
 
   @override
   Future<void> setFeatured(ForumPost post, bool featured) async {
-    final target =
-        _posts.firstWhere((p) => p.id == post.id, orElse: () => post);
+    final target = _posts.firstWhere(
+      (p) => p.id == post.id,
+      orElse: () => post,
+    );
     if (!_posts.contains(target)) return;
     target.featured = featured;
     post.featured = featured;
@@ -638,5 +651,6 @@ class InMemoryForumRepository extends ForumRepository {
 
 /// 默认数据源：App 内直接使用，也可被外部替换。
 /// 不加载内置示例，论坛初始为空，帖子全部由用户发布。
-final ForumRepository defaultForumRepository =
-    InMemoryForumRepository(seed: false);
+final ForumRepository defaultForumRepository = InMemoryForumRepository(
+  seed: false,
+);
