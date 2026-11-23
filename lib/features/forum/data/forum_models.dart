@@ -80,6 +80,8 @@ class ForumComment {
     required this.createdAt,
     this.parentId,
     this.replyToAuthor,
+    this.audioUrl,
+    this.audioDurationMs,
   });
 
   final String id;
@@ -93,6 +95,14 @@ class ForumComment {
 
   /// 被回复人昵称，用于在评论内容前展示「回复 @某某」
   final String? replyToAuthor;
+
+  /// 语音评论地址，为空表示普通文字评论
+  final String? audioUrl;
+
+  /// 语音时长（毫秒）
+  final int? audioDurationMs;
+
+  bool get isVoice => audioUrl != null && audioUrl!.isNotEmpty;
 }
 
 /// 消息类型（决定图标与语义）
@@ -107,6 +117,7 @@ class ForumMessage {
     required this.body,
     required this.createdAt,
     this.unread = false,
+    this.postId,
   });
 
   final String id;
@@ -115,6 +126,9 @@ class ForumMessage {
   final String body;
   final DateTime createdAt;
   bool unread;
+
+  /// 关联帖子 id，用于消息内直接回复
+  final String? postId;
 }
 
 /// 默认分区目录（可被外部数据源覆盖）

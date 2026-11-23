@@ -68,7 +68,28 @@ abstract class ForumRepository extends ChangeNotifier {
     required ForumPost post,
     required String content,
     ForumComment? replyTo,
+    String? audioUrl,
+    int? audioDurationMs,
   });
+
+  /// 按 id 查找已缓存的帖子（消息内联回复使用），找不到返回 null
+  ForumPost? postById(String id);
+
+  /// 上传语音评论，返回可访问的 URL；[durationMs] 为语音时长
+  Future<String> uploadAudio({
+    required Uint8List bytes,
+    required int durationMs,
+  }) async {
+    throw const ForumException('当前数据源不支持发送语音评论');
+  }
+
+  /// 语音转文字，默认按普通话识别
+  Future<String> transcribeAudio({
+    required Uint8List bytes,
+    String dialect = 'mandarin',
+  }) async {
+    throw const ForumException('当前数据源不支持语音转写');
+  }
 
   /// 设置 / 取消精选（推荐分区优先展示精选内容）
   Future<void> setFeatured(ForumPost post, bool featured) async {}
@@ -186,6 +207,21 @@ class InMemoryForumRepository extends ForumRepository {
     list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     return list;
   }
+
+  @override
+  ForumPost? postById(String id) {
+    for (final post in _posts) {
+      if (post.id == id) return post;
+    }
+    return null;
+  }
+
+  /// 内存实现把语音转成 data URI，便于本地预览与测试
+  @override
+  Future<String> uploadAudio({
+    required Uint8List bytes,
+    required int durationMs,
+  }) async => 'data:audio/wav;base64,${base64Encode(bytes)}';
 
   /// 推荐分区：精选帖子全部展示，不足 [recommendedMinCount] 条时用热门帖子补齐
   static const int recommendedMinCount = 12;
@@ -326,6 +362,8 @@ class InMemoryForumRepository extends ForumRepository {
     required ForumPost post,
     required String content,
     ForumComment? replyTo,
+    String? audioUrl,
+    int? audioDurationMs,
   }) async {
     final comment = ForumComment(
       id: 'comment_${DateTime.now().microsecondsSinceEpoch}_${_idSeed++}',
@@ -335,6 +373,8 @@ class InMemoryForumRepository extends ForumRepository {
       createdAt: DateTime.now(),
       parentId: replyTo?.id,
       replyToAuthor: replyTo?.author,
+      audioUrl: audioUrl,
+      audioDurationMs: audioDurationMs,
     );
     _comments.putIfAbsent(post.id, () => []).add(comment);
     final target =

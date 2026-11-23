@@ -56,6 +56,8 @@ const REPLY_FIELDS = `
   r.post_id,
   r.parent_id,
   r.content,
+  r.audio_url,
+  r.audio_duration,
   DATE_FORMAT(r.created_at, '%Y-%m-%d %H:%i:%s') AS created_at,
   u.id       AS author_id,
   u.nickname AS author,
@@ -176,7 +178,9 @@ async function notifyPostAuthor({ authorId, actorId, kind, postId, title, body }
 }
 
 const ALLOWED_IMAGE_EXT = new Set(['jpg', 'jpeg', 'png', 'webp']);
+const ALLOWED_UPLOAD_EXT = new Set([...ALLOWED_IMAGE_EXT, 'wav']);
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 
 // POST /api/uploads
 // body: { userId, ext, data(base64) }
@@ -194,24 +198,27 @@ app.post(
     if (!Number.isInteger(userId) || userId <= 0) {
       return res.status(400).json({ error: 'userId 必须是正整数' });
     }
-    if (!ALLOWED_IMAGE_EXT.has(ext)) {
-      return res.status(400).json({ error: '仅支持 jpg/jpeg/png/webp 图片' });
+    if (!ALLOWED_UPLOAD_EXT.has(ext)) {
+      return res.status(400).json({ error: '仅支持 jpg/jpeg/png/webp 图片或 wav 音频' });
     }
     if (!data) {
-      return res.status(400).json({ error: '图片数据不能为空' });
+      return res.status(400).json({ error: '文件数据不能为空' });
     }
 
     let buffer;
     try {
       buffer = Buffer.from(data, 'base64');
     } catch {
-      return res.status(400).json({ error: '图片数据格式错误' });
+      return res.status(400).json({ error: '文件数据格式错误' });
     }
     if (buffer.length === 0) {
-      return res.status(400).json({ error: '图片数据格式错误' });
+      return res.status(400).json({ error: '文件数据格式错误' });
     }
-    if (buffer.length > MAX_IMAGE_BYTES) {
-      return res.status(400).json({ error: '图片不能超过 8MB' });
+    const isAudio = ext === 'wav';
+    if (buffer.length > (isAudio ? MAX_AUDIO_BYTES : MAX_IMAGE_BYTES)) {
+      return res
+        .status(400)
+        .json({ error: isAudio ? '语音不能超过 60 秒' : '图片不能超过 8MB' });
     }
 
     const [users] = await pool.execute(
@@ -360,7 +367,8 @@ app.get(
 );
 
 // POST /api/posts/:id/replies
-// body: { userId, content, parentId? }，parentId 表示回复某条评论
+// body: { userId, content, parentId?, audioUrl?, audioDuration? }
+// audioUrl/audioDuration 表示语音评论，content 为其转写文字（可为空）
 app.post(
   '/api/posts/:id/replies',
   asyncHandler(async (req, res) => {
@@ -370,6 +378,9 @@ app.post(
     const content =
       typeof body.content === 'string' ? body.content.trim() : '';
     const parentId = body.parentId == null ? null : Number(body.parentId);
+    const audioUrl =
+      typeof body.audioUrl === 'string' ? body.audioUrl.trim() : '';
+    const audioDuration = Number(body.audioDuration) || 0;
 
     if (!Number.isInteger(postId) || postId <= 0) {
       return res.status(400).json({ error: '帖子 id 不合法' });
@@ -377,8 +388,17 @@ app.post(
     if (!Number.isInteger(userId) || userId <= 0) {
       return res.status(400).json({ error: 'userId 必须是正整数' });
     }
-    if (!content || content.length > 450) {
-      return res.status(400).json({ error: '评论不能为空且不超过 450 字' });
+    if (content.length > 450) {
+      return res.status(400).json({ error: '评论不能超过 450 字' });
+    }
+    if (!content && !audioUrl) {
+      return res.status(400).json({ error: '评论内容不能为空' });
+    }
+    if (audioUrl && !/^\/uploads\/[\w.-]+\.wav$/.test(audioUrl)) {
+      return res.status(400).json({ error: '语音地址不合法' });
+    }
+    if (audioUrl && (audioDuration <= 0 || audioDuration > 60000)) {
+      return res.status(400).json({ error: '语音时长不合法' });
     }
     if (parentId != null && (!Number.isInteger(parentId) || parentId <= 0)) {
       return res.status(400).json({ error: '回复的评论 id 不合法' });
@@ -417,18 +437,19 @@ app.post(
     }
 
     const [result] = await pool.execute(
-      'INSERT INTO replies (post_id, user_id, parent_id, content) VALUES (?, ?, ?, ?)',
-      [postId, userId, parentId, content],
+      'INSERT INTO replies (post_id, user_id, parent_id, content, audio_url, audio_duration) VALUES (?, ?, ?, ?, ?, ?)',
+      [postId, userId, parentId, content, audioUrl || null, audioUrl ? audioDuration : null],
     );
 
     // 评论后给帖子作者发一条消息提醒
+    const preview = content || '[语音]';
     await notifyPostAuthor({
       authorId: posts[0].user_id,
       actorId: userId,
       kind: 'reply',
       postId,
       title: `${users[0].nickname} 评论了你的帖子`,
-      body: `「${posts[0].title}」${content}`,
+      body: `「${posts[0].title}」${preview}`,
     });
 
     // 回复的是别人的评论时，同时提醒被回复人
@@ -439,7 +460,7 @@ app.post(
         kind: 'reply',
         postId,
         title: `${users[0].nickname} 回复了你的评论`,
-        body: `「${posts[0].title}」${content}`,
+        body: `「${posts[0].title}」${preview}`,
       });
     }
 
@@ -826,7 +847,7 @@ async function ensureSchema() {
        FROM information_schema.COLUMNS
       WHERE TABLE_SCHEMA = DATABASE()
         AND ((TABLE_NAME = 'posts' AND COLUMN_NAME IN ('featured', 'tags'))
-          OR (TABLE_NAME = 'replies' AND COLUMN_NAME = 'parent_id'))`,
+          OR (TABLE_NAME = 'replies' AND COLUMN_NAME IN ('parent_id', 'audio_url', 'audio_duration')))`,
   );
   const existing = new Set(
     columns.map((column) => `${column.TABLE_NAME}.${column.COLUMN_NAME}`),
@@ -851,6 +872,16 @@ async function ensureSchema() {
     );
     await pool.query(
       'ALTER TABLE replies ADD CONSTRAINT fk_replies_parent FOREIGN KEY (parent_id) REFERENCES replies (id) ON DELETE CASCADE',
+    );
+  }
+  if (!existing.has('replies.audio_url')) {
+    await pool.query(
+      "ALTER TABLE replies ADD COLUMN audio_url VARCHAR(255) DEFAULT NULL COMMENT '语音评论地址' AFTER content",
+    );
+  }
+  if (!existing.has('replies.audio_duration')) {
+    await pool.query(
+      "ALTER TABLE replies ADD COLUMN audio_duration INT UNSIGNED DEFAULT NULL COMMENT '语音时长（毫秒）' AFTER audio_url",
     );
   }
 }

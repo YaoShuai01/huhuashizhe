@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -28,10 +30,30 @@ class MinePage extends StatelessWidget {
               color: context.palette.surface,
               child: Column(
                 children: [
-                  CircleAvatar(
-                    radius: 40,
-                    backgroundColor: Colors.white,
-                    backgroundImage: const AssetImage('assets/images/icom.png'),
+                  ValueListenableBuilder<AuthUser?>(
+                    valueListenable: AuthSession.instance.user,
+                    builder: (context, account, _) {
+                      final avatarPath = account?.avatarPath;
+                      final file =
+                          avatarPath == null ? null : File(avatarPath);
+                      return InkWell(
+                        customBorder: const CircleBorder(),
+                        onTap: () => context.push('/mine/account'),
+                        child: CircleAvatar(
+                          radius: 40,
+                          backgroundColor: Colors.white,
+                          backgroundImage: file != null && file.existsSync()
+                              ? FileImage(file)
+                              : const AssetImage('assets/images/icom.png'),
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    '点击头像可修改昵称与头像',
+                    style:
+                        TextStyle(fontSize: 12, color: AppColors.textHint),
                   ),
                   const SizedBox(height: 12),
                   ValueListenableBuilder<AuthUser?>(

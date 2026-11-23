@@ -41,10 +41,14 @@ class ForumMessageTile extends StatelessWidget {
     super.key,
     required this.message,
     required this.onTap,
+    this.onReply,
   });
 
   final ForumMessage message;
   final VoidCallback onTap;
+
+  /// 点击「回复」回调，回复类消息才传入
+  final VoidCallback? onReply;
 
   @override
   Widget build(BuildContext context) =>
@@ -149,6 +153,40 @@ class ForumMessageTile extends StatelessWidget {
                         color: context.palette.textSecondary,
                       ),
                     ),
+                    if (onReply != null) ...[
+                      const SizedBox(height: 2),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: onReply,
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.reply,
+                                  size: 14,
+                                  color: AppColors.primary,
+                                ),
+                                SizedBox(width: 3),
+                                Text(
+                                  '回复',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

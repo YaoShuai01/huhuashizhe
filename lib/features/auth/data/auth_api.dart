@@ -1,12 +1,12 @@
 import 'package:dio/dio.dart';
 
-
-/// 登录用户：登录号由服务端自动生成，昵称只用于展示
+/// 登录用户：登录号由服务端自动生成，昵称与头像用于展示
 class AuthUser {
   const AuthUser({
     required this.id,
     required this.loginId,
     required this.nickname,
+    this.avatarPath,
   });
 
   final int id;
@@ -15,6 +15,22 @@ class AuthUser {
   final String loginId;
 
   final String nickname;
+
+  /// 本地头像文件路径，未设置时为空
+  final String? avatarPath;
+
+  AuthUser copyWith({
+    String? nickname,
+    String? avatarPath,
+    bool clearAvatar = false,
+  }) {
+    return AuthUser(
+      id: id,
+      loginId: loginId,
+      nickname: nickname ?? this.nickname,
+      avatarPath: clearAvatar ? null : (avatarPath ?? this.avatarPath),
+    );
+  }
 }
 
 /// 登录/注册失败，message 可直接展示给用户
