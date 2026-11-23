@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <WiFi.h>
 #include <Espfc.hpp>
 #include <Hal/FastCode.hpp>
 #include <Hal/Platform.hpp>
@@ -72,11 +73,35 @@ void pidTask(void* pvParameters)
   }
 }
 
+// WiFi AP 连接事件日志：定位"能搜到但连不上/连上就断"的原因
+static void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info)
+{
+  switch (event)
+  {
+    case ARDUINO_EVENT_WIFI_AP_START:
+      printf("[WIFI] AP started, ip=%s\n", WiFi.softAPIP().toString().c_str());
+      break;
+    case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
+      printf("[WIFI] station connected\n");
+      break;
+    case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED:
+      printf("[WIFI] station disconnected, reason=%d\n", (int)info.wifi_ap_stadisconnected.reason);
+      break;
+    case ARDUINO_EVENT_WIFI_AP_STOP:
+      printf("[WIFI] AP stopped\n");
+      break;
+    default:
+      break;
+  }
+  fflush(stdout);
+}
+
 void setup()
 {
   // Do NOT call disableCore0WDT() here: on Arduino core 3.x it only removes
   // the core-0 idle task from the task WDT, whose idle hook then logs
   // "esp_task_wdt_reset: task not found" every few milliseconds.
+  WiFi.onEvent(wifiEvent);
   espfc.load();
   Task::create(gyroTask, "gyroTask", 8192, nullptr, Task::Priority::High, 1);
   Task::create(pidTask, "pidTask", 8192, nullptr, Task::Priority::Low, 0);
@@ -132,11 +157,12 @@ void loop()
   if (now - lastStatus >= 5000)
   {
     lastStatus = now;
-    printf("[ESPFC] baro=%d press=%dPa alt=%dcm vario=%dcm/s gps=%d fix=%d sats=%d mag=%d/%d/%d\n",
+    printf("[ESPFC] baro=%d press=%dPa alt=%dcm vario=%dcm/s gps=%d fix=%d sats=%d mag=%d/%d/%d wifi_sta=%d\n",
            (int)espfc.isBaroReady(), espfc.baroPressure(), espfc.baroAltitude10() * 10,
            espfc.baroVario100(),
            (int)espfc.isGpsReady(), (int)espfc.isGpsFix(), espfc.gpsSats(),
-           espfc.magX(), espfc.magY(), espfc.magZ());
+           espfc.magX(), espfc.magY(), espfc.magZ(),
+           (int)WiFi.softAPgetStationNum());
     fflush(stdout);
   }
   vTaskDelay(pdMS_TO_TICKS(20));

@@ -22,7 +22,9 @@ namespace {
 constexpr uint16_t UDP_PORT = 8888;
 constexpr const char* AP_SSID = "HuHuaShiZhe-Drone";
 constexpr int AP_CHANNEL = 6;
-constexpr int AP_MAX_CONN = 2; // phone + vision board
+// Android may reconnect with a randomized MAC; stale entries hold slots until
+// timeout, so keep enough headroom to avoid "can see but cannot join".
+constexpr int AP_MAX_CONN = 8; // phone + vision board + retries
 
 // water pump: GPIO18, 5kHz/8bit, same 6-level duty table as the old firmware
 constexpr gpio_num_t PIN_SPRAY = GPIO_NUM_18;
@@ -168,7 +170,9 @@ int InputUdp::begin(void)
   {
     Preferences prefs;
     prefs.begin("hhs", true);
-    _model.config.mixer.yawReverse = prefs.getBool("yawrev", _model.config.mixer.yawReverse != 0);
+    // Key renamed to v2 so a previously stored (wrong) "开" does not override
+    // the corrected default. Correct value for this airframe is OFF.
+    _model.config.mixer.yawReverse = prefs.getBool("yawrev2", false);
     prefs.end();
   }
 
@@ -230,6 +234,7 @@ void InputUdp::taskLoop()
       {
         String body;
         int code = 200;
+        String ctype = "application/json";
 
         if (req.indexOf("/api/state") >= 0)
         {
@@ -275,10 +280,15 @@ void InputUdp::taskLoop()
         }
         else if (req.indexOf("/api/yawrev") >= 0)
         {
+          // Return HTML (auto back to the status page) so the link button is
+          // actually usable from a phone browser instead of a raw JSON page.
+          ctype = "text/html; charset=utf-8";
           if (_model.isModeActive(MODE_ARMED))
           {
             code = 409;
-            body = "{\"ok\":0,\"err\":\"armed\"}";
+            body = "<html><body style='font-size:22px;background:#111;color:#eee'>"
+                   "请先在 APP 点「上锁」，再切换偏航反向"
+                   "<meta http-equiv='refresh' content='3;url=/'></body></html>";
           }
           else
           {
@@ -286,9 +296,11 @@ void InputUdp::taskLoop()
             _model.config.mixer.yawReverse = on != 0;
             Preferences prefs;
             prefs.begin("hhs", false);
-            prefs.putBool("yawrev", on != 0);
+            prefs.putBool("yawrev2", on != 0);
             prefs.end();
-            body = "{\"ok\":1,\"yawrev\":" + String(on) + "}";
+            body = "<html><body style='font-size:22px;background:#111;color:#eee'>偏航反向已设为";
+            body += on ? "开" : "关";
+            body += "<meta http-equiv='refresh' content='1;url=/'></body></html>";
           }
         }
         else if (req.indexOf("/api/gyrocal") >= 0)
@@ -335,8 +347,8 @@ void InputUdp::taskLoop()
           body = "{\"ok\":0,\"err\":\"notfound\"}";
         }
 
-        client.print("HTTP/1.1 " + String(code) + " OK\r\nContent-Type: application/json\r\n"
-                     "Access-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n");
+        client.print("HTTP/1.1 " + String(code) + " OK\r\nContent-Type: " + ctype +
+                     "\r\nAccess-Control-Allow-Origin: *\r\nConnection: close\r\n\r\n");
         client.print(body);
         client.stop();
         tick(now);
