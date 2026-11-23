@@ -45,10 +45,10 @@ class ForumPostCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ElderCareBlock(
-        // 只朗读昵称与提问/回答内容，跳过时间、版块与点赞
-        readText: '${post.author}。${post.title}。${post.content}',
-        child: _buildCard(context),
-      );
+    // 只朗读昵称与提问/回答内容，跳过时间、版块与点赞
+    readText: '${post.author}。${post.title}。${post.content}',
+    child: _buildCard(context),
+  );
 
   Widget _buildCard(BuildContext context) {
     return Card(
@@ -145,10 +145,7 @@ class ForumPostCard extends StatelessWidget {
                 forumTimeText(post.createdAt),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: context.palette.textHint,
-                ),
+                style: TextStyle(fontSize: 10, color: context.palette.textHint),
               ),
             ],
           ),
@@ -170,7 +167,8 @@ class ForumPostCard extends StatelessWidget {
                 children: [
                   if (post.featured) _featuredTag(),
                   if (post.pendingReview) _pendingTag(),
-                  _tag(context, post.section),
+                  _tag(context, '#${post.section}'),
+                  for (final tag in post.tags) _tag(context, '#$tag'),
                 ],
               ),
             ),
@@ -184,10 +182,7 @@ class ForumPostCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               onTap: onFavorite,
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 6,
-                  vertical: 2,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 child: Icon(
                   favorited ? Icons.bookmark : Icons.bookmark_border,
                   size: 16,
@@ -202,9 +197,10 @@ class ForumPostCard extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: liked
-                  ? AppColors.accent.withValues(alpha: 0.12)
-                  : context.palette.surfaceVariant,
+              color:
+                  liked
+                      ? AppColors.accent.withValues(alpha: 0.12)
+                      : context.palette.surfaceVariant,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Row(

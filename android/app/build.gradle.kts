@@ -25,7 +25,8 @@ android {
         applicationId = "com.huhuashizhe.huhuashizhe"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion
+        // record 录音插件要求 Android 6.0（API 23）及以上
+        minSdk = 23
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -36,6 +37,14 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+        }
+    }
+
+    // minSdk 23 起 AGP 默认不压缩 .so，APK 会从约 82MB 涨到 134MB；
+    // 这里保留传统压缩打包，控制下载体积（安装时解压）。
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
         }
     }
 }

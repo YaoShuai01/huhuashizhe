@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import express from 'express';
 
 import authRouter from './auth.js';
+import { registerAsrRoutes } from './asr.js';
 import { pool } from './db.js';
 
 const app = express();
@@ -27,6 +28,8 @@ app.use((req, res, next) => {
 });
 
 app.use('/api/auth', authRouter);
+// 方言语音识别：客户端上传 PCM，服务端调用讯飞转为普通话文字
+registerAsrRoutes(app);
 
 const POST_FIELDS = `
   p.id,
@@ -34,6 +37,7 @@ const POST_FIELDS = `
   p.title,
   p.content,
   p.images,
+  p.tags,
   p.likes,
   p.featured,
   DATE_FORMAT(p.created_at, '%Y-%m-%d %H:%i:%s') AS created_at,
@@ -105,10 +109,39 @@ function withParsedImages(row) {
   return {
     ...row,
     images: parseImages(row.images),
+    tags: parseTags(row.tags),
     liked: Boolean(row.liked),
     favorited: Boolean(row.favorited),
     featured: Boolean(row.featured),
   };
+}
+
+// 数据库里保存的是 JSON 数组，返回给客户端时还原成 #标签
+function parseTags(value) {
+  if (!value) return [];
+  try {
+    const arr = typeof value === 'string' ? JSON.parse(value) : value;
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter((tag) => typeof tag === 'string' && tag.length > 0)
+      .slice(0, 3);
+  } catch {
+    return [];
+  }
+}
+
+// 标签去掉 # 前缀，去重后最多保留 3 个
+function normalizeTags(value) {
+  if (value == null) return [];
+  if (!Array.isArray(value) || value.length > 3) return null;
+  const result = [];
+  for (const item of value) {
+    if (typeof item !== 'string') return null;
+    const tag = item.replace(/^#+/, '').trim();
+    if (!tag || tag.length > 10) return null;
+    if (!result.includes(tag)) result.push(tag);
+  }
+  return result;
 }
 
 // 消息正文只存摘要，避免超长
@@ -242,7 +275,7 @@ app.get(
 );
 
 // POST /api/posts
-// body: { userId, section, title, content, images?: string[] }
+// body: { userId, section, title, content, images?: string[], tags?: string[] }
 app.post(
   '/api/posts',
   asyncHandler(async (req, res) => {
@@ -252,6 +285,7 @@ app.post(
     const title = typeof body.title === 'string' ? body.title.trim() : '';
     const content = typeof body.content === 'string' ? body.content.trim() : '';
     const images = normalizeImages(body.images);
+    const tags = normalizeTags(body.tags);
 
     if (!Number.isInteger(userId) || userId <= 0) {
       return res.status(400).json({ error: 'userId 必须是正整数' });
@@ -270,6 +304,11 @@ app.post(
         .status(400)
         .json({ error: 'images 最多 3 张且必须是已上传的图片地址' });
     }
+    if (tags === null) {
+      return res
+        .status(400)
+        .json({ error: 'tags 最多 3 个且每个不超过 10 个字' });
+    }
 
     const [users] = await pool.execute(
       'SELECT id FROM users WHERE id = ?',
@@ -280,13 +319,14 @@ app.post(
     }
 
     const [result] = await pool.execute(
-      'INSERT INTO posts (user_id, section, title, content, images) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO posts (user_id, section, title, content, images, tags) VALUES (?, ?, ?, ?, ?, ?)',
       [
         userId,
         section,
         title,
         content,
         images.length > 0 ? JSON.stringify(images) : null,
+        tags.length > 0 ? JSON.stringify(tags) : null,
       ],
     );
 
@@ -567,6 +607,122 @@ app.post(
   }),
 );
 
+// DELETE /api/posts/:id?userId=1，仅作者可删除自己的帖子
+app.delete(
+  '/api/posts/:id',
+  asyncHandler(async (req, res) => {
+    const postId = Number(req.params.id);
+    const userId = Number(req.query.userId);
+
+    if (!Number.isInteger(postId) || postId <= 0) {
+      return res.status(400).json({ error: '帖子 id 不合法' });
+    }
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({ error: 'userId 必须是正整数' });
+    }
+
+    const [posts] = await pool.execute(
+      'SELECT id, user_id FROM posts WHERE id = ?',
+      [postId],
+    );
+    if (posts.length === 0) {
+      return res.status(404).json({ error: '帖子不存在' });
+    }
+    if (Number(posts[0].user_id) !== userId) {
+      return res.status(403).json({ error: '只能删除自己的帖子' });
+    }
+
+    // 评论、点赞、收藏随外键级联删除
+    await pool.execute('DELETE FROM posts WHERE id = ?', [postId]);
+    res.json({ deleted: true });
+  }),
+);
+
+// DELETE /api/replies/:id?userId=1，仅作者可删除自己的评论
+app.delete(
+  '/api/replies/:id',
+  asyncHandler(async (req, res) => {
+    const replyId = Number(req.params.id);
+    const userId = Number(req.query.userId);
+
+    if (!Number.isInteger(replyId) || replyId <= 0) {
+      return res.status(400).json({ error: '评论 id 不合法' });
+    }
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({ error: 'userId 必须是正整数' });
+    }
+
+    const [rows] = await pool.execute(
+      'SELECT id, user_id FROM replies WHERE id = ?',
+      [replyId],
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: '评论不存在' });
+    }
+    if (Number(rows[0].user_id) !== userId) {
+      return res.status(403).json({ error: '只能删除自己的评论' });
+    }
+
+    // 回复该评论的内容随外键级联删除
+    await pool.execute('DELETE FROM replies WHERE id = ?', [replyId]);
+    res.json({ deleted: true });
+  }),
+);
+
+// POST /api/reports
+// body: { userId, targetType: 'post' | 'reply', targetId, reason }
+app.post(
+  '/api/reports',
+  asyncHandler(async (req, res) => {
+    const body = req.body ?? {};
+    const userId = Number(body.userId);
+    const targetType = body.targetType;
+    const targetId = Number(body.targetId);
+    const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({ error: 'userId 必须是正整数' });
+    }
+    if (targetType !== 'post' && targetType !== 'reply') {
+      return res.status(400).json({ error: '投诉类型不合法' });
+    }
+    if (!Number.isInteger(targetId) || targetId <= 0) {
+      return res.status(400).json({ error: '投诉内容 id 不合法' });
+    }
+    if (!reason || reason.length > 50) {
+      return res.status(400).json({ error: '请选择投诉原因' });
+    }
+
+    const [users] = await pool.execute(
+      'SELECT id FROM users WHERE id = ?',
+      [userId],
+    );
+    if (users.length === 0) {
+      return res.status(404).json({ error: '用户不存在' });
+    }
+
+    // targetType 已限定为白名单，可安全拼表名
+    const table = targetType === 'post' ? 'posts' : 'replies';
+    const [targets] = await pool.execute(
+      `SELECT id FROM ${table} WHERE id = ?`,
+      [targetId],
+    );
+    if (targets.length === 0) {
+      return res.status(404).json({ error: '投诉的内容不存在' });
+    }
+
+    // 同一用户对同一内容只保留一条投诉，重复提交时更新原因
+    await pool.execute(
+      `INSERT INTO reports (target_type, target_id, user_id, reason)
+       VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE reason = VALUES(reason)`,
+      [targetType, targetId, userId, reason],
+    );
+
+    res.status(201).json({ reported: true });
+  }),
+);
+
 // GET /api/messages?userId=1&limit=50
 app.get(
   '/api/messages',
@@ -648,11 +804,28 @@ app.use((err, req, res, next) => {
 
 // 启动时自动补齐新增字段，旧库无需手动执行迁移
 async function ensureSchema() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS reports (
+      id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      target_type ENUM('post', 'reply') NOT NULL,
+      target_id   BIGINT UNSIGNED NOT NULL,
+      user_id     INT UNSIGNED    NOT NULL,
+      reason      VARCHAR(50)     NOT NULL,
+      created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY uk_reports_user_target (user_id, target_type, target_id),
+      KEY idx_reports_target (target_type, target_id),
+      CONSTRAINT fk_reports_user FOREIGN KEY (user_id)
+        REFERENCES users (id) ON DELETE CASCADE
+    ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci
+      COMMENT = '投诉记录'
+  `);
+
   const [columns] = await pool.query(
     `SELECT TABLE_NAME, COLUMN_NAME
        FROM information_schema.COLUMNS
       WHERE TABLE_SCHEMA = DATABASE()
-        AND ((TABLE_NAME = 'posts' AND COLUMN_NAME = 'featured')
+        AND ((TABLE_NAME = 'posts' AND COLUMN_NAME IN ('featured', 'tags'))
           OR (TABLE_NAME = 'replies' AND COLUMN_NAME = 'parent_id'))`,
   );
   const existing = new Set(
@@ -662,6 +835,11 @@ async function ensureSchema() {
   if (!existing.has('posts.featured')) {
     await pool.query(
       "ALTER TABLE posts ADD COLUMN featured TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否精选（推荐分区优先展示）' AFTER likes",
+    );
+  }
+  if (!existing.has('posts.tags')) {
+    await pool.query(
+      "ALTER TABLE posts ADD COLUMN tags JSON DEFAULT NULL COMMENT '附加 #标签' AFTER images",
     );
   }
   if (!existing.has('replies.parent_id')) {

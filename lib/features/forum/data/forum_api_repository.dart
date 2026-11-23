@@ -198,6 +198,7 @@ class ForumApiRepository extends InMemoryForumRepository {
     required String content,
     bool pendingReview = false,
     List<String> images = const [],
+    List<String> tags = const [],
   }) async {
     final me = _requireUser();
     final data = await _post('/api/posts', {
@@ -206,6 +207,7 @@ class ForumApiRepository extends InMemoryForumRepository {
       'title': title.trim(),
       'content': content.trim(),
       if (images.isNotEmpty) 'images': images.take(3).toList(),
+      if (tags.isNotEmpty) 'tags': tags.take(3).toList(),
     });
     final post = _postFromJson(data);
     replacePosts([post, ...cachedPosts.where((item) => item.id != post.id)]);
@@ -273,6 +275,51 @@ class ForumApiRepository extends InMemoryForumRepository {
     }
   }
 
+  @override
+  Future<void> deletePost(ForumPost post) async {
+    final me = _requireUser();
+    try {
+      await _dio.delete<Map<String, dynamic>>(
+        '/api/posts/${post.id}',
+        queryParameters: {'userId': me.id},
+      );
+    } on DioException catch (error) {
+      throw ForumException(_errorMessage(error));
+    }
+    await super.deletePost(post);
+  }
+
+  @override
+  Future<void> deleteComment(ForumComment comment) async {
+    final me = _requireUser();
+    try {
+      await _dio.delete<Map<String, dynamic>>(
+        '/api/replies/${comment.id}',
+        queryParameters: {'userId': me.id},
+      );
+    } on DioException catch (error) {
+      throw ForumException(_errorMessage(error));
+    }
+    await super.deleteComment(comment);
+  }
+
+  @override
+  Future<void> report({
+    required String targetType,
+    required String targetId,
+    required String reason,
+  }) async {
+    final me = _requireUser();
+    final id = int.tryParse(targetId);
+    if (id == null) throw const ForumException('该内容不支持投诉');
+    await _post('/api/reports', {
+      'userId': me.id,
+      'targetType': targetType,
+      'targetId': id,
+      'reason': reason,
+    });
+  }
+
   /// 我的帖子：按当前登录昵称匹配
   @override
   List<ForumPost> get myPosts {
@@ -338,7 +385,28 @@ class ForumApiRepository extends InMemoryForumRepository {
         replyCount: (json['reply_count'] as num?)?.toInt() ?? 0,
         featured: json['featured'] == true,
         images: _parseImages(json['images']),
+        tags: _parseTags(json['tags']),
       );
+
+  /// 服务端时间不带时区，按 UTC 解析后再转本地，避免显示慢 8 小时
+  DateTime _parseTime(Object? value) {
+    final text = value?.toString().trim() ?? '';
+    if (text.isEmpty) return DateTime.now();
+    final hasZone = text.endsWith('Z') ||
+        RegExp(r'[+-]\d{2}:?\d{2}$').hasMatch(text);
+    final parsed = DateTime.tryParse(hasZone ? text : '${text}Z');
+    return (parsed ?? DateTime.now()).toLocal();
+  }
+
+  List<String> _parseTags(Object? value) {
+    if (value is! List) return const [];
+    return value
+        .whereType<String>()
+        .map((tag) => tag.trim())
+        .where((tag) => tag.isNotEmpty)
+        .take(3)
+        .toList(growable: false);
+  }
 
   List<String> _parseImages(Object? value) {
     if (value is! List) return const [];
@@ -372,9 +440,6 @@ class ForumApiRepository extends InMemoryForumRepository {
         createdAt: _parseTime(json['created_at']),
         unread: json['unread'] == true,
       );
-
-  DateTime _parseTime(Object? value) =>
-      DateTime.tryParse(value?.toString() ?? '') ?? DateTime.now();
 }
 
 /// App 默认论坛数据源：所有登录用户共享服务器数据

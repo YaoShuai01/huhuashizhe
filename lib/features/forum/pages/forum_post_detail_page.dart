@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/accessibility/elder_care_reader.dart';
 import '../../../core/theme/app_theme.dart';
@@ -76,6 +77,16 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
     }
   }
 
+  /// 下拉刷新：同步帖子数据并重新拉取评论
+  Future<void> _refresh(ForumRepository repository) async {
+    try {
+      await repository.refresh();
+      await repository.loadComments(widget.post.id);
+    } on ForumException catch (error) {
+      if (mounted) _toast(error.message);
+    }
+  }
+
   void _syncCanSend() {
     final canSend = _controller.text.trim().isNotEmpty;
     if (canSend != _canSend) {
@@ -85,10 +96,38 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
 
   /// 评论常用表情（点击插入正文）
   static const List<String> _commentEmojis = [
-    '😀', '😁', '😂', '🤣', '😊', '😍', '🥰', '😎',
-    '🤔', '😅', '😭', '😢', '😡', '😴', '🤝', '🙏',
-    '👍', '👎', '👏', '💪', '❤️', '🔥', '🎉', '💯',
-    '🌱', '🌿', '🌾', '🌻', '🚜', '🐛', '💧', '☀️',
+    '😀',
+    '😁',
+    '😂',
+    '🤣',
+    '😊',
+    '😍',
+    '🥰',
+    '😎',
+    '🤔',
+    '😅',
+    '😭',
+    '😢',
+    '😡',
+    '😴',
+    '🤝',
+    '🙏',
+    '👍',
+    '👎',
+    '👏',
+    '💪',
+    '❤️',
+    '🔥',
+    '🎉',
+    '💯',
+    '🌱',
+    '🌿',
+    '🌾',
+    '🌻',
+    '🚜',
+    '🐛',
+    '💧',
+    '☀️',
   ];
 
   void _toggleEmojiPanel() {
@@ -181,21 +220,187 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
     }
   }
 
+  /// 投诉原因选项
+  static const List<String> _reportReasons = [
+    '广告或垃圾信息',
+    '色情低俗',
+    '辱骂攻击',
+    '违法违规',
+    '其他',
+  ];
+
+  /// 投诉帖子或评论：登录后选择原因提交
+  Future<void> _report(
+    ForumRepository repository, {
+    required String targetType,
+    required String targetId,
+  }) async {
+    if (!AuthSession.instance.isLoggedIn) {
+      final goLogin = await showDialog<bool>(
+        context: context,
+        builder:
+            (dialogContext) => AlertDialog(
+              title: const Text('请先登录'),
+              content: const Text('登录后才能投诉，是否现在去登录？'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('取消'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: const Text('去登录'),
+                ),
+              ],
+            ),
+      );
+      if (goLogin == true && mounted) context.push('/login');
+      return;
+    }
+
+    final reason = await showDialog<String>(
+      context: context,
+      builder:
+          (dialogContext) => SimpleDialog(
+            title: const Text('选择投诉原因'),
+            children: [
+              for (final item in _reportReasons)
+                SimpleDialogOption(
+                  onPressed: () => Navigator.of(dialogContext).pop(item),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Text(item),
+                  ),
+                ),
+            ],
+          ),
+    );
+    if (reason == null) return;
+
+    try {
+      await repository.report(
+        targetType: targetType,
+        targetId: targetId,
+        reason: reason,
+      );
+      if (mounted) _toast('投诉已提交，我们会尽快处理');
+    } on ForumException catch (error) {
+      if (mounted) _toast(error.message);
+    }
+  }
+
+  /// 删除自己的帖子，确认后返回列表
+  Future<void> _confirmDeletePost(ForumRepository repository) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (dialogContext) => AlertDialog(
+            title: const Text('删除帖子'),
+            content: const Text('删除后帖子和评论都会消失，且无法恢复。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('取消'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text(
+                  '删除',
+                  style: TextStyle(color: AppColors.error),
+                ),
+              ),
+            ],
+          ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await repository.deletePost(widget.post);
+    } on ForumException catch (error) {
+      if (mounted) _toast(error.message);
+      return;
+    }
+    if (!mounted) return;
+    _toast('帖子已删除');
+    Navigator.of(context).pop();
+  }
+
+  /// 删除自己的评论，其下的回复会一并删除
+  Future<void> _confirmDeleteComment(
+    ForumRepository repository,
+    ForumComment comment,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder:
+          (dialogContext) => AlertDialog(
+            title: const Text('删除评论'),
+            content: const Text('删除后该评论及其回复都会消失，且无法恢复。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('取消'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text(
+                  '删除',
+                  style: TextStyle(color: AppColors.error),
+                ),
+              ),
+            ],
+          ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await repository.deleteComment(comment);
+    } on ForumException catch (error) {
+      if (mounted) _toast(error.message);
+      return;
+    }
+    if (mounted) _toast('评论已删除');
+  }
+
+  Widget _footerAction({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    Color color = AppColors.textHint,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 15, color: color),
+            const SizedBox(width: 3),
+            Text(label, style: TextStyle(fontSize: 12, color: color)),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _showRejectDialog(ForumAuditResult result) {
     return showDialog<void>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('评论未通过审核'),
-        content: Text(
-          '违规类型：${result.violationType}\n\n${result.reason}\n\n请修改后重新发送。',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('我知道了'),
+      builder:
+          (dialogContext) => AlertDialog(
+            title: const Text('评论未通过审核'),
+            content: Text(
+              '违规类型：${result.violationType}\n\n${result.reason}\n\n请修改后重新发送。',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('我知道了'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
@@ -212,9 +417,7 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
     messenger.hideCurrentSnackBar();
     messenger.showSnackBar(
       SnackBar(
-        content: Text(
-          wasFavorite ? '已取消收藏' : '已收藏，可在「我的 - 我的收藏」查看',
-        ),
+        content: Text(wasFavorite ? '已取消收藏' : '已收藏，可在「我的 - 我的收藏」查看'),
         duration: const Duration(milliseconds: 1500),
       ),
     );
@@ -232,14 +435,15 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
           if (widget.post.author == AuthSession.instance.user.value?.nickname)
             AnimatedBuilder(
               animation: repository,
-              builder: (context, _) => IconButton(
-                tooltip: widget.post.featured ? '取消精选' : '设为精选',
-                onPressed: () => _toggleFeatured(repository),
-                icon: Icon(
-                  widget.post.featured ? Icons.star : Icons.star_border,
-                  color: AppColors.textOnPrimary,
-                ),
-              ),
+              builder:
+                  (context, _) => IconButton(
+                    tooltip: widget.post.featured ? '取消精选' : '设为精选',
+                    onPressed: () => _toggleFeatured(repository),
+                    icon: Icon(
+                      widget.post.featured ? Icons.star : Icons.star_border,
+                      color: AppColors.textOnPrimary,
+                    ),
+                  ),
             ),
           AnimatedBuilder(
             animation: repository,
@@ -261,45 +465,64 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
         animation: repository,
         builder: (context, _) {
           final comments = repository.commentsOf(widget.post.id);
+          final myName = AuthSession.instance.user.value?.nickname;
           return ForumResponsiveBody(
             child: Column(
               children: [
                 Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.only(top: 10, bottom: 10),
-                    children: [
-                      _postHeader(repository),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-                        child: Text(
-                          '全部评论 ${comments.length}',
-                          style:  TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: context.palette.textPrimary,
-                          ),
-                        ),
-                      ),
-                      if (comments.isEmpty)
+                  child: RefreshIndicator(
+                    color: AppColors.primary,
+                    onRefresh: () => _refresh(repository),
+                    child: ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.only(top: 10, bottom: 10),
+                      children: [
+                        _postHeader(repository),
                         Padding(
-                          padding: EdgeInsets.symmetric(vertical: 32),
-                          child: Center(
-                            child: Text(
-                              '还没有评论，来说两句',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: context.palette.textHint,
-                              ),
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                          child: Text(
+                            '全部评论 ${comments.length}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: context.palette.textPrimary,
                             ),
                           ),
-                        )
-                      else
-                        for (final comment in comments)
-                          ForumCommentTile(
-                            comment: comment,
-                            onReply: () => _startReply(comment),
-                          ),
-                    ],
+                        ),
+                        if (comments.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 32),
+                            child: Center(
+                              child: Text(
+                                '还没有评论，来说两句',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: context.palette.textHint,
+                                ),
+                              ),
+                            ),
+                          )
+                        else
+                          for (final comment in comments)
+                            ForumCommentTile(
+                              comment: comment,
+                              onReply: () => _startReply(comment),
+                              onReport:
+                                  () => _report(
+                                    repository,
+                                    targetType: 'reply',
+                                    targetId: comment.id,
+                                  ),
+                              onDelete:
+                                  comment.author == myName
+                                      ? () => _confirmDeleteComment(
+                                        repository,
+                                        comment,
+                                      )
+                                      : null,
+                            ),
+                      ],
+                    ),
                   ),
                 ),
                 _commentBar(repository),
@@ -315,16 +538,17 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
     // 只朗读昵称与提问/回答内容，跳过时间、版块与底部操作区
     return ElderCareBlock(
       readText:
-'${widget.post.author}。${widget.post.title}。${widget.post.content}',
+          '${widget.post.author}。${widget.post.title}。${widget.post.content}',
       child: _postHeaderCard(repository),
     );
   }
 
   Widget _postHeaderCard(ForumRepository repository) {
     final post = widget.post;
-    final avatarText = post.author.isEmpty
-        ? '?'
-        : String.fromCharCode(post.author.runes.first);
+    final avatarText =
+        post.author.isEmpty
+            ? '?'
+            : String.fromCharCode(post.author.runes.first);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12),
@@ -358,7 +582,7 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                     post.author,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style:  TextStyle(
+                    style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       color: context.palette.textPrimary,
@@ -371,7 +595,7 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                     forumTimeText(post.createdAt),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style:  TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
                       color: context.palette.textHint,
                     ),
@@ -382,7 +606,7 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
             const SizedBox(height: 12),
             Text(
               post.title,
-              style:  TextStyle(
+              style: TextStyle(
                 fontSize: 17,
                 height: 1.4,
                 fontWeight: FontWeight.w600,
@@ -392,7 +616,7 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
             const SizedBox(height: 8),
             Text(
               post.content,
-              style:  TextStyle(
+              style: TextStyle(
                 fontSize: 14,
                 height: 1.6,
                 color: context.palette.textSecondary,
@@ -412,24 +636,34 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                 Expanded(
                   child: Align(
                     alignment: Alignment.centerLeft,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: context.palette.surfaceVariant,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        post.section,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style:  TextStyle(
-                          fontSize: 11,
-                          color: context.palette.textHint,
-                        ),
-                      ),
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: [
+                        for (final label in [
+                          '#${post.section}',
+                          ...post.tags.map((tag) => '#$tag'),
+                        ])
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: context.palette.surfaceVariant,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: context.palette.textHint,
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ),
@@ -442,9 +676,10 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: repository.isLiked(post)
-                          ? AppColors.accent.withValues(alpha: 0.12)
-                          : context.palette.textHint,
+                      color:
+                          repository.isLiked(post)
+                              ? AppColors.accent.withValues(alpha: 0.12)
+                              : context.palette.surfaceVariant,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -455,18 +690,20 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                               ? Icons.favorite
                               : Icons.favorite_border,
                           size: 16,
-                          color: repository.isLiked(post)
-                              ? AppColors.accent
-                              : AppColors.textOnPrimary,
+                          color:
+                              repository.isLiked(post)
+                                  ? AppColors.accent
+                                  : context.palette.textHint,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           '${post.likes}',
                           style: TextStyle(
                             fontSize: 12,
-                            color: repository.isLiked(post)
-                                ? AppColors.accent
-                                : AppColors.textOnPrimary,
+                            color:
+                                repository.isLiked(post)
+                                    ? AppColors.accent
+                                    : context.palette.textHint,
                           ),
                         ),
                       ],
@@ -490,24 +727,44 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                               ? Icons.bookmark
                               : Icons.bookmark_border,
                           size: 16,
-                          color: repository.isFavorite(post)
-                              ? AppColors.accent
-                              : context.palette.textHint,
+                          color:
+                              repository.isFavorite(post)
+                                  ? AppColors.accent
+                                  : context.palette.textHint,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           repository.isFavorite(post) ? '已收藏' : '收藏',
                           style: TextStyle(
                             fontSize: 12,
-                            color: repository.isFavorite(post)
-                                ? AppColors.accent
-                                : context.palette.textHint,
+                            color:
+                                repository.isFavorite(post)
+                                    ? AppColors.accent
+                                    : context.palette.textHint,
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
+                const SizedBox(width: 2),
+                _footerAction(
+                  icon: Icons.flag_outlined,
+                  label: '投诉',
+                  onTap:
+                      () => _report(
+                        repository,
+                        targetType: 'post',
+                        targetId: post.id,
+                      ),
+                ),
+                if (post.author == AuthSession.instance.user.value?.nickname)
+                  _footerAction(
+                    icon: Icons.delete_outline,
+                    label: '删除',
+                    color: AppColors.error,
+                    onTap: () => _confirmDeletePost(repository),
+                  ),
               ],
             ),
           ],
@@ -520,7 +777,7 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
     return SafeArea(
       top: false,
       child: Container(
-        decoration:  BoxDecoration(
+        decoration: BoxDecoration(
           color: context.palette.surface,
           border: Border(
             top: BorderSide(color: context.palette.surfaceVariant),
@@ -549,10 +806,13 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                     InkWell(
                       borderRadius: BorderRadius.circular(12),
                       onTap: () => setState(() => _replyTo = null),
-                      child: const Padding(
-                        padding: EdgeInsets.all(4),
-                        child: Icon(Icons.close,
-                            size: 16, color: AppColors.textHint),
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Icon(
+                          Icons.close,
+                          size: 16,
+                          color: context.palette.textHint,
+                        ),
                       ),
                     ),
                   ],
@@ -570,19 +830,22 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                       minLines: 1,
                       maxLines: 3,
                       maxLength: 450,
-                      buildCounter: (context,
-                              {required currentLength,
-                              required isFocused,
-                              required maxLength}) =>
-                          null,
+                      buildCounter:
+                          (
+                            context, {
+                            required currentLength,
+                            required isFocused,
+                            required maxLength,
+                          }) => null,
                       onChanged: (value) {
                         _syncCanSend();
                       },
                       style: const TextStyle(fontSize: 13),
                       decoration: InputDecoration(
-                        hintText: _replyTo == null
-                            ? '写下你的评论…'
-                            : '回复 @${_replyTo!.author}…',
+                        hintText:
+                            _replyTo == null
+                                ? '写下你的评论…'
+                                : '回复 @${_replyTo!.author}…',
                         hintStyle: TextStyle(
                           fontSize: 13,
                           color: context.palette.textHint,
@@ -610,11 +873,13 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                           ? Icons.emoji_emotions
                           : Icons.emoji_emotions_outlined,
                       size: 26,
-                      color: _showEmojiPanel
-                          ? AppColors.primary
-                          : context.palette.textHint,
+                      color:
+                          _showEmojiPanel
+                              ? AppColors.primary
+                              : AppColors.textHint,
                     ),
                   ),
+                  const ForumVoiceDialectSelector(),
                   ForumVoiceButton(
                     controller: _controller,
                     recognizer: widget.voiceRecognizer,
@@ -623,23 +888,26 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                   IconButton.filled(
                     tooltip: '发送评论',
                     style: IconButton.styleFrom(
-                      disabledBackgroundColor:
-                          AppColors.primary.withValues(alpha: 0.6),
+                      disabledBackgroundColor: AppColors.primary.withValues(
+                        alpha: 0.6,
+                      ),
                       disabledForegroundColor: AppColors.textOnPrimary,
                     ),
-                    onPressed: (_canSend && !_sending)
-                        ? () => _send(repository)
-                        : null,
-                    icon: _sending
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: AppColors.textOnPrimary,
-                            ),
-                          )
-                        : const Icon(Icons.send, size: 18),
+                    onPressed:
+                        (_canSend && !_sending)
+                            ? () => _send(repository)
+                            : null,
+                    icon:
+                        _sending
+                            ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: AppColors.textOnPrimary,
+                              ),
+                            )
+                            : const Icon(Icons.send, size: 18),
                   ),
                 ],
               ),
@@ -657,9 +925,9 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
       height: 168,
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-      decoration:  BoxDecoration(
-        color: context.palette.surface,
-        border: Border(top: BorderSide(color: context.palette.surfaceVariant)),
+      decoration: const BoxDecoration(
+        color: AppColors.surface,
+        border: Border(top: BorderSide(color: AppColors.surfaceVariant)),
       ),
       child: GridView.count(
         crossAxisCount: 8,

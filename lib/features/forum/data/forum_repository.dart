@@ -40,6 +40,7 @@ abstract class ForumRepository extends ChangeNotifier {
     required String content,
     bool pendingReview = false,
     List<String> images = const [],
+    List<String> tags = const [],
   });
 
   /// 上传一张帖子配图，返回可访问的 URL。
@@ -71,6 +72,19 @@ abstract class ForumRepository extends ChangeNotifier {
 
   /// 设置 / 取消精选（推荐分区优先展示精选内容）
   Future<void> setFeatured(ForumPost post, bool featured) async {}
+
+  /// 删除自己的帖子（服务端会校验作者）
+  Future<void> deletePost(ForumPost post) async {}
+
+  /// 删除自己的评论，回复该评论的内容会一并删除
+  Future<void> deleteComment(ForumComment comment) async {}
+
+  /// 投诉帖子或评论，[targetType] 为 post 或 reply
+  Future<void> report({
+    required String targetType,
+    required String targetId,
+    required String reason,
+  }) async {}
 
   bool isFavorite(ForumPost post);
 
@@ -246,6 +260,7 @@ class InMemoryForumRepository extends ForumRepository {
     required String content,
     bool pendingReview = false,
     List<String> images = const [],
+    List<String> tags = const [],
   }) async {
     final post = ForumPost(
       id: 'local_${DateTime.now().microsecondsSinceEpoch}_${_idSeed++}',
@@ -256,6 +271,13 @@ class InMemoryForumRepository extends ForumRepository {
       createdAt: DateTime.now(),
       pendingReview: pendingReview,
       images: List.unmodifiable(images.take(3)),
+      tags: List.unmodifiable(
+        tags
+            .map((tag) => tag.replaceFirst(RegExp(r'^#+'), '').trim())
+            .where((tag) => tag.isNotEmpty)
+            .toSet()
+            .take(3),
+      ),
     );
     _posts.add(post);
     notifyListeners();
@@ -330,6 +352,50 @@ class InMemoryForumRepository extends ForumRepository {
     if (!_posts.contains(target)) return;
     target.featured = featured;
     post.featured = featured;
+    notifyListeners();
+  }
+
+  @override
+  Future<void> deletePost(ForumPost post) async {
+    final before = _posts.length;
+    _posts.removeWhere((item) => item.id == post.id);
+    if (_posts.length == before) return;
+    _comments.remove(post.id);
+    likedIds.remove(post.id);
+    favoriteIds.remove(post.id);
+    notifyListeners();
+  }
+
+  @override
+  Future<void> deleteComment(ForumComment comment) async {
+    final list = _comments[comment.postId];
+    if (list == null) return;
+
+    // 删除评论时，把直接与间接回复一并移除
+    final removedIds = <String>{comment.id};
+    var changed = true;
+    while (changed) {
+      changed = false;
+      for (final item in list) {
+        final parentId = item.parentId;
+        if (parentId != null &&
+            removedIds.contains(parentId) &&
+            removedIds.add(item.id)) {
+          changed = true;
+        }
+      }
+    }
+
+    final before = list.length;
+    list.removeWhere((item) => removedIds.contains(item.id));
+    final removed = before - list.length;
+    for (final post in _posts) {
+      if (post.id == comment.postId) {
+        post.replyCount =
+            post.replyCount > removed ? post.replyCount - removed : 0;
+        break;
+      }
+    }
     notifyListeners();
   }
 
