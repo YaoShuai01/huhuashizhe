@@ -422,7 +422,7 @@ class _ForumComposePageState extends State<ForumComposePage> {
                   const SizedBox(width: 8),
                   Text(
                     _submittingLabel,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
                       color: context.palette.textSecondary,
                     ),
