@@ -1371,6 +1371,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.10.14',
+        'date': '2026-11-23',
+        'content': [
+          '遥控摇杆改为相对映射：以手指按下点为原点，按偏了也不会瞬间跳杆',
+          '摇杆加入指数曲线，小幅推杆更柔和，满杆仍可到 100%',
+          '航向摇杆同步改为相对拖动，松手自动回中',
+        ],
+      },
+      {
         'version': 'v3.10.13',
         'date': '2026-11-23',
         'content': [
