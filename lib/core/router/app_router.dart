@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
+import '../layout/tablet_layout.dart';
 import '../../features/auth/pages/login_page.dart';
 import '../../features/home/pages/home_page.dart';
 import '../../features/presets/pages/presets_page.dart';
@@ -401,35 +402,81 @@ class AppShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: navigationShell,
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: navigationShell.currentIndex,
-        onTap: (index) => navigationShell.goBranch(
+    // 平板布局：用户在设置页打开开关，且横屏、最短边 >= 600 时，
+    // 底部导航换成左侧 NavigationRail，把横向空间留给内容。
+    final useTablet = LayoutScope.useTablet(context);
+    if (!useTablet) {
+      return Scaffold(
+        body: navigationShell,
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: navigationShell.currentIndex,
+          onTap: (index) => navigationShell.goBranch(
+            index,
+            initialLocation: index == navigationShell.currentIndex,
+          ),
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined),
+              activeIcon: Icon(Icons.home),
+              label: '首页',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.dashboard_outlined),
+              activeIcon: Icon(Icons.dashboard),
+              label: '数据管理',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.miscellaneous_services_outlined),
+              activeIcon: Icon(Icons.miscellaneous_services),
+              label: '社区',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: '我的',
+            ),
+          ],
+        ),
+      );
+    }
+
+    void goBranch(int index) => navigationShell.goBranch(
           index,
           initialLocation: index == navigationShell.currentIndex,
-        ),
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            activeIcon: Icon(Icons.home),
-            label: '首页',
+        );
+
+    return Scaffold(
+      body: Row(
+        children: [
+          NavigationRail(
+            selectedIndex: navigationShell.currentIndex,
+            onDestinationSelected: goBranch,
+            labelType: NavigationRailLabelType.all,
+            destinations: const [
+              NavigationRailDestination(
+                icon: Icon(Icons.home_outlined),
+                selectedIcon: Icon(Icons.home),
+                label: Text('首页'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.dashboard_outlined),
+                selectedIcon: Icon(Icons.dashboard),
+                label: Text('数据管理'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.miscellaneous_services_outlined),
+                selectedIcon: Icon(Icons.miscellaneous_services),
+                label: Text('社区'),
+              ),
+              NavigationRailDestination(
+                icon: Icon(Icons.person_outline),
+                selectedIcon: Icon(Icons.person),
+                label: Text('我的'),
+              ),
+            ],
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard_outlined),
-            activeIcon: Icon(Icons.dashboard),
-            label: '数据管理',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.miscellaneous_services_outlined),
-            activeIcon: Icon(Icons.miscellaneous_services),
-            label: '社区',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            activeIcon: Icon(Icons.person),
-            label: '我的',
-          ),
+          const VerticalDivider(width: 1),
+          Expanded(child: navigationShell),
         ],
       ),
     );

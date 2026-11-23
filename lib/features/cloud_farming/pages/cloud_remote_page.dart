@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/layout/tablet_layout.dart';
 import '../models/cloud_models.dart';
 import '../services/cloud_engine.dart';
 import '../services/cloud_farm_controller.dart';
@@ -133,13 +134,15 @@ class _CloudRemotePageState extends ConsumerState<CloudRemotePage>
             ],
           ),
           const CloudSectionHead(title: '田块传感器', sub: '最近同步 2 分钟内'),
-          GridView.count(
-            crossAxisCount: 2,
+          GridView(
+            gridDelegate: adaptiveGridDelegate(
+              context,
+              childAspectRatio: 2.5,
+              maxCrossAxisExtent: 420,
+              spacing: 8,
+            ),
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 8,
-            crossAxisSpacing: 8,
-            childAspectRatio: 2.5,
             children: [
               CloudMetricItem(
                 icon: Icons.water_drop_outlined,

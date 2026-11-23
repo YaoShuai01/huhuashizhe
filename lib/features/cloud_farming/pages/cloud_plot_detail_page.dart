@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 
+import '../../../core/layout/tablet_layout.dart';
 import '../models/cloud_models.dart';
 import '../services/cloud_engine.dart';
 import '../services/cloud_farm_controller.dart';
@@ -1101,13 +1102,15 @@ class _CloudPlotDetailPageState extends ConsumerState<CloudPlotDetailPage> {
 
   Widget _metricsGrid(CloudPlot plot, GrowthInfo g) {
     final harvestDate = (plot.plantedAt ?? DateTime.now()).add(Duration(days: g.cycle));
-    return GridView.count(
-      crossAxisCount: 2,
+    return GridView(
+      gridDelegate: adaptiveGridDelegate(
+        context,
+        childAspectRatio: 2.35,
+        maxCrossAxisExtent: 420,
+        spacing: 8,
+      ),
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 8,
-      crossAxisSpacing: 8,
-      childAspectRatio: 2.35,
       children: [
         CloudMetricItem(
           icon: Icons.timelapse,

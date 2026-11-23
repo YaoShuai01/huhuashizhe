@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/accessibility/elder_care_controller.dart';
 import 'core/accessibility/elder_care_reader.dart';
 import 'core/accessibility/elder_care_scope.dart';
+import 'core/layout/tablet_layout.dart';
 import 'core/theme/app_theme.dart';
 import 'core/router/app_router.dart';
 import 'data/local_database.dart';
@@ -11,6 +12,7 @@ import 'features/auth/data/auth_session.dart';
 import 'features/forum/data/forum_api_repository.dart';
 import 'features/forum/forum_scope.dart';
 import 'providers/device_provider.dart';
+import 'providers/tablet_layout_provider.dart';
 import 'providers/theme_provider.dart';
 import 'providers/update_provider.dart';
 import 'services/ai_suggestion_worker.dart';
@@ -68,6 +70,8 @@ class _HuHuaShiZheAppState extends ConsumerState<HuHuaShiZheApp> {
   Widget build(BuildContext context) {
     // 主题模式来自设置页开关；跟随系统时由 platformBrightness 决定明暗。
     final themeMode = ref.watch(themeModeProvider);
+    // 平板布局开关（缺省关闭）；是否真正生效还要看屏幕方向与尺寸。
+    final tabletLayoutEnabled = ref.watch(tabletLayoutEnabledProvider);
 
     // 闪屏和主界面共用同一个 MaterialApp，避免夜间启动时白底闪一下。
     if (_showSplash) {
@@ -103,9 +107,12 @@ class _HuHuaShiZheAppState extends ConsumerState<HuHuaShiZheApp> {
               ),
               child: child!,
             );
-            return elderCare.enabled
-                ? ElderCareReader(child: content)
-                : content;
+            return LayoutScope(
+              enabled: tabletLayoutEnabled,
+              child: elderCare.enabled
+                  ? ElderCareReader(child: content)
+                  : content,
+            );
           },
         ),
       ),

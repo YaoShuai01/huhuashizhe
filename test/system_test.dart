@@ -87,24 +87,30 @@ void main() {
 
     // ==================== TC-SYS-02: SettingsPage ====================
     group('TC-SYS-02: 设置页', () {
-      testWidgets('六个开关存在', (tester) async {
+      testWidgets('七个开关存在', (tester) async {
         await tester.pumpWidget(providerScope(const SettingsPage()));
         await tester.pump();
         expect(find.text('设置'), findsOneWidget);
-        // 显示区：跟随系统 + 深色模式；功能区：推送通知 / 自动天气 / 语音播报 / 朗读AI回复
-        expect(find.text('跟随系统'), findsOneWidget);
-        expect(find.text('深色模式'), findsOneWidget);
-        expect(find.text('推送通知'), findsOneWidget);
-        expect(find.text('自动获取天气'), findsOneWidget);
-        expect(find.text('语音播报'), findsOneWidget);
-        // 新增「跟随系统」后视口变长，「朗读AI回复」落在首屏之外，先滚动到它
-        await tester.dragUntilVisible(
-          find.text('朗读AI回复'),
-          find.byType(ListView),
-          const Offset(0, -100),
-        );
-        expect(find.text('朗读AI回复'), findsOneWidget);
-        expect(find.byType(SwitchListTile), findsNWidgets(6));
+        // 显示区：跟随系统 + 深色模式 + 平板布局；
+        // 功能区：推送通知 / 自动天气 / 语音播报 / 朗读AI回复
+        // ListView 懒构建，逐个滚动到可见再断言。
+        for (final label in const [
+          '跟随系统',
+          '深色模式',
+          '平板布局',
+          '推送通知',
+          '自动获取天气',
+          '语音播报',
+          '朗读AI回复',
+        ]) {
+          await tester.dragUntilVisible(
+            find.text(label),
+            find.byType(ListView),
+            const Offset(0, -100),
+          );
+          expect(find.text(label), findsOneWidget);
+        }
+        expect(find.byType(SwitchListTile), findsNWidgets(7));
       });
 
       testWidgets('主题开关状态正确', (tester) async {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/accessibility/elder_care_scope.dart';
+import '../../../core/layout/tablet_layout.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/constants/app_version.dart' show appVersion;
 import '../../auth/data/auth_api.dart';
@@ -17,7 +18,9 @@ class MinePage extends StatelessWidget {
         title: const Text('我的'),
       ),
       body: SingleChildScrollView(
-        child: Column(
+        child: AdaptiveContent(
+          maxWidth: 900,
+          child: Column(
           children: [
             Container(
               width: double.infinity,
@@ -206,6 +209,7 @@ class MinePage extends StatelessWidget {
             ),
             const SizedBox(height: 40),
           ],
+          ),
         ),
       ),
     );

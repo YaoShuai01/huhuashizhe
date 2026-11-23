@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/local_database.dart';
+import '../../../providers/tablet_layout_provider.dart';
 import '../../../providers/theme_provider.dart';
 import '../../../services/drone_udp_service.dart';
 import '../../../services/voice_service.dart';
@@ -95,6 +96,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
             onChanged: ref.watch(themeModeProvider) == ThemeMode.system
                 ? null
                 : (v) => ref.read(themeModeProvider.notifier).setDarkMode(v),
+          ),
+          SwitchListTile(
+            title: const Text('平板布局'),
+            subtitle: const Text('横屏且屏幕较大时启用侧边导航与多列布局，手机上不会生效'),
+            value: ref.watch(tabletLayoutEnabledProvider),
+            activeColor: AppColors.primary,
+            onChanged: (v) =>
+                ref.read(tabletLayoutEnabledProvider.notifier).setEnabled(v),
           ),
           const Divider(indent: 16, endIndent: 16),
           _sectionHeader('功能'),
