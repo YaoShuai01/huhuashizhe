@@ -100,3 +100,18 @@ CREATE TABLE IF NOT EXISTS forum_messages (
   CONSTRAINT fk_messages_user FOREIGN KEY (user_id)
     REFERENCES users (id) ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '消息提醒';
+
+-- 投诉记录：同一用户对同一内容只保留一条
+CREATE TABLE IF NOT EXISTS reports (
+  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  target_type ENUM('post', 'reply') NOT NULL,
+  target_id   BIGINT UNSIGNED NOT NULL,
+  user_id     INT UNSIGNED    NOT NULL,
+  reason      VARCHAR(50)     NOT NULL,
+  created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_reports_user_target (user_id, target_type, target_id),
+  KEY idx_reports_target (target_type, target_id),
+  CONSTRAINT fk_reports_user FOREIGN KEY (user_id)
+    REFERENCES users (id) ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = '投诉记录';

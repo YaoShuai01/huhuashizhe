@@ -567,6 +567,122 @@ app.post(
   }),
 );
 
+// DELETE /api/posts/:id?userId=1，仅作者可删除自己的帖子
+app.delete(
+  '/api/posts/:id',
+  asyncHandler(async (req, res) => {
+    const postId = Number(req.params.id);
+    const userId = Number(req.query.userId);
+
+    if (!Number.isInteger(postId) || postId <= 0) {
+      return res.status(400).json({ error: '帖子 id 不合法' });
+    }
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({ error: 'userId 必须是正整数' });
+    }
+
+    const [posts] = await pool.execute(
+      'SELECT id, user_id FROM posts WHERE id = ?',
+      [postId],
+    );
+    if (posts.length === 0) {
+      return res.status(404).json({ error: '帖子不存在' });
+    }
+    if (Number(posts[0].user_id) !== userId) {
+      return res.status(403).json({ error: '只能删除自己的帖子' });
+    }
+
+    // 评论、点赞、收藏随外键级联删除
+    await pool.execute('DELETE FROM posts WHERE id = ?', [postId]);
+    res.json({ deleted: true });
+  }),
+);
+
+// DELETE /api/replies/:id?userId=1，仅作者可删除自己的评论
+app.delete(
+  '/api/replies/:id',
+  asyncHandler(async (req, res) => {
+    const replyId = Number(req.params.id);
+    const userId = Number(req.query.userId);
+
+    if (!Number.isInteger(replyId) || replyId <= 0) {
+      return res.status(400).json({ error: '评论 id 不合法' });
+    }
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({ error: 'userId 必须是正整数' });
+    }
+
+    const [rows] = await pool.execute(
+      'SELECT id, user_id FROM replies WHERE id = ?',
+      [replyId],
+    );
+    if (rows.length === 0) {
+      return res.status(404).json({ error: '评论不存在' });
+    }
+    if (Number(rows[0].user_id) !== userId) {
+      return res.status(403).json({ error: '只能删除自己的评论' });
+    }
+
+    // 回复该评论的内容随外键级联删除
+    await pool.execute('DELETE FROM replies WHERE id = ?', [replyId]);
+    res.json({ deleted: true });
+  }),
+);
+
+// POST /api/reports
+// body: { userId, targetType: 'post' | 'reply', targetId, reason }
+app.post(
+  '/api/reports',
+  asyncHandler(async (req, res) => {
+    const body = req.body ?? {};
+    const userId = Number(body.userId);
+    const targetType = body.targetType;
+    const targetId = Number(body.targetId);
+    const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
+
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return res.status(400).json({ error: 'userId 必须是正整数' });
+    }
+    if (targetType !== 'post' && targetType !== 'reply') {
+      return res.status(400).json({ error: '投诉类型不合法' });
+    }
+    if (!Number.isInteger(targetId) || targetId <= 0) {
+      return res.status(400).json({ error: '投诉内容 id 不合法' });
+    }
+    if (!reason || reason.length > 50) {
+      return res.status(400).json({ error: '请选择投诉原因' });
+    }
+
+    const [users] = await pool.execute(
+      'SELECT id FROM users WHERE id = ?',
+      [userId],
+    );
+    if (users.length === 0) {
+      return res.status(404).json({ error: '用户不存在' });
+    }
+
+    // targetType 已限定为白名单，可安全拼表名
+    const table = targetType === 'post' ? 'posts' : 'replies';
+    const [targets] = await pool.execute(
+      `SELECT id FROM ${table} WHERE id = ?`,
+      [targetId],
+    );
+    if (targets.length === 0) {
+      return res.status(404).json({ error: '投诉的内容不存在' });
+    }
+
+    // 同一用户对同一内容只保留一条投诉，重复提交时更新原因
+    await pool.execute(
+      `INSERT INTO reports (target_type, target_id, user_id, reason)
+       VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE reason = VALUES(reason)`,
+      [targetType, targetId, userId, reason],
+    );
+
+    res.status(201).json({ reported: true });
+  }),
+);
+
 // GET /api/messages?userId=1&limit=50
 app.get(
   '/api/messages',
@@ -648,6 +764,23 @@ app.use((err, req, res, next) => {
 
 // 启动时自动补齐新增字段，旧库无需手动执行迁移
 async function ensureSchema() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS reports (
+      id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      target_type ENUM('post', 'reply') NOT NULL,
+      target_id   BIGINT UNSIGNED NOT NULL,
+      user_id     INT UNSIGNED    NOT NULL,
+      reason      VARCHAR(50)     NOT NULL,
+      created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY uk_reports_user_target (user_id, target_type, target_id),
+      KEY idx_reports_target (target_type, target_id),
+      CONSTRAINT fk_reports_user FOREIGN KEY (user_id)
+        REFERENCES users (id) ON DELETE CASCADE
+    ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci
+      COMMENT = '投诉记录'
+  `);
+
   const [columns] = await pool.query(
     `SELECT TABLE_NAME, COLUMN_NAME
        FROM information_schema.COLUMNS

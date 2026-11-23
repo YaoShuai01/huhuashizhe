@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/accessibility/elder_care_reader.dart';
 import '../../../core/theme/app_theme.dart';
@@ -181,6 +182,161 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
     }
   }
 
+  /// 投诉原因选项
+  static const List<String> _reportReasons = [
+    '广告或垃圾信息',
+    '色情低俗',
+    '辱骂攻击',
+    '违法违规',
+    '其他',
+  ];
+
+  /// 投诉帖子或评论：登录后选择原因提交
+  Future<void> _report(
+    ForumRepository repository, {
+    required String targetType,
+    required String targetId,
+  }) async {
+    if (!AuthSession.instance.isLoggedIn) {
+      final goLogin = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('请先登录'),
+          content: const Text('登录后才能投诉，是否现在去登录？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('取消'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('去登录'),
+            ),
+          ],
+        ),
+      );
+      if (goLogin == true && mounted) context.push('/login');
+      return;
+    }
+
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => SimpleDialog(
+        title: const Text('选择投诉原因'),
+        children: [
+          for (final item in _reportReasons)
+            SimpleDialogOption(
+              onPressed: () => Navigator.of(dialogContext).pop(item),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Text(item),
+              ),
+            ),
+        ],
+      ),
+    );
+    if (reason == null) return;
+
+    try {
+      await repository.report(
+        targetType: targetType,
+        targetId: targetId,
+        reason: reason,
+      );
+      if (mounted) _toast('投诉已提交，我们会尽快处理');
+    } on ForumException catch (error) {
+      if (mounted) _toast(error.message);
+    }
+  }
+
+  /// 删除自己的帖子，确认后返回列表
+  Future<void> _confirmDeletePost(ForumRepository repository) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('删除帖子'),
+        content: const Text('删除后帖子和评论都会消失，且无法恢复。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('删除', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await repository.deletePost(widget.post);
+    } on ForumException catch (error) {
+      if (mounted) _toast(error.message);
+      return;
+    }
+    if (!mounted) return;
+    _toast('帖子已删除');
+    Navigator.of(context).pop();
+  }
+
+  /// 删除自己的评论，其下的回复会一并删除
+  Future<void> _confirmDeleteComment(
+    ForumRepository repository,
+    ForumComment comment,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('删除评论'),
+        content: const Text('删除后该评论及其回复都会消失，且无法恢复。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('删除', style: TextStyle(color: AppColors.error)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await repository.deleteComment(comment);
+    } on ForumException catch (error) {
+      if (mounted) _toast(error.message);
+      return;
+    }
+    if (mounted) _toast('评论已删除');
+  }
+
+  Widget _footerAction({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    Color color = AppColors.textHint,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 15, color: color),
+            const SizedBox(width: 3),
+            Text(label, style: TextStyle(fontSize: 12, color: color)),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _showRejectDialog(ForumAuditResult result) {
     return showDialog<void>(
       context: context,
@@ -261,6 +417,7 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
         animation: repository,
         builder: (context, _) {
           final comments = repository.commentsOf(widget.post.id);
+          final myName = AuthSession.instance.user.value?.nickname;
           return ForumResponsiveBody(
             child: Column(
               children: [
@@ -298,6 +455,17 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                           ForumCommentTile(
                             comment: comment,
                             onReply: () => _startReply(comment),
+                            onReport: () => _report(
+                              repository,
+                              targetType: 'reply',
+                              targetId: comment.id,
+                            ),
+                            onDelete: comment.author == myName
+                                ? () => _confirmDeleteComment(
+                                      repository,
+                                      comment,
+                                    )
+                                : null,
                           ),
                     ],
                   ),
@@ -508,6 +676,23 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                     ),
                   ),
                 ),
+                const SizedBox(width: 2),
+                _footerAction(
+                  icon: Icons.flag_outlined,
+                  label: '投诉',
+                  onTap: () => _report(
+                    repository,
+                    targetType: 'post',
+                    targetId: post.id,
+                  ),
+                ),
+                if (post.author == AuthSession.instance.user.value?.nickname)
+                  _footerAction(
+                    icon: Icons.delete_outline,
+                    label: '删除',
+                    color: AppColors.error,
+                    onTap: () => _confirmDeletePost(repository),
+                  ),
               ],
             ),
           ],

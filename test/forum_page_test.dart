@@ -443,6 +443,101 @@ void main() {
     expect(find.textContaining('回复 @${parent.author}：'), findsOneWidget);
   });
 
+  test('删除评论时连同其下的回复一起移除', () async {
+    final repository = InMemoryForumRepository();
+    final post = repository.postsOf('农友留言区').first;
+    final parent = repository.commentsOf(post.id).first;
+    final before = repository.commentsOf(post.id).length;
+    final reply = await repository.addComment(
+      post: post,
+      content: '收到，谢谢',
+      replyTo: parent,
+    );
+
+    await repository.deleteComment(parent);
+
+    final left = repository.commentsOf(post.id);
+    expect(left.any((c) => c.id == parent.id), isFalse);
+    expect(left.any((c) => c.id == reply.id), isFalse);
+    expect(left.length, before - 1);
+  });
+
+  testWidgets('作者可删除自己的帖子', (tester) async {
+    final repository = InMemoryForumRepository();
+    final post = repository.postsOf('农友留言区').first;
+    AuthSession.instance.signIn(
+      AuthUser(id: 99, loginId: '13800000000', nickname: post.author),
+    );
+    addTearDown(AuthSession.instance.signOut);
+
+    await tester.pumpWidget(
+      wrap(ForumPostDetailPage(post: post, repository: repository)),
+    );
+
+    await tester.tap(find.text('删除').first);
+    await tester.pumpAndSettle();
+    expect(find.text('删除帖子'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(TextButton, '删除'));
+    await tester.pumpAndSettle();
+
+    expect(
+      repository.postsOf(post.section).any((p) => p.id == post.id),
+      isFalse,
+    );
+  });
+
+  testWidgets('作者可删除自己的评论', (tester) async {
+    final repository = InMemoryForumRepository();
+    final post = repository.postsOf('农友留言区').first;
+    final comment = repository
+        .commentsOf(post.id)
+        .firstWhere((item) => item.author != post.author);
+    AuthSession.instance.signIn(
+      AuthUser(id: 98, loginId: '13900000000', nickname: comment.author),
+    );
+    addTearDown(AuthSession.instance.signOut);
+
+    await tester.pumpWidget(
+      wrap(ForumPostDetailPage(post: post, repository: repository)),
+    );
+
+    // 只有自己的评论才显示删除入口
+    await tester.tap(find.text('删除').last);
+    await tester.pumpAndSettle();
+    expect(find.text('删除评论'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(TextButton, '删除'));
+    await tester.pumpAndSettle();
+
+    expect(
+      repository.commentsOf(post.id).any((c) => c.id == comment.id),
+      isFalse,
+    );
+  });
+
+  testWidgets('可投诉帖子并选择原因', (tester) async {
+    final repository = InMemoryForumRepository();
+    final post = repository.postsOf('农友留言区').first;
+    AuthSession.instance.signIn(
+      const AuthUser(id: 97, loginId: '13700000000', nickname: '热心农友'),
+    );
+    addTearDown(AuthSession.instance.signOut);
+
+    await tester.pumpWidget(
+      wrap(ForumPostDetailPage(post: post, repository: repository)),
+    );
+
+    await tester.tap(find.text('投诉').first);
+    await tester.pumpAndSettle();
+    expect(find.text('选择投诉原因'), findsOneWidget);
+
+    await tester.tap(find.text('广告或垃圾信息'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('投诉已提交，我们会尽快处理'), findsOneWidget);
+  });
+
   test('设置精选后帖子排到推荐分区最前', () async {
     final repository = InMemoryForumRepository();
     final post = repository.postsOf('农友留言区').first;
