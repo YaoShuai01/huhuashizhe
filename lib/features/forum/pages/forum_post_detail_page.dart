@@ -489,7 +489,7 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                       focusNode: _focusNode,
                       minLines: 1,
                       maxLines: 3,
-                      maxLength: 300,
+                      maxLength: 450,
                       buildCounter: (context,
                               {required currentLength,
                               required isFocused,

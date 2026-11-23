@@ -167,8 +167,8 @@ app.post(
     if (!Number.isInteger(userId) || userId <= 0) {
       return res.status(400).json({ error: 'userId 必须是正整数' });
     }
-    if (!content || content.length > 1000) {
-      return res.status(400).json({ error: 'content 不能为空且不超过 1000 字' });
+    if (!content || content.length > 450) {
+      return res.status(400).json({ error: '评论不能为空且不超过 450 字' });
     }
 
     const [posts] = await pool.execute(
