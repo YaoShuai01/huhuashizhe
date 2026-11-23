@@ -1162,9 +1162,11 @@ public:
     // P=30 reduced from 35 to prevent high-frequency oscillation that flips the quad
     pid[FC_PID_ROLL] = {30, 20, 20, 60};
     pid[FC_PID_PITCH] = {30, 20, 20, 60};
-    pid[FC_PID_YAW] = {25, 30, 0, 0};
+    // 偏航 P/I 提高：日志显示 136deg/s 自旋时 PID 只输出 12% 差速，压不住
+    pid[FC_PID_YAW] = {40, 60, 0, 0};
     pid[FC_PID_LEVEL] = {35, 0, 0, 0};
-    iterm.limit = 15; // 15% I-term limit, prevents ground windup from killing a motor
+    // 15% 的积分上限不足以为持续偏航扭矩提供稳态补偿
+    iterm.limit = 35;
 
     // Gentle beginner rates. The upstream Betaflight defaults (rate 20/20/30,
     // super 40/40/36) give ~400 deg/s at full stick, which is far too twitchy

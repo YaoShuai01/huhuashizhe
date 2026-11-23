@@ -7,10 +7,11 @@
 namespace Espfc::Control {
 
 #if defined(ESPFC_HHS_PRESET)
-// Yaw authority scale: a 250-450mm airframe only needs a moderate differential
-// for yaw. Scaling the yaw PID output keeps full-stick yaw from making one
-// motor pair stop.
-static constexpr float HHS_YAW_AUTHORITY = 0.5f;
+// Yaw authority scale. 0.5 was too weak for this airframe: the flight log showed
+// a 136 deg/s spin being countered with only ~12% motor differential, so the
+// PID could never converge. Keep full authority and let iterm.limit cap the
+// steady-state effort instead.
+static constexpr float HHS_YAW_AUTHORITY = 1.0f;
 #endif
 
 Controller::Controller(Model& model): _model(model), _rates{} {}

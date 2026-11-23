@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <HWCDC.h>
 #include <LittleFS.h>
 #include <WiFi.h>
 #include <esp_partition.h>
@@ -104,6 +105,7 @@ void setup()
   // the core-0 idle task from the task WDT, whose idle hook then logs
   // "esp_task_wdt_reset: task not found" every few milliseconds.
   WiFi.onEvent(wifiEvent);
+  Serial.begin(115200);
 
   // 飞行日志文件系统：首次使用或分区表刚变更时需要格式化
   {
@@ -205,6 +207,62 @@ enum StatusLedColor
   STATUS_LED_GREEN,
 };
 
+// 串口日志导出：电脑发送 DUMP 回车，飞控把 Flash 里的 CSV 全部打印到 USB 串口
+// 注意：本板 USBMode=hwcdc，USB 串口对象是 HWCDCSerial
+#if defined(HWCDC_SERIAL_IS_DEFINED) && HWCDC_SERIAL_IS_DEFINED
+#define HHS_USB HWCDCSerial
+#else
+#define HHS_USB Serial
+#endif
+
+static String g_serialCmd;
+
+static void serialLogCommand()
+{
+  while (HHS_USB.available())
+  {
+    const char c = (char)HHS_USB.read();
+    if (c == '\n')
+    {
+      g_serialCmd.trim();
+      if (g_serialCmd == "DUMP" || g_serialCmd == "LIST")
+      {
+        File root = LittleFS.open("/");
+        File f = root.openNextFile();
+        while (f)
+        {
+          const String n = String(f.name());
+          if (!f.isDirectory() && n.endsWith(".csv"))
+          {
+            printf("===FILE %s %u===\r\n", f.name(), (unsigned)f.size());
+            fflush(stdout);
+            if (g_serialCmd == "DUMP")
+            {
+              uint8_t buf[256];
+              while (f.available())
+              {
+                const size_t rd = f.read(buf, sizeof(buf));
+                if (!rd) break;
+                HHS_USB.write(buf, rd);
+              }
+              printf("\r\n===END===\r\n");
+            }
+          }
+          f = root.openNextFile();
+        }
+        root.close();
+        printf("===DONE===\r\n");
+        fflush(stdout);
+      }
+      g_serialCmd = "";
+    }
+    else if (c != '\r')
+    {
+      if (g_serialCmd.length() < 16) g_serialCmd += c;
+    }
+  }
+}
+
 void loop()
 {
   static uint32_t cycleStart = 0;
@@ -266,6 +324,7 @@ void loop()
   }
 
   flightLogTick(now);
+  serialLogCommand();
 
   vTaskDelay(pdMS_TO_TICKS(20));
 }
