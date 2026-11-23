@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../data/forum_repository.dart';
+import '../forum_login_guard.dart';
 import '../forum_scope.dart';
 import '../widgets/forum_back_button.dart';
 import '../widgets/forum_empty_state.dart';
@@ -31,7 +32,10 @@ class ForumSectionPage extends StatelessWidget {
         title: Text(section),
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/forum/compose', extra: section),
+        onPressed: () async {
+          if (!await ensureForumLoggedIn(context) || !context.mounted) return;
+          context.push('/forum/compose', extra: section);
+        },
         icon: const Icon(Icons.edit_outlined),
         label: const Text('发帖'),
         backgroundColor: AppColors.primary,
@@ -46,7 +50,12 @@ class ForumSectionPage extends StatelessWidget {
               icon: Icons.forum_outlined,
               text: '「$section」还没有帖子',
               actionLabel: '去发帖',
-              onAction: () => context.push('/forum/compose', extra: section),
+              onAction: () async {
+                if (!await ensureForumLoggedIn(context) || !context.mounted) {
+                  return;
+                }
+                context.push('/forum/compose', extra: section);
+              },
             );
           }
           return ForumPostList(

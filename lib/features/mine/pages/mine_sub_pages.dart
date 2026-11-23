@@ -953,6 +953,17 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.10.8',
+        'date': '2026-11-23',
+        'content': [
+          '论坛首页改为瀑布流，新增推荐分区：精选优先、热度补齐',
+          '帖子支持最多 3 张配图（相册/拍照），详情页展示全部图片',
+          '评论支持回复某条评论，点赞/收藏/评论会提醒相关用户',
+          '发帖与评论需登录；审核改为本地屏蔽词，命中即驳回',
+          '优化论坛时间显示与评论计数，我的收藏与消息入口同步更新',
+        ],
+      },
+      {
         'version': 'v3.10.7',
         'date': '2026-11-23',
         'content': [

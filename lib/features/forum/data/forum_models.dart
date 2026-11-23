@@ -38,7 +38,10 @@ class ForumPost {
     required this.author,
     required this.createdAt,
     this.likes = 0,
+    this.replyCount = 0,
+    this.featured = false,
     this.pendingReview = false,
+    this.images = const [],
   });
 
   final String id;
@@ -48,10 +51,20 @@ class ForumPost {
   final String author;
   final DateTime createdAt;
   int likes;
+  int replyCount;
+
+  /// 是否被标记为精选（推荐分区优先展示）
+  bool featured;
+
+  /// 帖子配图（服务器可访问的 URL，最多 3 张）
+  final List<String> images;
 
   /// 是否等待人工复审（AI 初审无法直接判定时标记）
   final bool pendingReview;
 }
+
+/// 首页顶部的聚合分区：汇总精选内容，不足时用热门帖子补齐
+const String forumRecommendedSection = '推荐';
 
 /// 帖子评论
 class ForumComment {
@@ -61,6 +74,8 @@ class ForumComment {
     required this.author,
     required this.content,
     required this.createdAt,
+    this.parentId,
+    this.replyToAuthor,
   });
 
   final String id;
@@ -68,6 +83,12 @@ class ForumComment {
   final String author;
   final String content;
   final DateTime createdAt;
+
+  /// 回复的评论 id，为空表示直接评论帖子
+  final String? parentId;
+
+  /// 被回复人昵称，用于在评论内容前展示「回复 @某某」
+  final String? replyToAuthor;
 }
 
 /// 消息类型（决定图标与语义）
@@ -159,12 +180,25 @@ const List<ForumSection> forumSections = [
   ),
 ];
 
-/// 相对时间展示
+/// 时间展示：直接显示发布时刻（时分/日期），不使用“几分钟前”这类相对时间
 String forumTimeText(DateTime time) {
-  final diff = DateTime.now().difference(time);
-  if (diff.inMinutes < 1) return '刚刚';
-  if (diff.inMinutes < 60) return '${diff.inMinutes} 分钟前';
-  if (diff.inHours < 24) return '${diff.inHours} 小时前';
-  if (diff.inDays < 30) return '${diff.inDays} 天前';
-  return '${time.month}月${time.day}日';
+  final local = time.toLocal();
+  final now = DateTime.now();
+  final clock =
+      '${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  if (local.year == now.year &&
+      local.month == now.month &&
+      local.day == now.day) {
+    return '今天 $clock';
+  }
+  final yesterday = now.subtract(const Duration(days: 1));
+  if (local.year == yesterday.year &&
+      local.month == yesterday.month &&
+      local.day == yesterday.day) {
+    return '昨天 $clock';
+  }
+  if (local.year == now.year) {
+    return '${local.month}月${local.day}日 $clock';
+  }
+  return '${local.year}年${local.month}月${local.day}日 $clock';
 }
