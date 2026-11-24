@@ -1371,6 +1371,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.10.17',
+        'date': '2026-11-24',
+        'content': [
+          '修复论坛请求未携带登录令牌：发帖、评论、点赞、收藏、删帖与私信不再 401',
+          '论坛 Dio 统一接入 Bearer 令牌拦截器，消息提醒跳转与楼层定位恢复正常',
+          '3.10.15/3.10.16 用户请更新到本版本以恢复论坛写操作',
+        ],
+      },
+      {
         'version': 'v3.10.16',
         'date': '2026-11-24',
         'content': [

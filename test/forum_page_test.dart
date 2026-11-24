@@ -1,11 +1,14 @@
 import 'dart:async';
+import 'dart:typed_data';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:huhuashizhe/core/theme/app_theme.dart';
 import 'package:huhuashizhe/features/auth/data/auth_api.dart';
 import 'package:huhuashizhe/features/auth/data/auth_session.dart';
+import 'package:huhuashizhe/features/forum/data/forum_api_repository.dart';
 import 'package:huhuashizhe/features/forum/data/forum_models.dart';
 import 'package:huhuashizhe/features/forum/data/forum_repository.dart';
 import 'package:huhuashizhe/features/forum/forum_scope.dart';
@@ -1187,6 +1190,29 @@ void main() {
     expect(voice.lastDialect, ForumVoiceDialect.sichuanese);
   });
 
+  test('论坛 API 请求自动携带 Bearer 令牌', () async {
+    AuthSession.instance.signIn(
+      const AuthUser(
+        id: 13,
+        loginId: '13800000013',
+        nickname: '令牌测试账号',
+        token: 'header.signature',
+      ),
+    );
+    addTearDown(AuthSession.instance.signOut);
+
+    final adapter = _CaptureAdapter();
+    final dio = Dio(BaseOptions(baseUrl: 'http://forum.test'))
+      ..httpClientAdapter = adapter;
+    final repository = ForumApiRepository(dio: dio);
+    await repository.loadMessages();
+
+    expect(
+      adapter.captured?.headers['Authorization'],
+      'Bearer header.signature',
+    );
+  });
+
   test('论坛时间显示为具体时刻而非相对时间', () {
     final now = DateTime.now();
     expect(
@@ -1331,4 +1357,28 @@ class _FakeVoiceRecognizer implements ForumVoiceRecognizer {
   }
 
   void emit(String text) => _onText?.call(text);
+}
+
+/// 捕获请求头的 Dio 适配器，用于验证论坛 Dio 是否带上令牌
+class _CaptureAdapter implements HttpClientAdapter {
+  RequestOptions? captured;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    captured = options;
+    return ResponseBody.fromString(
+      '{"items":[]}',
+      200,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
 }
