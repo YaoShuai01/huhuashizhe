@@ -271,6 +271,68 @@ void main() {
     expect(repository.messages.first.unread, isFalse);
   });
 
+  testWidgets('点消息整行跳到帖子并带上楼层参数', (tester) async {
+    final post = ForumPost(
+      id: 'p_jump',
+      section: '农友留言区',
+      author: '种田的老张',
+      title: '水稻田作业参数',
+      content: '求参数参考',
+      createdAt: DateTime.now(),
+    );
+    final repository = InMemoryForumRepository(
+      posts: [post],
+      messages: [
+        ForumMessage(
+          id: 'm_jump',
+          kind: ForumMessageKind.reply,
+          title: '老张 回复了你的帖子',
+          body: '「水稻田作业参数」按 2.5 米更稳',
+          createdAt: DateTime.now(),
+          unread: true,
+          postId: post.id,
+          replyId: 'r9',
+        ),
+      ],
+    );
+    String? replyQuery;
+    final router = GoRouter(
+      initialLocation: '/messages',
+      routes: [
+        GoRoute(
+          path: '/messages',
+          builder: (context, state) => const ForumMessagesPage(),
+        ),
+        GoRoute(
+          path: '/forum/post',
+          builder: (context, state) {
+            replyQuery = state.uri.queryParameters['reply'];
+            return const Scaffold(body: Text('帖子详情占位'));
+          },
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(
+      ForumScope(
+        repository: repository,
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // 默认是点赞分栏，先切到回复分栏
+    await tester.tap(find.text('回复'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('老张 回复了你的帖子'));
+    await tester.pumpAndSettle();
+
+    expect(replyQuery, 'r9');
+    expect(find.text('帖子详情占位'), findsOneWidget);
+    expect(repository.messages.first.unread, isFalse);
+  });
+
   testWidgets('语音评论展示播放气泡与自动转写文字', (tester) async {
     final post = ForumPost(
       id: 'p_voice',

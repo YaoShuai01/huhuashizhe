@@ -123,6 +123,7 @@ class ForumMessage {
     required this.createdAt,
     this.unread = false,
     this.postId,
+    this.replyId,
   });
 
   final String id;
@@ -134,6 +135,9 @@ class ForumMessage {
 
   /// 关联帖子 id，用于消息内直接回复
   final String? postId;
+
+  /// 关联评论 id，用于点消息后精确滚到那一楼
+  final String? replyId;
 }
 
 /// 默认分区目录（可被外部数据源覆盖）

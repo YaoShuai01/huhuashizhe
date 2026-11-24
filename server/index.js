@@ -171,7 +171,15 @@ function clip(text, max = 120) {
 
 // 给帖子作者写一条消息提醒，自己的操作不提醒自己。
 // 消息只是提醒，写入失败不能影响点赞 / 收藏 / 评论本身。
-async function notifyPostAuthor({ authorId, actorId, kind, postId, title, body }) {
+async function notifyPostAuthor({
+  authorId,
+  actorId,
+  kind,
+  postId,
+  replyId = null,
+  title,
+  body,
+}) {
   if (!authorId || authorId === actorId) return;
   try {
     // 点赞 / 收藏重复触发时不重复提醒（评论每次都提醒）
@@ -185,9 +193,17 @@ async function notifyPostAuthor({ authorId, actorId, kind, postId, title, body }
       if (exists.length > 0) return;
     }
     await pool.execute(
-      `INSERT INTO forum_messages (user_id, actor_id, kind, post_id, title, body)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [authorId, actorId, kind, postId, clip(title, 120), clip(body, 255)],
+      `INSERT INTO forum_messages (user_id, actor_id, kind, post_id, reply_id, title, body)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        authorId,
+        actorId,
+        kind,
+        postId,
+        replyId,
+        clip(title, 120),
+        clip(body, 255),
+      ],
     );
   } catch (error) {
     console.error('消息提醒写入失败:', error.message);
@@ -482,6 +498,7 @@ app.post(
       actorId: userId,
       kind: 'reply',
       postId,
+      replyId: result.insertId,
       title: `${users[0].nickname} 评论了你的帖子`,
       body: `「${posts[0].title}」${preview}`,
     });
@@ -493,6 +510,7 @@ app.post(
         actorId: userId,
         kind: 'reply',
         postId,
+        replyId: result.insertId,
         title: `${users[0].nickname} 回复了你的评论`,
         body: `「${posts[0].title}」${preview}`,
       });
@@ -779,7 +797,7 @@ app.get(
     const limit = Math.min(parsePositiveInt(req.query.limit, 50) || 50, 100);
 
     const [items] = await pool.execute(
-      `SELECT id, kind, post_id, title, body,
+      `SELECT id, kind, post_id, reply_id, title, body,
               DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') AS created_at,
               read_at
        FROM forum_messages
@@ -871,7 +889,8 @@ async function ensureSchema() {
        FROM information_schema.COLUMNS
       WHERE TABLE_SCHEMA = DATABASE()
         AND ((TABLE_NAME = 'posts' AND COLUMN_NAME IN ('featured', 'tags'))
-          OR (TABLE_NAME = 'replies' AND COLUMN_NAME IN ('parent_id', 'audio_url', 'audio_duration')))`,
+          OR (TABLE_NAME = 'replies' AND COLUMN_NAME IN ('parent_id', 'audio_url', 'audio_duration'))
+          OR (TABLE_NAME = 'forum_messages' AND COLUMN_NAME = 'reply_id'))`,
   );
   const existing = new Set(
     columns.map((column) => `${column.TABLE_NAME}.${column.COLUMN_NAME}`),
@@ -906,6 +925,11 @@ async function ensureSchema() {
   if (!existing.has('replies.audio_duration')) {
     await pool.query(
       "ALTER TABLE replies ADD COLUMN audio_duration INT UNSIGNED DEFAULT NULL COMMENT '语音时长（毫秒）' AFTER audio_url",
+    );
+  }
+  if (!existing.has('forum_messages.reply_id')) {
+    await pool.query(
+      "ALTER TABLE forum_messages ADD COLUMN reply_id BIGINT UNSIGNED DEFAULT NULL COMMENT '关联评论 id，用于消息跳转到具体楼层' AFTER post_id",
     );
   }
 }

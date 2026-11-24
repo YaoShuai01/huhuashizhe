@@ -134,10 +134,7 @@ class ForumApiRepository extends InMemoryForumRepository {
     final me = AuthSession.instance.user.value;
     if (me == null) return;
     try {
-      await _dio.post<Map<String, dynamic>>(
-        path,
-        data: {field: value},
-      );
+      await _dio.post<Map<String, dynamic>>(path, data: {field: value});
     } on DioException {
       rollback();
     }
@@ -218,10 +215,7 @@ class ForumApiRepository extends InMemoryForumRepository {
     _requireUser();
     final data = await _post(
       '/api/uploads',
-      {
-        'ext': extension.toLowerCase(),
-        'data': base64Encode(bytes),
-      },
+      {'ext': extension.toLowerCase(), 'data': base64Encode(bytes)},
       options: Options(
         sendTimeout: const Duration(seconds: 60),
         receiveTimeout: const Duration(seconds: 30),
@@ -323,9 +317,7 @@ class ForumApiRepository extends InMemoryForumRepository {
   Future<void> deletePost(ForumPost post) async {
     _requireUser();
     try {
-      await _dio.delete<Map<String, dynamic>>(
-        '/api/posts/${post.id}',
-      );
+      await _dio.delete<Map<String, dynamic>>('/api/posts/${post.id}');
     } on DioException catch (error) {
       throw ForumException(_errorMessage(error));
     }
@@ -336,9 +328,7 @@ class ForumApiRepository extends InMemoryForumRepository {
   Future<void> deleteComment(ForumComment comment) async {
     _requireUser();
     try {
-      await _dio.delete<Map<String, dynamic>>(
-        '/api/replies/${comment.id}',
-      );
+      await _dio.delete<Map<String, dynamic>>('/api/replies/${comment.id}');
     } on DioException catch (error) {
       throw ForumException(_errorMessage(error));
     }
@@ -490,6 +480,11 @@ class ForumApiRepository extends InMemoryForumRepository {
     createdAt: _parseTime(json['created_at']),
     unread: json['unread'] == true,
     postId: json['post_id'] == null ? null : '${json['post_id']}',
+    // 后端新字段叫 reply_id，旧字段 comment_id 也兼容
+    replyId:
+        json['reply_id'] != null
+            ? '${json['reply_id']}'
+            : (json['comment_id'] == null ? null : '${json['comment_id']}'),
   );
 }
 

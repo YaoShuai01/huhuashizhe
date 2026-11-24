@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -22,6 +24,7 @@ class ForumPostDetailPage extends StatefulWidget {
     required this.post,
     this.repository,
     this.moderationService,
+    this.focusReplyId,
   });
 
   final ForumPost post;
@@ -31,6 +34,9 @@ class ForumPostDetailPage extends StatefulWidget {
 
   /// 外部注入的内容初审实现，为空时使用本地屏蔽词检查
   final ForumModerationService? moderationService;
+
+  /// 从消息提醒跳转时定位的评论 id，为空则不滚动
+  final String? focusReplyId;
 
   @override
   State<ForumPostDetailPage> createState() => _ForumPostDetailPageState();
@@ -46,11 +52,18 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
   /// 正在回复的评论，为空表示直接评论帖子
   ForumComment? _replyTo;
 
+  /// 从消息跳转时要定位的评论节点
+  final GlobalKey _focusCommentKey = GlobalKey();
+  String? _highlightedCommentId;
+  Timer? _highlightTimer;
+
   @override
   void initState() {
     super.initState();
     // 以输入框内容为准同步发送按钮状态，语音输入等直接改文本也能发送
     _controller.addListener(_syncCanSend);
+    // 评论已有缓存时，首帧后直接定位
+    _focusReply();
   }
 
   bool _commentsRequested = false;
@@ -71,6 +84,7 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
     } on ForumException catch (error) {
       if (mounted) _toast(error.message);
     }
+    if (mounted) _focusReply();
   }
 
   /// 下拉刷新：同步帖子数据并重新拉取评论
@@ -81,6 +95,29 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
     } on ForumException catch (error) {
       if (mounted) _toast(error.message);
     }
+    if (mounted) _focusReply();
+  }
+
+  /// 滚到消息对应的评论，并短暂高亮
+  void _focusReply() {
+    final id = widget.focusReplyId;
+    if (id == null || id.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final target = _focusCommentKey.currentContext;
+      if (target == null) return;
+      Scrollable.ensureVisible(
+        target,
+        duration: const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+        alignment: 0.32,
+      );
+      _highlightTimer?.cancel();
+      setState(() => _highlightedCommentId = id);
+      _highlightTimer = Timer(const Duration(milliseconds: 2400), () {
+        if (mounted) setState(() => _highlightedCommentId = null);
+      });
+    });
   }
 
   void _syncCanSend() {
@@ -149,6 +186,7 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
 
   @override
   void dispose() {
+    _highlightTimer?.cancel();
     _controller.removeListener(_syncCanSend);
     _controller.dispose();
     _focusNode.dispose();
@@ -512,25 +550,38 @@ class _ForumPostDetailPageState extends State<ForumPostDetailPage> {
                                 )
                               else
                                 for (final comment in comments)
-                                  ForumCommentTile(
-                                    comment: comment,
-                                    onReply: () => _startReply(comment),
-                                    onReport:
-                                        () => _report(
-                                          repository,
-                                          targetType: 'reply',
-                                          targetId: comment.id,
-                                        ),
-                                    onDelete:
-                                        AuthSession.instance.isMyUserId(
-                                                  comment.authorId,
-                                                ) ||
-                                                AuthSession.instance.isAdmin
-                                            ? () => _confirmDeleteComment(
-                                              repository,
-                                              comment,
-                                            )
+                                  AnimatedContainer(
+                                    key:
+                                        comment.id == widget.focusReplyId
+                                            ? _focusCommentKey
                                             : null,
+                                    duration: const Duration(milliseconds: 260),
+                                    color:
+                                        _highlightedCommentId == comment.id
+                                            ? AppColors.primary.withValues(
+                                              alpha: 0.10,
+                                            )
+                                            : Colors.transparent,
+                                    child: ForumCommentTile(
+                                      comment: comment,
+                                      onReply: () => _startReply(comment),
+                                      onReport:
+                                          () => _report(
+                                            repository,
+                                            targetType: 'reply',
+                                            targetId: comment.id,
+                                          ),
+                                      onDelete:
+                                          AuthSession.instance.isMyUserId(
+                                                    comment.authorId,
+                                                  ) ||
+                                                  AuthSession.instance.isAdmin
+                                              ? () => _confirmDeleteComment(
+                                                repository,
+                                                comment,
+                                              )
+                                              : null,
+                                    ),
                                   ),
                             ],
                           ),
