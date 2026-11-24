@@ -4,6 +4,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
 import '../../../core/constants/server_config.dart';
+import '../../auth/data/auth_session.dart';
+import '../../auth/data/auth_token_interceptor.dart';
 
 /// AI 初审结论
 enum ForumAuditVerdict {
@@ -126,7 +128,7 @@ class AiForumModerationService implements ForumModerationService {
       receiveTimeout: const Duration(seconds: 60),
       headers: const {'Content-Type': 'application/json'},
     ),
-  );
+  )..interceptors.add(AuthTokenInterceptor(() => AuthSession.instance.token));
 
   final Dio _dio;
 

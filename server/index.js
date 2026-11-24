@@ -8,6 +8,7 @@ import express from 'express';
 import authRouter from './auth.js';
 import { isAdminUserId } from './admin.js';
 import { findBannedWord } from './blocklist.js';
+import { currentUserId } from './token.js';
 import { registerAsrRoutes } from './asr.js';
 import { pool } from './db.js';
 
@@ -75,6 +76,20 @@ const REPLY_FROM = `
 
 const asyncHandler = (handler) => (req, res, next) =>
   Promise.resolve(handler(req, res, next)).catch(next);
+
+/**
+ * 取当前登录账号 id。令牌无效或缺失时直接 401，
+ * 不再信任请求体 / 查询参数里自称的 userId。
+ */
+function requireUser(req) {
+  const userId = currentUserId(req);
+  if (userId <= 0) {
+    const error = new Error('请先登录后再操作');
+    error.status = 401;
+    throw error;
+  }
+  return userId;
+}
 
 function parsePositiveInt(value, fallback) {
   const n = Number.parseInt(value, 10);
@@ -185,21 +200,18 @@ const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 
 // POST /api/uploads
-// body: { userId, ext, data(base64) }
+// body: { ext, data(base64) }，账号以令牌为准
 app.post(
   '/api/uploads',
   asyncHandler(async (req, res) => {
     const body = req.body ?? {};
-    const userId = Number(body.userId);
+    const userId = requireUser(req);
     const ext =
       typeof body.ext === 'string'
         ? body.ext.toLowerCase().replace(/^\./, '')
         : '';
     const data = typeof body.data === 'string' ? body.data : '';
 
-    if (!Number.isInteger(userId) || userId <= 0) {
-      return res.status(400).json({ error: 'userId 必须是正整数' });
-    }
     if (!ALLOWED_UPLOAD_EXT.has(ext)) {
       return res.status(400).json({ error: '仅支持 jpg/jpeg/png/webp 图片或 wav 音频' });
     }
@@ -237,7 +249,8 @@ app.post(
   }),
 );
 
-// GET /api/posts?section=农友留言区&limit=20&offset=0&userId=1
+// GET /api/posts?section=农友留言区&limit=20&offset=0
+// 携带令牌时顺带返回该账号的 liked / favorited，昵称与身份都以令牌为准
 app.get(
   '/api/posts',
   asyncHandler(async (req, res) => {
@@ -245,9 +258,8 @@ app.get(
       typeof req.query.section === 'string' ? req.query.section.trim() : '';
     const limit = Math.min(parsePositiveInt(req.query.limit, 20) || 20, 100);
     const offset = parsePositiveInt(req.query.offset, 0);
-    const rawUserId = Number(req.query.userId);
-    const userId =
-      Number.isInteger(rawUserId) && rawUserId > 0 ? rawUserId : null;
+    const authedUserId = currentUserId(req);
+    const userId = authedUserId > 0 ? authedUserId : null;
 
     // 传入 userId 时顺带返回该用户是否点过赞 / 收藏过
     const userFields = userId
@@ -284,21 +296,18 @@ app.get(
 );
 
 // POST /api/posts
-// body: { userId, section, title, content, images?: string[], tags?: string[] }
+// body: { section, title, content, images?: string[], tags?: string[] }，作者以令牌为准
 app.post(
   '/api/posts',
   asyncHandler(async (req, res) => {
     const body = req.body ?? {};
-    const userId = Number(body.userId);
+    const userId = requireUser(req);
     const section = typeof body.section === 'string' ? body.section.trim() : '';
     const title = typeof body.title === 'string' ? body.title.trim() : '';
     const content = typeof body.content === 'string' ? body.content.trim() : '';
     const images = normalizeImages(body.images);
     const tags = normalizeTags(body.tags);
 
-    if (!Number.isInteger(userId) || userId <= 0) {
-      return res.status(400).json({ error: 'userId 必须是正整数' });
-    }
     if (!section || section.length > 50) {
       return res.status(400).json({ error: 'section 不能为空且不超过 50 字' });
     }
@@ -388,14 +397,14 @@ app.get(
 );
 
 // POST /api/posts/:id/replies
-// body: { userId, content, parentId?, audioUrl?, audioDuration? }
+// body: { content, parentId?, audioUrl?, audioDuration? }，作者以令牌为准
 // audioUrl/audioDuration 表示语音评论，content 为其转写文字（可为空）
 app.post(
   '/api/posts/:id/replies',
   asyncHandler(async (req, res) => {
     const postId = Number(req.params.id);
     const body = req.body ?? {};
-    const userId = Number(body.userId);
+    const userId = requireUser(req);
     const content =
       typeof body.content === 'string' ? body.content.trim() : '';
     const parentId = body.parentId == null ? null : Number(body.parentId);
@@ -405,9 +414,6 @@ app.post(
 
     if (!Number.isInteger(postId) || postId <= 0) {
       return res.status(400).json({ error: '帖子 id 不合法' });
-    }
-    if (!Number.isInteger(userId) || userId <= 0) {
-      return res.status(400).json({ error: 'userId 必须是正整数' });
     }
     if (content.length > 450) {
       return res.status(400).json({ error: '评论不能超过 450 字' });
@@ -507,14 +513,11 @@ app.post(
   '/api/posts/:id/like',
   asyncHandler(async (req, res) => {
     const postId = Number(req.params.id);
-    const userId = Number(req.body?.userId);
+    const userId = requireUser(req);
     const liked = req.body?.liked === true;
 
     if (!Number.isInteger(postId) || postId <= 0) {
       return res.status(400).json({ error: '帖子 id 不合法' });
-    }
-    if (!Number.isInteger(userId) || userId <= 0) {
-      return res.status(400).json({ error: 'userId 必须是正整数' });
     }
 
     const [posts] = await pool.execute(
@@ -566,19 +569,16 @@ app.post(
 );
 
 // POST /api/posts/:id/favorite
-// body: { userId, favorited: boolean }
+// body: { favorited: boolean }，账号以令牌为准
 app.post(
   '/api/posts/:id/favorite',
   asyncHandler(async (req, res) => {
     const postId = Number(req.params.id);
-    const userId = Number(req.body?.userId);
+    const userId = requireUser(req);
     const favorited = req.body?.favorited === true;
 
     if (!Number.isInteger(postId) || postId <= 0) {
       return res.status(400).json({ error: '帖子 id 不合法' });
-    }
-    if (!Number.isInteger(userId) || userId <= 0) {
-      return res.status(400).json({ error: 'userId 必须是正整数' });
     }
 
     const [posts] = await pool.execute(
@@ -621,19 +621,16 @@ app.post(
 );
 
 // POST /api/posts/:id/feature
-// body: { userId, featured: boolean }，仅管理员可设置精选
+// body: { featured: boolean }，仅管理员可设置精选，账号以令牌为准
 app.post(
   '/api/posts/:id/feature',
   asyncHandler(async (req, res) => {
     const postId = Number(req.params.id);
-    const userId = Number(req.body?.userId);
+    const userId = requireUser(req);
     const featured = req.body?.featured === true;
 
     if (!Number.isInteger(postId) || postId <= 0) {
       return res.status(400).json({ error: '帖子 id 不合法' });
-    }
-    if (!Number.isInteger(userId) || userId <= 0) {
-      return res.status(400).json({ error: 'userId 必须是正整数' });
     }
 
     const [posts] = await pool.execute(
@@ -661,18 +658,15 @@ function isForumAdmin(userId) {
   return isAdminUserId(userId);
 }
 
-// DELETE /api/posts/:id?userId=1，作者或管理员可删除
+// DELETE /api/posts/:id，作者或管理员可删除，账号以令牌为准
 app.delete(
   '/api/posts/:id',
   asyncHandler(async (req, res) => {
     const postId = Number(req.params.id);
-    const userId = Number(req.query.userId);
+    const userId = requireUser(req);
 
     if (!Number.isInteger(postId) || postId <= 0) {
       return res.status(400).json({ error: '帖子 id 不合法' });
-    }
-    if (!Number.isInteger(userId) || userId <= 0) {
-      return res.status(400).json({ error: 'userId 必须是正整数' });
     }
 
     const [posts] = await pool.execute(
@@ -695,18 +689,15 @@ app.delete(
   }),
 );
 
-// DELETE /api/replies/:id?userId=1，作者或管理员可删除
+// DELETE /api/replies/:id，作者或管理员可删除，账号以令牌为准
 app.delete(
   '/api/replies/:id',
   asyncHandler(async (req, res) => {
     const replyId = Number(req.params.id);
-    const userId = Number(req.query.userId);
+    const userId = requireUser(req);
 
     if (!Number.isInteger(replyId) || replyId <= 0) {
       return res.status(400).json({ error: '评论 id 不合法' });
-    }
-    if (!Number.isInteger(userId) || userId <= 0) {
-      return res.status(400).json({ error: 'userId 必须是正整数' });
     }
 
     const [rows] = await pool.execute(
@@ -730,19 +721,16 @@ app.delete(
 );
 
 // POST /api/reports
-// body: { userId, targetType: 'post' | 'reply', targetId, reason }
+// body: { targetType: 'post' | 'reply', targetId, reason }，投诉人账号以令牌为准
 app.post(
   '/api/reports',
   asyncHandler(async (req, res) => {
     const body = req.body ?? {};
-    const userId = Number(body.userId);
+    const userId = requireUser(req);
     const targetType = body.targetType;
     const targetId = Number(body.targetId);
     const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
 
-    if (!Number.isInteger(userId) || userId <= 0) {
-      return res.status(400).json({ error: 'userId 必须是正整数' });
-    }
     if (targetType !== 'post' && targetType !== 'reply') {
       return res.status(400).json({ error: '投诉类型不合法' });
     }
@@ -783,16 +771,12 @@ app.post(
   }),
 );
 
-// GET /api/messages?userId=1&limit=50
+// GET /api/messages?limit=50，消息接收者以令牌为准
 app.get(
   '/api/messages',
   asyncHandler(async (req, res) => {
-    const userId = Number(req.query.userId);
+    const userId = requireUser(req);
     const limit = Math.min(parsePositiveInt(req.query.limit, 50) || 50, 100);
-
-    if (!Number.isInteger(userId) || userId <= 0) {
-      return res.status(400).json({ error: 'userId 必须是正整数' });
-    }
 
     const [items] = await pool.execute(
       `SELECT id, kind, post_id, title, body,
@@ -815,17 +799,14 @@ app.get(
 );
 
 // POST /api/messages/read
-// body: { userId, id? }，不带 id 表示全部已读
+// body: { id? }，不带 id 表示全部已读；账号以令牌为准
 app.post(
   '/api/messages/read',
   asyncHandler(async (req, res) => {
-    const userId = Number(req.body?.userId);
+    const userId = requireUser(req);
     const rawId = req.body?.id;
     const messageId = rawId == null ? null : Number(rawId);
 
-    if (!Number.isInteger(userId) || userId <= 0) {
-      return res.status(400).json({ error: 'userId 必须是正整数' });
-    }
     if (messageId != null && (!Number.isInteger(messageId) || messageId <= 0)) {
       return res.status(400).json({ error: '消息 id 不合法' });
     }
@@ -857,6 +838,10 @@ app.use((err, req, res, next) => {
   }
   if (err?.type === 'entity.too.large') {
     return res.status(413).json({ error: '图片过大，请重新选择后上传' });
+  }
+  // requireUser() 等业务校验抛出的 HTTP 错误
+  if (err?.status && Number.isInteger(err.status)) {
+    return res.status(err.status).json({ error: err.message });
   }
   console.error(err);
   res.status(500).json({ error: '服务器内部错误' });

@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../core/constants/server_config.dart';
+import '../features/auth/data/auth_session.dart';
+import '../features/auth/data/auth_token_interceptor.dart';
 import 'weather_service.dart';
 
 class AiChatMessage {
@@ -71,14 +73,16 @@ class AiChatService {
         .trim();
   }
 
-  final Dio _dio = Dio(BaseOptions(
+  late final Dio _dio = Dio(BaseOptions(
     baseUrl: _baseUrl,
     connectTimeout: const Duration(seconds: 15),
     receiveTimeout: const Duration(seconds: 90),
     headers: {
       'Content-Type': 'application/json',
     },
-  ));
+  ))..interceptors.add(
+    AuthTokenInterceptor(() => AuthSession.instance.token),
+  );
 
   /// 把代理返回的状态码转换成用户可读的提示
   static String _friendlyError(Object error) {

@@ -4,6 +4,7 @@ import { Router } from 'express';
 
 import { pool } from './db.js';
 import { isAdminUserId } from './admin.js';
+import { issueToken, currentUserId } from './token.js';
 
 const router = Router();
 
@@ -12,6 +13,46 @@ const NICKNAME_MAX = 6;
 const PASSWORD_MIN = 6;
 const PASSWORD_MAX = 32;
 const LOGIN_ID_PATTERN = /^\d{8}$/;
+
+/** 登录 / 注册限流：同一 IP 每分钟最多 8 次，防止 8 位登录号被在线撞库 */
+const RATE_WINDOW_MS = 60_000;
+const RATE_MAX = 8;
+const rateBuckets = new Map();
+
+function allowAttempt(ip) {
+  const now = Date.now();
+  const key = ip || 'unknown';
+  const hits = (rateBuckets.get(key) ?? []).filter(
+    (at) => now - at < RATE_WINDOW_MS,
+  );
+  if (hits.length >= RATE_MAX) {
+    rateBuckets.set(key, hits);
+    return false;
+  }
+  hits.push(now);
+  rateBuckets.set(key, hits);
+  if (rateBuckets.size > 5000) {
+    for (const [bucketKey, list] of rateBuckets) {
+      if (list.every((at) => now - at >= RATE_WINDOW_MS)) {
+        rateBuckets.delete(bucketKey);
+      }
+    }
+  }
+  return true;
+}
+
+/** 经本机反向代理（Tomcat /forum）时取 X-Forwarded-For，否则直连地址 */
+function clientIp(req) {
+  const remote = req.socket?.remoteAddress ?? '';
+  const local = remote === '127.0.0.1' || remote === '::1' || remote === '::ffff:127.0.0.1';
+  if (local) {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (typeof forwarded === 'string' && forwarded.trim()) {
+      return forwarded.split(',')[0].trim();
+    }
+  }
+  return remote;
+}
 
 const asyncHandler = (handler) => (req, res, next) =>
   Promise.resolve(handler(req, res, next)).catch(next);
@@ -64,6 +105,9 @@ router.post(
         .status(400)
         .json({ error: `密码需为 ${PASSWORD_MIN}-${PASSWORD_MAX} 位` });
     }
+    if (!allowAttempt(clientIp(req))) {
+      return res.status(429).json({ error: '操作太频繁，请稍后再试' });
+    }
 
     const passwordHash = hashPassword(password);
 
@@ -80,6 +124,7 @@ router.post(
           loginId,
           nickname,
           isAdmin: isAdminUserId(result.insertId),
+          ...issueToken(result.insertId),
         });
       } catch (error) {
         if (error?.code !== 'ER_DUP_ENTRY') throw error;
@@ -106,6 +151,9 @@ router.post(
     if (!LOGIN_ID_PATTERN.test(loginId) || !validPassword(password)) {
       return res.status(400).json({ error: '登录号或密码格式不正确' });
     }
+    if (!allowAttempt(clientIp(req))) {
+      return res.status(429).json({ error: '操作太频繁，请稍后再试' });
+    }
 
     const [rows] = await pool.execute(
       'SELECT id, login_id, nickname, password_hash FROM users WHERE login_id = ?',
@@ -123,21 +171,22 @@ router.post(
       loginId: user.login_id,
       nickname: user.nickname,
       isAdmin: isAdminUserId(user.id),
+      ...issueToken(user.id),
     });
   }),
 );
 
-// POST /api/auth/profile  { userId, nickname }
+// POST /api/auth/profile  { nickname }，昵称以令牌里的账号为准，禁止代改他人昵称
 // 修改昵称：论坛帖子/评论查询时 JOIN users，历史内容会同步展示新昵称
 router.post(
   '/profile',
   asyncHandler(async (req, res) => {
-    const userId = Number(req.body?.userId);
+    const userId = currentUserId(req);
     const nickname =
       typeof req.body?.nickname === 'string' ? req.body.nickname.trim() : '';
 
-    if (!Number.isInteger(userId) || userId <= 0) {
-      return res.status(400).json({ error: '账号信息不正确' });
+    if (userId <= 0) {
+      return res.status(401).json({ error: '请先登录后再修改资料' });
     }
     if (!validNickname(nickname)) {
       return res

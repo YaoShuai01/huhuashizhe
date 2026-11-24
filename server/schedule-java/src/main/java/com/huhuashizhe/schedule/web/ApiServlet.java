@@ -819,7 +819,8 @@ public class ApiServlet extends HttpServlet {
             throw new ApiException(401, "unauthorized", "登录已失效，请重新输入轮协密钥");
         }
         TokenPayload payload = tokenService.verify(header.substring(7).trim());
-        if (payload == null) {
+        // 轮协接口只认轮协令牌；论坛账号令牌（只有 uid）不能当成员令牌用
+        if (payload == null || payload.role == null) {
             throw new ApiException(401, "unauthorized", "登录已失效，请重新输入轮协密钥");
         }
         return payload;
@@ -951,11 +952,16 @@ public class ApiServlet extends HttpServlet {
     }
 
     private String clientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.trim().isEmpty()) {
-            return forwarded.split(",")[0].trim();
+        // 只有经由本机反向代理时才采信 X-Forwarded-For，否则任何人都能伪造它绕过限流
+        String remote = request.getRemoteAddr();
+        boolean local = "127.0.0.1".equals(remote) || "0:0:0:0:0:0:0:1".equals(remote);
+        if (local) {
+            String forwarded = request.getHeader("X-Forwarded-For");
+            if (forwarded != null && !forwarded.trim().isEmpty()) {
+                return forwarded.split(",")[0].trim();
+            }
         }
-        return request.getRemoteAddr();
+        return remote;
     }
 
     private static boolean constantTimeEquals(String a, String b) {
