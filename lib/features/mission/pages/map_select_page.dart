@@ -60,7 +60,7 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
         setState(() => _gpsReady = true);
       }
     });
-    _autoLocate();
+    _autoLocate(showError: false);
   }
 
   @override
@@ -69,20 +69,64 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
     super.dispose();
   }
 
-  Future<void> _autoLocate() async {
-    setState(() => _isLocating = true);
-    final pos = await GpsLocationService.getCurrentLocation();
-    if (pos != null && mounted) {
-      _gpsTimeout?.cancel();
-      final wgs84 = LatLng(pos.lat, pos.lng);
-      // GPS返回WGS-84，高德地图瓦片使用GCJ-02，必须转换以消除~400m偏差
-      final gcj02 = CoordTransform.wgs84ToGcj02(wgs84.latitude, wgs84.longitude);
-      _mapController.move(gcj02, 16.0);
-      _currentCenterLat = gcj02.latitude;
-      if (mounted) setState(() { _isLocating = false; _gpsReady = true; });
-    } else {
-      if (mounted) setState(() => _isLocating = false);
+  Future<void> _autoLocate({bool showError = true}) async {
+    if (_isLocating) {
+      // 初次自动定位仍在等待时，用户再点一次也要有反馈
+      if (showError) _toast('正在获取位置，请稍候');
+      return;
     }
+    setState(() => _isLocating = true);
+
+    GpsLocation? pos;
+    try {
+      // 部分平板/车机定位回调迟迟不返回，超时后走缓存兜底
+      pos = await GpsLocationService.getCurrentLocation().timeout(
+        const Duration(seconds: 6),
+      );
+    } on TimeoutException {
+      pos = null;
+    } catch (_) {
+      pos = null;
+    }
+    final source = pos ?? GpsLocationService.cachedLocation;
+    if (!mounted) return;
+    if (source == null) {
+      setState(() => _isLocating = false);
+      if (showError) _toast('定位失败，请检查定位权限或到室外后重试');
+      return;
+    }
+
+    // GPS返回WGS-84，高德地图瓦片使用GCJ-02，必须转换以消除~400m偏差
+    final target = CoordTransform.wgs84ToGcj02(source.lat, source.lng);
+    _gpsTimeout?.cancel();
+    setState(() {
+      _isLocating = false;
+      _gpsReady = true;
+      _currentCenterLat = target.latitude;
+    });
+    _centerOn(target);
+  }
+
+  /// 居中到目标点；地图尚未挂载成功时延后一帧重试，避免平板首帧无反应
+  void _centerOn(LatLng target, {int attempt = 0}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      try {
+        _mapController.move(target, _currentZoom);
+      } catch (_) {
+        if (attempt < 3) {
+          Future.delayed(const Duration(milliseconds: 120), () {
+            if (mounted) _centerOn(target, attempt: attempt + 1);
+          });
+        }
+      }
+    });
+  }
+
+  void _toast(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   /// 微调移动地图中心（dxMeters: 东西方向，正值向东；dyMeters: 南北方向，正值向北）
@@ -364,7 +408,7 @@ class _MapSelectPageState extends ConsumerState<MapSelectPage> {
           // GPS定位按钮（静态图标，点击居中到用户位置）
           IconButton(
             icon: const Icon(Icons.my_location, color: Colors.white),
-            onPressed: _autoLocate,
+            onPressed: () => _autoLocate(),
             tooltip: '定位到当前位置',
             padding: const EdgeInsets.symmetric(horizontal: 10),
             constraints: const BoxConstraints(minWidth: 40, minHeight: 40),

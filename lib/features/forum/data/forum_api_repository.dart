@@ -14,16 +14,18 @@ class ForumApiRepository extends InMemoryForumRepository {
   ForumApiRepository({Dio? dio, String? baseUrl})
     : _dio =
           dio ??
-          (Dio(
+          Dio(
             BaseOptions(
               baseUrl: _normalizeBase(baseUrl ?? defaultForumApiBase),
               connectTimeout: const Duration(seconds: 8),
               receiveTimeout: const Duration(seconds: 8),
             ),
-          )..interceptors.add(
-            AuthTokenInterceptor(() => AuthSession.instance.token),
-          )),
+          ),
       super(seed: false) {
+    // 论坛所有请求都要带登录令牌；注入的 Dio 也统一挂上，避免再次漏接
+    _dio.interceptors.add(
+      AuthTokenInterceptor(() => AuthSession.instance.token),
+    );
     // 登录 / 退出后同步私有数据（消息、点赞、收藏），避免不同账号串号
     AuthSession.instance.user.addListener(_onAccountChanged);
   }
