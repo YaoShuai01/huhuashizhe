@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../auth/data/auth_api.dart';
 import '../../auth/data/auth_session.dart';
+import '../../auth/data/auth_token_interceptor.dart';
 import 'forum_models.dart';
 import 'forum_repository.dart';
 
@@ -13,13 +14,15 @@ class ForumApiRepository extends InMemoryForumRepository {
   ForumApiRepository({Dio? dio, String? baseUrl})
     : _dio =
           dio ??
-          Dio(
+          (Dio(
             BaseOptions(
               baseUrl: _normalizeBase(baseUrl ?? defaultForumApiBase),
               connectTimeout: const Duration(seconds: 8),
               receiveTimeout: const Duration(seconds: 8),
             ),
-          ),
+          )..interceptors.add(
+            AuthTokenInterceptor(() => AuthSession.instance.token),
+          )),
       super(seed: false) {
     // 登录 / 退出后同步私有数据（消息、点赞、收藏），避免不同账号串号
     AuthSession.instance.user.addListener(_onAccountChanged);
