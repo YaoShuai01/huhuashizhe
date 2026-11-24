@@ -64,9 +64,8 @@ final appRouter = GoRouter(
           routes: [
             GoRoute(
               path: '/home',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: HomePage(),
-              ),
+              pageBuilder:
+                  (context, state) => const NoTransitionPage(child: HomePage()),
             ),
           ],
         ),
@@ -74,9 +73,9 @@ final appRouter = GoRouter(
           routes: [
             GoRoute(
               path: '/data-center',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: DataCenterPage(),
-              ),
+              pageBuilder:
+                  (context, state) =>
+                      const NoTransitionPage(child: DataCenterPage()),
             ),
           ],
         ),
@@ -84,9 +83,9 @@ final appRouter = GoRouter(
           routes: [
             GoRoute(
               path: '/services',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: ServicesPage(),
-              ),
+              pageBuilder:
+                  (context, state) =>
+                      const NoTransitionPage(child: ServicesPage()),
             ),
           ],
         ),
@@ -94,9 +93,8 @@ final appRouter = GoRouter(
           routes: [
             GoRoute(
               path: '/mine',
-              pageBuilder: (context, state) => const NoTransitionPage(
-                child: MinePage(),
-              ),
+              pageBuilder:
+                  (context, state) => const NoTransitionPage(child: MinePage()),
             ),
           ],
         ),
@@ -162,7 +160,8 @@ final appRouter = GoRouter(
       path: '/classroom/course',
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
-        final extra = state.extra is Map ? state.extra as Map : const <String, dynamic>{};
+        final extra =
+            state.extra is Map ? state.extra as Map : const <String, dynamic>{};
         return CourseDetailPage(
           courseId: (extra['id'] ?? '').toString(),
           title: (extra['title'] ?? '').toString(),
@@ -199,14 +198,15 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/forum/section',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) =>
-          ForumSectionPage(section: state.extra as String),
+      builder:
+          (context, state) => ForumSectionPage(section: state.extra as String),
     ),
     GoRoute(
       path: '/forum/compose',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) =>
-          ForumComposePage(initialSection: state.extra as String?),
+      builder:
+          (context, state) =>
+              ForumComposePage(initialSection: state.extra as String?),
     ),
     GoRoute(
       path: '/forum/my-posts',
@@ -221,8 +221,12 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/forum/post',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) =>
-          ForumPostDetailPage(post: state.extra as ForumPost),
+      builder:
+          (context, state) => ForumPostDetailPage(
+            post: state.extra as ForumPost,
+            // 消息提醒可带 ?reply=<评论id>，进入后滚到并高亮该楼
+            focusReplyId: state.uri.queryParameters['reply'],
+          ),
     ),
     GoRoute(
       path: '/forum/favorites',
@@ -289,7 +293,10 @@ final appRouter = GoRouter(
       parentNavigatorKey: _rootNavigatorKey,
       builder: (context, state) {
         final args = state.extra as Map<String, String>;
-        return LegalDetailPage(title: args['title']!, content: args['content']!);
+        return LegalDetailPage(
+          title: args['title']!,
+          content: args['content']!,
+        );
       },
     ),
     GoRoute(
@@ -383,14 +390,16 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/cloud-farm/plot/:id',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) =>
-          CloudPlotDetailPage(plotId: state.pathParameters['id']!),
+      builder:
+          (context, state) =>
+              CloudPlotDetailPage(plotId: state.pathParameters['id']!),
     ),
     GoRoute(
       path: '/cloud-farm/remote/:id',
       parentNavigatorKey: _rootNavigatorKey,
-      builder: (context, state) =>
-          CloudRemotePage(plotId: state.pathParameters['id']!),
+      builder:
+          (context, state) =>
+              CloudRemotePage(plotId: state.pathParameters['id']!),
     ),
   ],
 );
@@ -410,10 +419,11 @@ class AppShell extends StatelessWidget {
         body: navigationShell,
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: navigationShell.currentIndex,
-          onTap: (index) => navigationShell.goBranch(
-            index,
-            initialLocation: index == navigationShell.currentIndex,
-          ),
+          onTap:
+              (index) => navigationShell.goBranch(
+                index,
+                initialLocation: index == navigationShell.currentIndex,
+              ),
           items: const [
             BottomNavigationBarItem(
               icon: Icon(Icons.home_outlined),
@@ -441,9 +451,9 @@ class AppShell extends StatelessWidget {
     }
 
     void goBranch(int index) => navigationShell.goBranch(
-          index,
-          initialLocation: index == navigationShell.currentIndex,
-        );
+      index,
+      initialLocation: index == navigationShell.currentIndex,
+    );
 
     return Scaffold(
       body: Row(

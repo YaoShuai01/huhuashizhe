@@ -1371,6 +1371,16 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.10.16',
+        'date': '2026-11-24',
+        'content': [
+          '消息提醒点整行会直接打开对应帖子，不再只是标为已读',
+          '带楼层的消息会自动滚到那条评论并高亮 2.4 秒',
+          '后端消息新增 reply_id，历史消息没有楼层时打开帖子顶部',
+          '右侧「回复」按钮保持内联回复，不受影响',
+        ],
+      },
+      {
         'version': 'v3.10.15',
         'date': '2026-11-24',
         'content': [

@@ -94,6 +94,7 @@ CREATE TABLE IF NOT EXISTS forum_messages (
   actor_id   INT UNSIGNED             DEFAULT NULL COMMENT '触发者',
   kind       ENUM('like', 'reply', 'favorite') NOT NULL,
   post_id    BIGINT UNSIGNED          DEFAULT NULL,
+  reply_id   BIGINT UNSIGNED          DEFAULT NULL COMMENT '关联评论 id，用于跳转具体楼层',
   title      VARCHAR(120)    NOT NULL,
   body       VARCHAR(255)    NOT NULL,
   created_at DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../auth/data/auth_session.dart';
@@ -76,6 +77,36 @@ class _ForumMessagesPageState extends State<ForumMessagesPage> {
     }
   }
 
+  /// 点整行消息：标已读并跳到对应帖子；带楼层时滚到那条评论
+  Future<void> _openMessage(
+    ForumRepository repository,
+    ForumMessage message,
+  ) async {
+    repository.markMessageRead(message);
+    final postId = message.postId;
+    if (postId == null) return;
+    var post = repository.postById(postId);
+    if (post == null) {
+      try {
+        await repository.refresh();
+      } on ForumException {
+        // 刷新失败按帖子不存在处理
+      }
+      post = repository.postById(postId);
+    }
+    if (!mounted) return;
+    if (post == null) {
+      _toast('帖子可能已被删除');
+      return;
+    }
+    final replyId = message.replyId;
+    final path =
+        replyId == null || replyId.isEmpty
+            ? '/forum/post'
+            : '/forum/post?reply=${Uri.encodeQueryComponent(replyId)}';
+    await context.push(path, extra: post);
+  }
+
   @override
   Widget build(BuildContext context) {
     final repository = widget.repository ?? ForumScope.of(context);
@@ -94,9 +125,10 @@ class _ForumMessagesPageState extends State<ForumMessagesPage> {
                 child: Text(
                   '全部已读',
                   style: TextStyle(
-                    color: hasUnread
-                        ? AppColors.textOnPrimary
-                        : AppColors.textOnPrimary.withValues(alpha: 0.5),
+                    color:
+                        hasUnread
+                            ? AppColors.textOnPrimary
+                            : AppColors.textOnPrimary.withValues(alpha: 0.5),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -108,12 +140,11 @@ class _ForumMessagesPageState extends State<ForumMessagesPage> {
       body: AnimatedBuilder(
         animation: repository,
         builder: (context, _) {
-          final likeMessages =
-              repository.messagesOf(ForumMessageKind.like);
-          final replyMessages =
-              repository.messagesOf(ForumMessageKind.reply);
-          final favoriteMessages =
-              repository.messagesOf(ForumMessageKind.favorite);
+          final likeMessages = repository.messagesOf(ForumMessageKind.like);
+          final replyMessages = repository.messagesOf(ForumMessageKind.reply);
+          final favoriteMessages = repository.messagesOf(
+            ForumMessageKind.favorite,
+          );
           final messages = switch (_kind) {
             ForumMessageKind.reply => replyMessages,
             ForumMessageKind.favorite => favoriteMessages,
@@ -138,9 +169,10 @@ class _ForumMessagesPageState extends State<ForumMessagesPage> {
                             color: _likeColor,
                             selected: _kind == ForumMessageKind.like,
                             unreadCount: _unreadCount(likeMessages),
-                            onTap: () => setState(
-                              () => _kind = ForumMessageKind.like,
-                            ),
+                            onTap:
+                                () => setState(
+                                  () => _kind = ForumMessageKind.like,
+                                ),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -151,9 +183,10 @@ class _ForumMessagesPageState extends State<ForumMessagesPage> {
                             color: _favoriteColor,
                             selected: _kind == ForumMessageKind.favorite,
                             unreadCount: _unreadCount(favoriteMessages),
-                            onTap: () => setState(
-                              () => _kind = ForumMessageKind.favorite,
-                            ),
+                            onTap:
+                                () => setState(
+                                  () => _kind = ForumMessageKind.favorite,
+                                ),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -164,9 +197,10 @@ class _ForumMessagesPageState extends State<ForumMessagesPage> {
                             color: _replyColor,
                             selected: _kind == ForumMessageKind.reply,
                             unreadCount: _unreadCount(replyMessages),
-                            onTap: () => setState(
-                              () => _kind = ForumMessageKind.reply,
-                            ),
+                            onTap:
+                                () => setState(
+                                  () => _kind = ForumMessageKind.reply,
+                                ),
                           ),
                         ),
                       ],
@@ -176,7 +210,7 @@ class _ForumMessagesPageState extends State<ForumMessagesPage> {
                     padding: const EdgeInsets.fromLTRB(16, 20, 16, 6),
                     child: Row(
                       children: [
-                         Expanded(
+                        Expanded(
                           child: Text(
                             '消息列表',
                             style: TextStyle(
@@ -191,7 +225,7 @@ class _ForumMessagesPageState extends State<ForumMessagesPage> {
                             '共 ${messages.length} 条',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style:  TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
                               color: context.palette.textHint,
                             ),
@@ -216,7 +250,7 @@ class _ForumMessagesPageState extends State<ForumMessagesPage> {
                     for (final message in messages) ...[
                       ForumMessageTile(
                         message: message,
-                        onTap: () => repository.markMessageRead(message),
+                        onTap: () => _openMessage(repository, message),
                         onReply:
                             message.kind == ForumMessageKind.reply &&
                                     message.postId != null
