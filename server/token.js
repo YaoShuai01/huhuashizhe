@@ -76,6 +76,8 @@ function sign(body) {
 
 /** 为账号签发令牌，返回 { token, expiresAt } */
 export function issueToken(userId) {
+  // 先加载配置，确保自定义 TTL 在首次签发时也生效
+  resolveSecret();
   const now = Math.floor(Date.now() / 1000);
   const payload = {
     v: TOKEN_VERSION,
@@ -128,5 +130,8 @@ export function tokenFromRequest(req) {
  */
 export function currentUserId(req) {
   const payload = verifyToken(tokenFromRequest(req));
-  return payload ? payload.uid : 0;
+  // 轮协令牌只有 role、没有 uid，不能当论坛账号使用
+  return payload && Number.isInteger(payload.uid) && payload.uid > 0
+    ? payload.uid
+    : 0;
 }

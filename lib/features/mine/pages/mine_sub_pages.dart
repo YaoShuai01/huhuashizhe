@@ -1371,6 +1371,16 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.10.15',
+        'date': '2026-11-24',
+        'content': [
+          '服务端启用登录令牌：发帖、评论、点赞、收藏、删除、投诉与私信不再信任客户端 userId',
+          '语音识别、AI 助手、AI 初审与文件上传需要登录，防止额度被刷',
+          '登录/注册按 IP 限制 8 次/分钟，修复 X-Forwarded-For 绕过限流',
+          '旧版本无令牌的登录记录会清除并要求重新登录',
+        ],
+      },
+      {
         'version': 'v3.10.14',
         'date': '2026-11-23',
         'content': [
