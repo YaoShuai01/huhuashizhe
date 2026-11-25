@@ -1371,6 +1371,16 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.11.2',
+        'date': '2026-11-25',
+        'content': [
+          '图传加载页新增实时统计：KB/s、kbps、完整帧数、丢弃帧数，现场可直接判断链路状态',
+          '图传期间申请 WiFi 高性能锁（WIFI_MODE_FULL_LOW_LATENCY），关闭手机 WiFi 省电，提升下行吞吐',
+          'Android 增加 WAKE_LOCK 权限，退出遥控页自动释放 WiFi 锁',
+          '修复手机省电模式导致 UDP 大量丢段、首帧迟迟无法解码的问题',
+        ],
+      },
+      {
         'version': 'v3.11.1',
         'date': '2026-11-25',
         'content': [

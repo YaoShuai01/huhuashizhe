@@ -60,11 +60,83 @@ static int      s_seg_n = 0;
 static uint32_t s_frame_seq = 0;
 static volatile uint32_t s_drop_segs = 0;
 
+// H.264 NAL 类型统计（5=IDR, 7=SPS, 8=PPS, 1=非IDR slice）
+static uint32_t s_cnt_sps = 0;
+static uint32_t s_cnt_pps = 0;
+static uint32_t s_cnt_idr = 0;
+static uint32_t s_cnt_slice = 0;
+
+// 缓存 SPS/PPS：手机中途订阅时先补发，否则解码器不知道分辨率，永远等不到首帧
+static uint8_t s_sps[128];
+static uint8_t s_pps[128];
+static volatile int s_sps_n = 0;
+static volatile int s_pps_n = 0;
+
+// 扫描一段 Annex-B 数据：缓存 SPS/PPS，统计 IDR/slice。
+// P4 每帧输出的是"起始码 + NAL"的整帧数据，必须按起始码解析，不能看首字节。
+static void scan_annexb(const uint8_t* p, int n)
+{
+    int i = 0;
+    while (i + 3 <= n) {
+        int scLen = 0;
+        if (p[i] == 0 && p[i + 1] == 0 && p[i + 2] == 1) {
+            scLen = 3;
+        } else if (i + 4 <= n && p[i] == 0 && p[i + 1] == 0 && p[i + 2] == 0 && p[i + 3] == 1) {
+            scLen = 4;
+        }
+        if (!scLen) {
+            i++;
+            continue;
+        }
+        const int h = i + scLen;
+        if (h >= n) {
+            break;
+        }
+        const uint8_t t = p[h] & 0x1F;
+
+        // 找下一个起始码，确定本 NAL 长度
+        int e = h + 1;
+        while (e + 3 <= n) {
+            if (p[e] == 0 && p[e + 1] == 0 && p[e + 2] == 1) break;
+            if (e + 4 <= n && p[e] == 0 && p[e + 1] == 0 && p[e + 2] == 0 && p[e + 3] == 1) break;
+            e++;
+        }
+        const int len = e - h;
+
+        if (t == 7 && len > 0 && len + 4 <= (int)sizeof(s_sps)) {
+            if (s_sps_n == 0) {
+                printf("[VB] got sps %d bytes\n", len);
+                fflush(stdout);
+            }
+            // 带起始码缓存：补发时必须是一个完整合法的 Annex-B NAL
+            s_sps[0] = 0; s_sps[1] = 0; s_sps[2] = 0; s_sps[3] = 1;
+            memcpy(s_sps + 4, p + h, len);
+            s_sps_n = len + 4;
+            s_cnt_sps++;
+        } else if (t == 8 && len > 0 && len + 4 <= (int)sizeof(s_pps)) {
+            if (s_pps_n == 0) {
+                printf("[VB] got pps %d bytes\n", len);
+                fflush(stdout);
+            }
+            s_pps[0] = 0; s_pps[1] = 0; s_pps[2] = 0; s_pps[3] = 1;
+            memcpy(s_pps + 4, p + h, len);
+            s_pps_n = len + 4;
+            s_cnt_pps++;
+        } else if (t == 5) {
+            s_cnt_idr++;
+        } else if (t == 1) {
+            s_cnt_slice++;
+        }
+        i = h + 1;
+    }
+}
+
 static void send_seg()
 {
     if (s_seg_n <= 0 || !s_txq) {
         return;
     }
+    scan_annexb(s_seg, s_seg_n);
     static VbSeg txseg;
     txseg.seq = s_frame_seq;
     txseg.nal_len = s_nal_len;
@@ -75,6 +147,24 @@ static void send_seg()
     if (xQueueSend(s_txq, &txseg, 0) != pdTRUE) {
         s_drop_segs++;   // 队列满就丢这一段，避免拖死 SPI
     }
+}
+
+// 直接把一小段 NAL 发出去（用于订阅时补发 SPS/PPS）
+static void send_direct(WiFiUDP& udp, const IPAddress& ip, const uint8_t* data, int len, uint32_t seq)
+{
+    uint8_t uh[VB_UDP_HDR] = {
+        'H', 'V', 0x03,
+        (uint8_t)(seq), (uint8_t)(seq >> 8), (uint8_t)(seq >> 16), (uint8_t)(seq >> 24),
+        0, 0,                          // idx
+        1, 0,                          // cnt
+        (uint8_t)(len), (uint8_t)(len >> 8), (uint8_t)(len >> 16), (uint8_t)(len >> 24),
+        (uint8_t)(len), (uint8_t)(len >> 8),
+        0
+    };
+    udp.beginPacket(ip, VB_UDP_PORT);
+    udp.write(uh, sizeof(uh));
+    udp.write(data, len);
+    udp.endPacket();
 }
 
 // UDP 发送任务：收手机订阅包、单播视频
@@ -97,6 +187,7 @@ static void videoTxTask(void* arg)
     fflush(stdout);
 
     bool peerValid = false;
+    bool paramSent = false;
     uint32_t statT = millis();
     uint32_t statBytes = 0;
     uint32_t statPkts = 0;
@@ -112,11 +203,22 @@ static void videoTxTask(void* arg)
                 if (!peerValid || ip != s_peer) {
                     printf("[VB] udp peer %s\n", ip.toString().c_str());
                     fflush(stdout);
+                    paramSent = false;
                 }
                 s_peer = ip;
                 s_peerMs = millis();
                 peerValid = true;
             }
+        }
+
+        // 手机中途接入拿不到 SPS/PPS，解码器无法初始化：参数集一到就补发一次
+        if (peerValid && !paramSent && s_sps_n > 0 && s_pps_n > 0) {
+            send_direct(udp, s_peer, s_sps, s_sps_n, 0xFFFFFFF0u);
+            send_direct(udp, s_peer, s_pps, s_pps_n, 0xFFFFFFF1u);
+            paramSent = true;
+            printf("[VB] send sps=%d pps=%d to %s\n",
+                   s_sps_n, s_pps_n, s_peer.toString().c_str());
+            fflush(stdout);
         }
 
         if (xQueueReceive(s_txq, &seg, pdMS_TO_TICKS(10)) == pdTRUE) {
@@ -272,8 +374,10 @@ static void videoBridgeTask(void* arg)
         // 每 5 秒打印 SPI 吞吐：0 表示 P4 没在推流（未上电/没接好）
         const uint32_t nowMs = millis();
         if (nowMs - statT >= 5000) {
-            printf("[VB] spi %u B/s heap=%u dma=%u\n",
+            printf("[VB] spi %u B/s sps=%u pps=%u idr=%u p=%u heap=%u dma=%u\n",
                    (unsigned)(statBytes * 1000 / (nowMs - statT)),
+                   (unsigned)s_cnt_sps, (unsigned)s_cnt_pps,
+                   (unsigned)s_cnt_idr, (unsigned)s_cnt_slice,
                    (unsigned)ESP.getFreeHeap(),
                    (unsigned)heap_caps_get_free_size(MALLOC_CAP_DMA));
             fflush(stdout);

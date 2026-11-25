@@ -96,6 +96,7 @@ class MainActivity : FlutterActivity() {
     private var wifiScanTimeoutHandler: Handler? = null
     private var wifiScanTimeoutRunnable: Runnable? = null
     private var wifiReceiverRegistered = false
+    private var wifiLock: WifiManager.WifiLock? = null
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -174,6 +175,11 @@ class MainActivity : FlutterActivity() {
                 "startScan" -> startWifiScan(result)
                 "stopScan" -> stopWifiScan(result)
                 "openWifiSettings" -> openWifiSettings(result)
+                "acquireWifiLock" -> result.success(acquireWifiLock())
+                "releaseWifiLock" -> {
+                    releaseWifiLock()
+                    result.success(true)
+                }
                 else -> result.notImplemented()
             }
         }
@@ -681,6 +687,37 @@ class MainActivity : FlutterActivity() {
     private fun wifiManager(): WifiManager? =
         applicationContext.getSystemService(Context.WIFI_SERVICE) as? WifiManager
 
+    /// 图传专用：申请 WiFi 高性能锁，关闭省电模式。
+    /// 默认省电模式下手机每个 DTIM 周期才取一次缓存包，下行吞吐被压到 2Mbps 左右，
+    /// 图传会大量丢段、画面出不来。
+    private fun acquireWifiLock(): Boolean {
+        return try {
+            val wm = wifiManager() ?: return false
+            if (wifiLock == null) {
+                val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    WifiManager.WIFI_MODE_FULL_LOW_LATENCY
+                } else {
+                    @Suppress("DEPRECATION")
+                    WifiManager.WIFI_MODE_FULL_HIGH_PERF
+                }
+                wifiLock = wm.createWifiLock(mode, "huhuashizhe:video")
+                wifiLock?.setReferenceCounted(false)
+            }
+            if (wifiLock?.isHeld != true) wifiLock?.acquire()
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    private fun releaseWifiLock() {
+        try {
+            val lock = wifiLock ?: return
+            if (lock.isHeld) lock.release()
+        } catch (e: Exception) {
+        }
+    }
+
     /// 当前连接的 WiFi 名称（SSID），未连接返回 null
     private fun currentWifiSsid(): String? {
         return try {
@@ -1185,6 +1222,7 @@ class MainActivity : FlutterActivity() {
     override fun onDestroy() {
         stopBluetoothScan(null)
         stopWifiScan(null)
+        releaseWifiLock()
         stopGnssKeepAlive()
         stopGnssMonitoring()
         stopCompass()

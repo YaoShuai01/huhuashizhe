@@ -44,6 +44,7 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
   H264UdpRelay? _relay;
   bool _h264Loading = false;
   String? _h264Error;
+  Timer? _h264UiTimer;
 
   // 北斗卫星实时状态（用于底部遥测与起飞播报）
   StreamSubscription<GnssSnapshot>? _gnssSub;
@@ -64,6 +65,13 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
     _vision.start();
     _vision.photoNotifier.addListener(_onPhoto);
     _initH264();
+    // 未出画面时每秒刷新一次接收统计，便于现场判断卡在哪一环
+    _h264UiTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      if (_useH264 && !(_h264?.value.isInitialized ?? false)) {
+        setState(() {});
+      }
+    });
   }
 
   @override
@@ -75,6 +83,7 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
     _vision.photoNotifier.removeListener(_onPhoto);
     _vision.dispose();
     _h264?.dispose();
+    _h264UiTimer?.cancel();
     _relay?.dispose();
     super.dispose();
   }
@@ -158,6 +167,14 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
               style: TextStyle(color: Colors.grey[600], fontSize: 12),
               textAlign: TextAlign.center,
             ),
+            if (_relay != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                _relay!.statsText,
+                style: TextStyle(color: Colors.grey[500], fontSize: 11),
+                textAlign: TextAlign.center,
+              ),
+            ],
             if (!_h264Loading)
               TextButton(
                 onPressed: _retryH264,

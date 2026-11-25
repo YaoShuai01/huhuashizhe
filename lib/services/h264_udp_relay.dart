@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/services.dart';
+
 /// 飞控 UDP 图传 → 本机 HTTP 中转。
 ///
 /// 飞控把 H.264 按 1400 字节分段单播到手机 8889，分片头 18 字节：
@@ -20,6 +22,7 @@ class H264UdpRelay {
   RawDatagramSocket? _udp;
   HttpServer? _http;
   Timer? _hello;
+  Timer? _statsTimer;
   HttpResponse? _client;
 
   final List<Uint8List> _queue = [];
@@ -35,10 +38,28 @@ class H264UdpRelay {
 
   int droppedNals = 0;
   int receivedBytes = 0;
+  int nalCount = 0;
+  int bytesPerSec = 0;
+  int _lastBytes = 0;
+
+  static const MethodChannel _wifiChannel =
+      MethodChannel('com.huhuashizhe/wifi');
 
   String get localUrl => 'http://127.0.0.1:${_http!.port}/live.h264';
 
+  /// 加载页实时显示，便于判断是没收到数据还是解码问题
+  String get statsText =>
+      '${(bytesPerSec / 1024).toStringAsFixed(0)} KB/s · '
+      '${(bytesPerSec * 8 / 1000).toStringAsFixed(0)} kbps · '
+      '完整帧 $nalCount · 丢弃 $droppedNals';
+
   Future<void> start() async {
+    // 关掉手机 WiFi 省电，否则下行被 DTIM 缓冲限制在 2Mbps 左右，图传必然丢帧
+    try {
+      await _wifiChannel.invokeMethod('acquireWifiLock');
+    } catch (_) {
+      // 非 Android 或旧包没有该通道
+    }
     _http = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     _http!.listen(_handle, onError: (Object _) {});
     _udp = await RawDatagramSocket.bind(InternetAddress.anyIPv4, udpPort);
@@ -47,12 +68,18 @@ class H264UdpRelay {
       const Duration(milliseconds: 1000),
       (_) => _sendHello(),
     );
+    _statsTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      bytesPerSec = receivedBytes - _lastBytes;
+      _lastBytes = receivedBytes;
+    });
     _sendHello();
   }
 
   Future<void> dispose() async {
     _hello?.cancel();
     _hello = null;
+    _statsTimer?.cancel();
+    _statsTimer = null;
     _client = null;
     _udp?.close();
     _udp = null;
@@ -61,6 +88,9 @@ class H264UdpRelay {
     } catch (_) {}
     _http = null;
     _queue.clear();
+    try {
+      await _wifiChannel.invokeMethod('releaseWifiLock');
+    } catch (_) {}
   }
 
   /// 订阅包：飞控收到后才知道要发给谁（单播，不用广播占空口）
@@ -140,6 +170,7 @@ class H264UdpRelay {
 
   void _push(Uint8List nal) {
     receivedBytes += nal.length;
+    nalCount++;
     _queue.add(nal);
     while (_queue.length > _maxQueue) {
       _queue.removeAt(0);
