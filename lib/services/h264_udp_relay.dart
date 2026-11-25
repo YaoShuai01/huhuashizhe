@@ -17,7 +17,7 @@ class H264UdpRelay {
   static const String _droneHost = '192.168.4.1';
   static const int _hdrLen = 18;
   static const int _segMax = 1400;
-  static const int _maxQueue = 40; // 约 1.5 秒缓冲，超出丢最旧的整帧
+  static const int _maxQueue = 6; // 约 0.4 秒，超出丢最旧的整帧（实时优先）
 
   RawDatagramSocket? _udp;
   HttpServer? _http;
@@ -31,16 +31,23 @@ class H264UdpRelay {
   int _seq = -1;
   int _nalLen = 0;
   int _segCnt = 0;
-  int _nextSeg = 0;
-  int _got = 0;
+  int _gotSegs = 0;
   Uint8List? _buf;
-  bool _drop = false;
+  List<bool> _have = const <bool>[];
+  bool _done = false;
 
   int droppedNals = 0;
+  int missingSegDrops = 0;
+  int queueDrops = 0;
   int receivedBytes = 0;
   int nalCount = 0;
+  int rxBytes = 0;
+  int rxPackets = 0;
+  int packetsPerSec = 0;
   int bytesPerSec = 0;
   int _lastBytes = 0;
+  int _lastPackets = 0;
+  bool wifiLockHeld = false;
 
   static const MethodChannel _wifiChannel =
       MethodChannel('com.huhuashizhe/wifi');
@@ -49,16 +56,20 @@ class H264UdpRelay {
 
   /// 加载页实时显示，便于判断是没收到数据还是解码问题
   String get statsText =>
-      '${(bytesPerSec / 1024).toStringAsFixed(0)} KB/s · '
+      '入 ${(bytesPerSec / 1024).toStringAsFixed(0)} KB/s · '
       '${(bytesPerSec * 8 / 1000).toStringAsFixed(0)} kbps · '
-      '完整帧 $nalCount · 丢弃 $droppedNals';
+      '包 $packetsPerSec/s\n'
+      '帧 $nalCount · 丢 $droppedNals'
+      '（缺段 $missingSegDrops / 队列 $queueDrops）· '
+      'WiFi锁 ${wifiLockHeld ? '开' : '关'}';
 
   Future<void> start() async {
     // 关掉手机 WiFi 省电，否则下行被 DTIM 缓冲限制在 2Mbps 左右，图传必然丢帧
     try {
-      await _wifiChannel.invokeMethod('acquireWifiLock');
+      wifiLockHeld =
+          await _wifiChannel.invokeMethod<bool>('acquireWifiLock') == true;
     } catch (_) {
-      // 非 Android 或旧包没有该通道
+      wifiLockHeld = false;
     }
     _http = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     _http!.listen(_handle, onError: (Object _) {});
@@ -69,8 +80,10 @@ class H264UdpRelay {
       (_) => _sendHello(),
     );
     _statsTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      bytesPerSec = receivedBytes - _lastBytes;
-      _lastBytes = receivedBytes;
+      bytesPerSec = rxBytes - _lastBytes;
+      _lastBytes = rxBytes;
+      packetsPerSec = rxPackets - _lastPackets;
+      _lastPackets = rxPackets;
     });
     _sendHello();
   }
@@ -91,6 +104,7 @@ class H264UdpRelay {
     try {
       await _wifiChannel.invokeMethod('releaseWifiLock');
     } catch (_) {}
+    wifiLockHeld = false;
   }
 
   /// 订阅包：飞控收到后才知道要发给谁（单播，不用广播占空口）
@@ -131,41 +145,54 @@ class H264UdpRelay {
     if (nalLen == 0 || nalLen > 400000 || cnt == 0 || segLen == 0) return;
     if (d.length < _hdrLen + segLen) return;
 
+    // 原始入站统计：与“完整帧吞吐”分开，避免丢帧时误显示 0 KB/s
+    rxBytes += segLen;
+    rxPackets++;
+
     if (seq != _seq) {
+      if (_seq != -1 && !_done) _finishFrame();
       _seq = seq;
       _nalLen = nalLen;
       _segCnt = cnt;
-      _nextSeg = 0;
-      _got = 0;
-      _drop = false;
+      _gotSegs = 0;
       _buf = Uint8List(nalLen);
+      _have = List<bool>.filled(cnt, false);
+      _done = false;
     }
-    if (_drop) return;
+    if (_done) return;
+    if (idx >= _segCnt) return;
+    // 重复包直接忽略（WiFi 重传可能重复送达）
+    if (_have[idx]) return;
 
-    if (idx != _nextSeg) {
-      // 中间丢片：整帧丢弃。半帧数据交给解码器会画出彩色竖线
-      _drop = true;
-      droppedNals++;
-      return;
-    }
     final off = idx * _segMax;
     if (off + segLen > _nalLen) {
-      _drop = true;
+      _done = true;
       droppedNals++;
+      missingSegDrops++;
       return;
     }
     _buf!.setRange(off, off + segLen, d, _hdrLen);
-    _got += segLen;
-    _nextSeg++;
+    _have[idx] = true;
+    _gotSegs++;
 
-    if (idx == _segCnt - 1 || _got >= _nalLen) {
-      if (!_drop && _got == _nalLen) {
-        _push(_buf!);
-      } else {
-        droppedNals++;
-      }
-      _seq = -1;
+    if (_gotSegs == _segCnt) {
+      _finishFrame();
     }
+  }
+
+  /// 一帧结束：收全了才交给解码器。
+  /// 不能按 idx 顺序判断——无线链路的乱序/重传很常见，按顺序判会把好帧当丢包扔掉。
+  void _finishFrame() {
+    if (_seq == -1) return;
+    if (!_done && _gotSegs == _segCnt && _buf != null) {
+      _push(_buf!);
+    } else {
+      droppedNals++;
+      missingSegDrops++;
+    }
+    _done = true;
+    _buf = null;
+    _have = const <bool>[];
   }
 
   void _push(Uint8List nal) {
@@ -175,6 +202,7 @@ class H264UdpRelay {
     while (_queue.length > _maxQueue) {
       _queue.removeAt(0);
       droppedNals++;
+      queueDrops++;
     }
   }
 

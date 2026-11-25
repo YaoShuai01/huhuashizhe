@@ -694,17 +694,26 @@ class MainActivity : FlutterActivity() {
         return try {
             val wm = wifiManager() ?: return false
             if (wifiLock == null) {
-                val mode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    WifiManager.WIFI_MODE_FULL_LOW_LATENCY
+                val modes = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    intArrayOf(
+                        WifiManager.WIFI_MODE_FULL_LOW_LATENCY,
+                        WifiManager.WIFI_MODE_FULL_HIGH_PERF
+                    )
                 } else {
-                    @Suppress("DEPRECATION")
-                    WifiManager.WIFI_MODE_FULL_HIGH_PERF
+                    intArrayOf(WifiManager.WIFI_MODE_FULL_HIGH_PERF)
                 }
-                wifiLock = wm.createWifiLock(mode, "huhuashizhe:video")
+                for (mode in modes) {
+                    try {
+                        wifiLock = wm.createWifiLock(mode, "huhuashizhe:video")
+                    } catch (_: Exception) {
+                        wifiLock = null
+                    }
+                    if (wifiLock != null) break
+                }
                 wifiLock?.setReferenceCounted(false)
             }
             if (wifiLock?.isHeld != true) wifiLock?.acquire()
-            true
+            wifiLock?.isHeld == true
         } catch (e: Exception) {
             false
         }

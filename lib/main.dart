@@ -27,7 +27,9 @@ import 'widgets/splash_page.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // 图传走 FVP(FFmpeg) 后端，低延迟播放飞控转发的裸 H.264
-  fvp.registerWith(options: {'lowLatency': 1});
+  // lowLatency: 1 只关 ffmpeg 缓冲、不设上限，播放器会无限攒帧 → 延时越积越高；
+  // 2 才会限制缓冲时长并在落后时丢旧帧（实时流必需）
+  fvp.registerWith(options: {'lowLatency': 2});
   await LocalDatabase().init(); // 初始化本地数据持久化
   AuthSession.instance.restore(); // 恢复上次登录的账号
   unawaited(VoiceService.instance.init()); // 语音播报预热（系统TTS，不阻塞启动）

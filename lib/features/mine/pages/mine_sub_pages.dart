@@ -1371,6 +1371,17 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.11.3',
+        'date': '2026-11-25',
+        'content': [
+          '图传延迟改为有上限：FVP 低延迟模式升到 2，播放缓冲压到 400ms，落后时优先丢弃旧帧',
+          'UDP 重组改为位图判定：乱序与重复包不再整帧丢弃，收全分片才交给解码器',
+          '飞控发送队列由 16 段扩到 40 段，队列满时丢最旧分片，避免关键帧被截断导致反复花屏',
+          '加载页显示真实入站速率与包速率，区分缺段丢帧和队列溢出，并显示 WiFi 高性能锁状态',
+          'WiFi 高性能锁增加 HIGH_PERF 回退；需配套已烧录 UDP 图传固件的飞控（v3.4.4 及以后）',
+        ],
+      },
+      {
         'version': 'v3.11.2',
         'date': '2026-11-25',
         'content': [

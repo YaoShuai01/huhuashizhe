@@ -3,6 +3,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:fvp/fvp.dart' show FVPControllerExtensions;
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -105,6 +106,8 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
       }
       controller = VideoPlayerController.networkUrl(Uri.parse(relay.localUrl));
       await controller.initialize().timeout(const Duration(seconds: 10));
+      // 缓冲上限压到 400ms：实时图传宁可丢旧帧也不能攒延迟
+      controller.setBufferRange(min: 0, max: 400, drop: true);
       await controller.play();
       if (!mounted) {
         await controller.dispose();

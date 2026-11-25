@@ -26,7 +26,7 @@
 #define VB_QUEUE     4
 #define VB_UDP_PORT  8889
 #define VB_SEG_MAX   1400
-#define VB_TXQ_LEN   16
+#define VB_TXQ_LEN   40   // 40*1412≈56KB，刚好能吃下 IDR 突发
 #define VB_PEER_TTL  3000   // 手机 3 秒没发订阅就停发视频
 
 // 18 字节分片头：'H''V' 0x03 | seq(4) | idx(2) | cnt(2) | nal_len(4) | seg_len(2) | 0
@@ -145,7 +145,15 @@ static void send_seg()
     txseg.len = (uint16_t)s_seg_n;
     memcpy(txseg.data, s_seg, s_seg_n);
     if (xQueueSend(s_txq, &txseg, 0) != pdTRUE) {
-        s_drop_segs++;   // 队列满就丢这一段，避免拖死 SPI
+        // 队列满：丢掉最旧的一段再塞新数据。
+        // 每秒一次的 IDR 是大突发（几十 KB），队列不够深会被截断，
+        // 整个关键帧作废 → 手机端要等到下一个 IDR 才能恢复，看起来就是"反复花屏"。
+        static VbSeg old;
+        xQueueReceive(s_txq, &old, 0);
+        s_drop_segs++;   // 避免拖死 SPI
+        if (xQueueSend(s_txq, &txseg, 0) != pdTRUE) {
+            s_drop_segs++;
+        }
     }
 }
 

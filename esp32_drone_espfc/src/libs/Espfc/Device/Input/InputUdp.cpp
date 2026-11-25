@@ -202,6 +202,15 @@ int InputUdp::begin(void)
     }
   }
 
+  // 图传下行实测只有 2.2Mbps（191 pkt/s），像是 AP 一直在用 11b/低速率发。
+  // 强制只用 11n 并固定 MCS5（57.8Mbps，-40dBm 下余量足够），把空口下限抬起来。
+  {
+    const esp_err_t pr = esp_wifi_set_protocol(WIFI_IF_AP, WIFI_PROTOCOL_11N);
+    const esp_err_t rr = esp_wifi_config_80211_tx_rate(WIFI_IF_AP, WIFI_PHY_RATE_MCS5_LGI);
+    printf("[WIFI] ap 11n=%d mcs5=%d\n", (int)pr, (int)rr);
+    fflush(stdout);
+  }
+
   // 从 NVS 恢复飞行微调（水平 0.1 度，旋转 0.1 度/秒，永久保存）
   {
     Preferences prefs;
