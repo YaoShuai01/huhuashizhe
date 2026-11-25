@@ -2,6 +2,7 @@
 #include <HWCDC.h>
 #include <LittleFS.h>
 #include <WiFi.h>
+#include <esp_wifi.h>
 #include <esp_partition.h>
 #include <Espfc.hpp>
 #include <Hal/FastCode.hpp>
@@ -47,6 +48,7 @@ void gyroTask(void* pvParameters)
 {
   gyroTaskHandle = Task::currentHandle();
   espfc.begin();
+  g_wifiReady = true;   // WiFi AP 已在 espfc.begin() 内启动，图传任务可以建 socket 了
   printf("[ESPFC] gyro=%d accel=%d mag=%d baro=%d gps=%d rate=%dHz\n",
          (int)espfc.isGyroReady(), (int)espfc.isAccelReady(),
          (int)espfc.isMagReady(), (int)espfc.isBaroReady(),
@@ -87,7 +89,13 @@ static void wifiEvent(WiFiEvent_t event, WiFiEventInfo_t info)
       printf("[WIFI] AP started, ip=%s\n", WiFi.softAPIP().toString().c_str());
       break;
     case ARDUINO_EVENT_WIFI_AP_STACONNECTED:
-      printf("[WIFI] station connected\n");
+      printf("[WIFI] station connected mac=%02X:%02X:%02X:%02X:%02X:%02X\n",
+             info.wifi_ap_staconnected.mac[0], info.wifi_ap_staconnected.mac[1],
+             info.wifi_ap_staconnected.mac[2], info.wifi_ap_staconnected.mac[3],
+             info.wifi_ap_staconnected.mac[4], info.wifi_ap_staconnected.mac[5]);
+      break;
+    case ARDUINO_EVENT_WIFI_AP_STAIPASSIGNED:
+      printf("[WIFI] station got ip\n");
       break;
     case ARDUINO_EVENT_WIFI_AP_STADISCONNECTED:
       printf("[WIFI] station disconnected, reason=%d\n", (int)info.wifi_ap_stadisconnected.reason);
@@ -318,12 +326,25 @@ void loop()
   if (now - lastStatus >= 5000)
   {
     lastStatus = now;
-    printf("[ESPFC] baro=%d press=%dPa alt=%dcm vario=%dcm/s gps=%d fix=%d sats=%d mag=%d/%d/%d wifi_sta=%d\n",
+    printf("[ESPFC] baro=%d press=%dPa alt=%dcm vario=%dcm/s gps=%d fix=%d sats=%d mag=%d/%d/%d wifi_sta=%d heap=%u\n",
            (int)espfc.isBaroReady(), espfc.baroPressure(), espfc.baroAltitude10() * 10,
            espfc.baroVario100(),
            (int)espfc.isGpsReady(), (int)espfc.isGpsFix(), espfc.gpsSats(),
            espfc.magX(), espfc.magY(), espfc.magZ(),
-           (int)WiFi.softAPgetStationNum());
+           (int)WiFi.softAPgetStationNum(), (unsigned)ESP.getFreeHeap());
+    // 手机链路质量：RSSI + 协商的 11b/g/n，用来判断图传吞吐低是信号问题还是 TCP 窗口问题
+    {
+      wifi_sta_list_t slist = {};
+      if (esp_wifi_ap_get_sta_list(&slist) == ESP_OK)
+      {
+        for (int i = 0; i < slist.num; i++)
+        {
+          printf("[WIFI] sta rssi=%d phy 11b=%d 11g=%d 11n=%d\n",
+                 (int)slist.sta[i].rssi, (int)slist.sta[i].phy_11b,
+                 (int)slist.sta[i].phy_11g, (int)slist.sta[i].phy_11n);
+        }
+      }
+    }
     fflush(stdout);
   }
   // 偏航诊断：解锁后每 200ms 打印一次，用地面手拧机身即可判断方向是否正确

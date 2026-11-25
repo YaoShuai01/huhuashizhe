@@ -1371,6 +1371,16 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.11.1',
+        'date': '2026-11-25',
+        'content': [
+          '图传链路改为 UDP 单播：手机每秒发送订阅包，飞控只向当前手机推流，停止订阅 3 秒自动停发',
+          'APP 新增 UDP 分片重组中转，本地 HTTP 流交给 FVP 解码；丢失分片时整帧丢弃，修复画面彩色竖线',
+          '旧版 HTTP 8080 图传已下线，需更新到本版本并连接 HuHuaShiZhe-Drone 才能查看 H.264 画面',
+          '需配套使用已烧录 UDP 图传固件的飞控（v3.4.4 及以后）',
+        ],
+      },
+      {
         'version': 'v3.11.0',
         'date': '2026-11-25',
         'content': [

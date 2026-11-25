@@ -10,6 +10,7 @@ import 'package:video_player/video_player.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../services/drone_udp_service.dart';
+import '../../../services/h264_udp_relay.dart';
 import '../../../services/satellite_service.dart';
 import '../../../services/vision_stream_service.dart';
 import '../../../services/voice_service.dart';
@@ -37,10 +38,10 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
   int _trimYaw = 0; // 航向微调，单位 0.1 度/秒
   bool _trimBusy = false;
 
-  // P4 H.264 图传：P4 → 飞控 SPI → 飞控 WiFi HTTP
-  static const String _h264Url = 'http://192.168.4.1:8080/live.h264';
+  // P4 H.264 图传：P4 → 飞控 SPI → 飞控 WiFi(UDP 8889) → 本机中转 HTTP → FVP 解码
   bool _useH264 = true;
   VideoPlayerController? _h264;
+  H264UdpRelay? _relay;
   bool _h264Loading = false;
   String? _h264Error;
 
@@ -74,18 +75,26 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
     _vision.photoNotifier.removeListener(_onPhoto);
     _vision.dispose();
     _h264?.dispose();
+    _relay?.dispose();
     super.dispose();
   }
 
-  /// 连接飞控转发的裸 H.264（HTTP），FVP 负责解码
+  /// 连接 H.264 图传：先起 UDP 中转（收飞控视频并本地转成 HTTP 流），FVP 负责解码
   Future<void> _initH264() async {
     if (_h264 != null) return;
     setState(() {
       _h264Loading = true;
       _h264Error = null;
     });
-    final controller = VideoPlayerController.networkUrl(Uri.parse(_h264Url));
+    VideoPlayerController? controller;
     try {
+      var relay = _relay;
+      if (relay == null) {
+        relay = H264UdpRelay();
+        await relay.start();
+        _relay = relay;
+      }
+      controller = VideoPlayerController.networkUrl(Uri.parse(relay.localUrl));
       await controller.initialize().timeout(const Duration(seconds: 10));
       await controller.play();
       if (!mounted) {
@@ -97,13 +106,24 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
         _h264Loading = false;
       });
     } catch (e) {
-      await controller.dispose();
+      await controller?.dispose();
       if (!mounted) return;
       setState(() {
         _h264Loading = false;
         _h264Error = 'H.264 连接失败：$e';
       });
     }
+  }
+
+  /// 重试：连中转一起重建（UDP 端口可能已被占用或飞控重启过）
+  void _retryH264() {
+    final old = _h264;
+    _h264 = null;
+    old?.dispose();
+    final relay = _relay;
+    _relay = null;
+    relay?.dispose();
+    _initH264();
   }
 
   void _setVideoMode(bool h264) {
@@ -140,12 +160,7 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
             ),
             if (!_h264Loading)
               TextButton(
-                onPressed: () {
-                  final old = _h264;
-                  _h264 = null;
-                  old?.dispose();
-                  _initH264();
-                },
+                onPressed: _retryH264,
                 child: const Text('重试'),
               ),
           ],

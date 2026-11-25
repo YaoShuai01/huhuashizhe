@@ -7,6 +7,7 @@
 #include <Preferences.h>
 #include <WiFi.h>
 #include <WiFiUdp.h>
+#include <esp_wifi.h>
 #include <driver/ledc.h>
 #include <algorithm>
 #include <cstdlib>
@@ -186,6 +187,20 @@ int InputUdp::begin(void)
   WiFi.mode(WIFI_AP);
   WiFi.setSleep(false);
   const bool ap = WiFi.softAP(AP_SSID, nullptr, AP_CHANNEL, false, AP_MAX_CONN);
+
+  // DTIM=1：手机省电模式下每个 beacon（100ms）都能取走缓存的下行包。
+  // 默认 DTIM=3 时下行要等 300ms，TCP 吞吐会被压到 1Mbps 以下，图传必然丢段。
+  {
+    wifi_config_t apcfg = {};
+    if (esp_wifi_get_config(WIFI_IF_AP, &apcfg) == ESP_OK)
+    {
+      apcfg.ap.dtim_period = 1;
+      apcfg.ap.beacon_interval = 100;
+      esp_wifi_set_config(WIFI_IF_AP, &apcfg);
+      printf("[WIFI] ap dtim=%d beacon=%dms\n", (int)apcfg.ap.dtim_period, (int)apcfg.ap.beacon_interval);
+      fflush(stdout);
+    }
+  }
 
   // 从 NVS 恢复飞行微调（水平 0.1 度，旋转 0.1 度/秒，永久保存）
   {
