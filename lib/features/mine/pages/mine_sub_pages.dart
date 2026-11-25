@@ -1371,6 +1371,16 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.11.0',
+        'date': '2026-11-25',
+        'content': [
+          '遥控图传新增 H.264 模式，默认低延迟播放飞控转发的 H.264 视频流（FVP/FFmpeg 解码）',
+          '连接失败会显示具体原因并支持一键重试；画面支持水平/垂直翻转，右上角可切换 H.264 / JPEG',
+          'H.264 模式下隐藏旧版画质档位、暂停与拍照按钮，避免误触',
+          '飞控新增 SPI 图传桥（UDP 8889 + HTTP 8080），需配套烧录飞控固件 v3.4.4',
+        ],
+      },
+      {
         'version': 'v3.10.18',
         'date': '2026-11-24',
         'content': [
