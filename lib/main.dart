@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:fvp/fvp.dart' as fvp;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'core/accessibility/elder_care_controller.dart';
 import 'core/accessibility/elder_care_reader.dart';
@@ -25,6 +26,8 @@ import 'widgets/splash_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // 图传走 FVP(FFmpeg) 后端，低延迟播放飞控转发的裸 H.264
+  fvp.registerWith(options: {'lowLatency': 1});
   await LocalDatabase().init(); // 初始化本地数据持久化
   AuthSession.instance.restore(); // 恢复上次登录的账号
   unawaited(VoiceService.instance.init()); // 语音播报预热（系统TTS，不阻塞启动）

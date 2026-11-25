@@ -39,6 +39,14 @@ app.*.symbols
 # Obfuscation related
 app.*.map.json
 
+# ESP32-P4 vision project (build outputs and fetched components)
+esp32_p4_vision/build/
+esp32_p4_vision/managed_components/
+esp32_p4_vision/.cache/
+esp32_p4_vision/sdkconfig
+esp32_p4_vision/pc_viewer/*.jpg
+esp32_p4_vision/pc_viewer/*.png
+
 # Android Studio will place build artifacts here
 /android/app/debug
 /android/app/profile

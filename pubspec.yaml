@@ -31,6 +31,9 @@ dependencies:
   image_picker: ^1.2.1
   record: ^6.2.1
   audioplayers: ^6.1.0
+  # P4 图传：FVP 作为 video_player 的 FFmpeg 后端，播放裸 H.264 over HTTP
+  video_player: ^2.9.2
+  fvp: ^0.40.0
 
 dev_dependencies:
   flutter_test:

@@ -10,6 +10,8 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
+#include "VideoBridge.h"
+
 // 板载 WS2812 全彩灯：DevKitC-1 v1.0 为 GPIO48；若板子是 v1.1（灯接 GPIO38）改这里
 // 节奏：蓝色每 1.5 秒一次；绿色每 3 秒一次（3 秒周期：0ms 蓝 → 180ms 绿 → 1500ms 蓝）
 #define STATUS_LED_PIN 48
@@ -139,6 +141,7 @@ void setup()
   fflush(stdout);
 
   espfc.load();
+  videoBridgeBegin();
   Task::create(gyroTask, "gyroTask", 8192, nullptr, Task::Priority::High, 1);
   Task::create(pidTask, "pidTask", 8192, nullptr, Task::Priority::Low, 0);
   // Keep the Arduino loop task alive: it feeds the task watchdog. Deleting it

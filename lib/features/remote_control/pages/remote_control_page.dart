@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../services/drone_udp_service.dart';
@@ -36,6 +37,13 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
   int _trimYaw = 0; // 航向微调，单位 0.1 度/秒
   bool _trimBusy = false;
 
+  // P4 H.264 图传：P4 → 飞控 SPI → 飞控 WiFi HTTP
+  static const String _h264Url = 'http://192.168.4.1:8080/live.h264';
+  bool _useH264 = true;
+  VideoPlayerController? _h264;
+  bool _h264Loading = false;
+  String? _h264Error;
+
   // 北斗卫星实时状态（用于底部遥测与起飞播报）
   StreamSubscription<GnssSnapshot>? _gnssSub;
   int _beidouFound = 0;
@@ -54,6 +62,7 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
     // 视觉板图传：进入遥控页自动开播，画面显示在中央预留区
     _vision.start();
     _vision.photoNotifier.addListener(_onPhoto);
+    _initH264();
   }
 
   @override
@@ -64,7 +73,99 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
     _udp.dispose();
     _vision.photoNotifier.removeListener(_onPhoto);
     _vision.dispose();
+    _h264?.dispose();
     super.dispose();
+  }
+
+  /// 连接飞控转发的裸 H.264（HTTP），FVP 负责解码
+  Future<void> _initH264() async {
+    if (_h264 != null) return;
+    setState(() {
+      _h264Loading = true;
+      _h264Error = null;
+    });
+    final controller = VideoPlayerController.networkUrl(Uri.parse(_h264Url));
+    try {
+      await controller.initialize().timeout(const Duration(seconds: 10));
+      await controller.play();
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
+      setState(() {
+        _h264 = controller;
+        _h264Loading = false;
+      });
+    } catch (e) {
+      await controller.dispose();
+      if (!mounted) return;
+      setState(() {
+        _h264Loading = false;
+        _h264Error = 'H.264 连接失败：$e';
+      });
+    }
+  }
+
+  void _setVideoMode(bool h264) {
+    if (_useH264 == h264) return;
+    setState(() => _useH264 = h264);
+    if (h264) {
+      _initH264();
+    } else {
+      _h264?.pause();
+    }
+  }
+
+  /// H.264 画面（解码由 FVP/FFmpeg 完成）
+  Widget _buildH264View() {
+    final controller = _h264;
+    if (controller == null || !controller.value.isInitialized) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_h264Loading)
+              const SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else
+              Icon(Icons.videocam_off_outlined, size: 40, color: Colors.grey[700]),
+            const SizedBox(height: 8),
+            Text(
+              _h264Loading ? '正在连接 H.264 图传...' : (_h264Error ?? '等待 H.264 画面'),
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+            if (!_h264Loading)
+              TextButton(
+                onPressed: () {
+                  final old = _h264;
+                  _h264 = null;
+                  old?.dispose();
+                  _initH264();
+                },
+                child: const Text('重试'),
+              ),
+          ],
+        ),
+      );
+    }
+    final size = controller.value.size;
+    return FittedBox(
+      fit: BoxFit.contain,
+      child: SizedBox(
+        width: size.width,
+        height: size.height,
+        child: Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.identity()
+            ..scale(_flipH ? -1.0 : 1.0, _flipV ? -1.0 : 1.0),
+          child: VideoPlayer(controller),
+        ),
+      ),
+    );
   }
 
   /// 订阅北斗卫星实时状态，供底部遥测和起飞播报使用
@@ -751,7 +852,9 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
         fit: StackFit.expand,
         children: [
           // 实时画面 / 占位提示
-          ValueListenableBuilder<Uint8List?>(
+          _useH264
+              ? _buildH264View()
+              : ValueListenableBuilder<Uint8List?>(
             valueListenable: _vision.frameNotifier,
             builder: (context, frame, _) {
               if (frame == null) {
@@ -814,7 +917,31 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                ValueListenableBuilder<int>(
+                if (_useH264)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.black54,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.videocam, size: 12, color: AppColors.primary),
+                        const SizedBox(width: 3),
+                        Text(
+                          'H.264 实时',
+                          style: TextStyle(
+                            color: AppColors.primary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  ValueListenableBuilder<int>(
                   valueListenable: _vision.fpsNotifier,
                   builder: (context, fps, _) {
                     return ValueListenableBuilder<int>(
@@ -878,31 +1005,40 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildProfileButton(),
-                const SizedBox(width: 4),
-                ValueListenableBuilder<bool>(
-                  valueListenable: _vision.streamingNotifier,
-                  builder: (context, streaming, _) {
-                    return _buildIconButton(
-                      streaming ? Icons.pause_circle_outline : Icons.play_circle_outline,
-                      streaming ? '暂停图传' : '恢复图传',
-                      () => streaming ? _vision.stop() : _vision.start(),
-                    );
-                  },
+                _buildIconButton(
+                  Icons.switch_video,
+                  _useH264 ? '切到 JPEG 图传' : '切到 H.264 图传',
+                  () => _setVideoMode(!_useH264),
                 ),
+                const SizedBox(width: 4),
+                if (!_useH264) ...[
+                  _buildProfileButton(),
+                  const SizedBox(width: 4),
+                  ValueListenableBuilder<bool>(
+                    valueListenable: _vision.streamingNotifier,
+                    builder: (context, streaming, _) {
+                      return _buildIconButton(
+                        streaming ? Icons.pause_circle_outline : Icons.play_circle_outline,
+                        streaming ? '暂停图传' : '恢复图传',
+                        () => streaming ? _vision.stop() : _vision.start(),
+                      );
+                    },
+                  ),
+                ],
               ],
             ),
           ),
-          // 右下角：高清拍照
-          Positioned(
-            bottom: 6,
-            right: 8,
-            child: _buildIconButton(
-              Icons.photo_camera_outlined,
-              '高清拍照',
-              () => _vision.requestSnapshot(),
+          // 右下角：高清拍照（仅旧视觉板 JPEG 链路）
+          if (!_useH264)
+            Positioned(
+              bottom: 6,
+              right: 8,
+              child: _buildIconButton(
+                Icons.photo_camera_outlined,
+                '高清拍照',
+                () => _vision.requestSnapshot(),
+              ),
             ),
-          ),
         ],
       ),
     );
