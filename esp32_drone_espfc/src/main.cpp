@@ -151,7 +151,11 @@ void setup()
   espfc.load();
   videoBridgeBegin();
   Task::create(gyroTask, "gyroTask", 8192, nullptr, Task::Priority::High, 1);
-  Task::create(pidTask, "pidTask", 8192, nullptr, Task::Priority::Low, 0);
+  // pidTask（PID 计算+电机输出）绝不能低于图传任务！Task::Priority::Low 映射为
+  // FreeRTOS 优先级 1，而图传 SPI 任务是 2、遥控 UDP 是 3——视频满载时 pidTask
+  // 被挤到无法按时输出电机指令，会导致起飞乱冲、倒扣（2026-11-26 实测坠机）。
+  // 提到 10：高于所有业务任务（3/2/1），低于 WiFi(23)/lwIP(18) 但它们是短促让出型
+  xTaskCreatePinnedToCore(pidTask, "pidTask", 8192, nullptr, 10, nullptr, 0);
   // Keep the Arduino loop task alive: it feeds the task watchdog. Deleting it
   // causes "esp_task_wdt_reset: task not found" and a boot loop on core 3.x.
 }
