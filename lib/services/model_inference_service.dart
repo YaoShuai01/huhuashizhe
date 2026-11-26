@@ -351,6 +351,32 @@ Uint8List convertYuvToRgbResized({
   return out;
 }
 
+/// RGBA8888 → RGB888，最近邻缩放到目标尺寸（纯函数，图传JPEG解码帧使用）
+Uint8List convertRgbaToRgbResized({
+  required Uint8List rgba,
+  required int width,
+  required int height,
+  required int outSize,
+}) {
+  final out = Uint8List(outSize * outSize * 3);
+  final ratioX = width / outSize;
+  final ratioY = height / outSize;
+  for (var oy = 0; oy < outSize; oy++) {
+    var iy = (oy * ratioY).toInt();
+    if (iy >= height) iy = height - 1;
+    for (var ox = 0; ox < outSize; ox++) {
+      var ix = (ox * ratioX).toInt();
+      if (ix >= width) ix = width - 1;
+      final src = (iy * width + ix) * 4;
+      final o = (oy * outSize + ox) * 3;
+      out[o] = rgba[src];
+      out[o + 1] = rgba[src + 1];
+      out[o + 2] = rgba[src + 2];
+    }
+  }
+  return out;
+}
+
 /// 相机帧数据快照（纯字节数据，可跨 isolate 传递）
 class FrameSnapshot {
   final Uint8List yPlane;
@@ -362,6 +388,10 @@ class FrameSnapshot {
   final int uvRowBytes;
   final int uvPixelStride;
 
+  /// true 时 yPlane 存的是 RGBA8888 像素（图传JPEG解码产物），
+  /// toRgbResized 走 RGBA→RGB 分支，忽略 YUV 相关字段
+  final bool isRgba;
+
   const FrameSnapshot({
     required this.yPlane,
     required this.uPlane,
@@ -371,6 +401,7 @@ class FrameSnapshot {
     required this.yRowBytes,
     required this.uvRowBytes,
     required this.uvPixelStride,
+    this.isRgba = false,
   });
 
   factory FrameSnapshot.fromCameraImage(CameraImage image) {
@@ -386,8 +417,32 @@ class FrameSnapshot {
     );
   }
 
+  /// 图传JPEG解码后的RGBA帧快照（解码侧已缩放到目标尺寸）
+  factory FrameSnapshot.fromRgba(Uint8List rgba, {required int width, required int height}) {
+    return FrameSnapshot(
+      yPlane: rgba,
+      uPlane: Uint8List(0),
+      vPlane: Uint8List(0),
+      width: width,
+      height: height,
+      yRowBytes: width * 4,
+      uvRowBytes: 0,
+      uvPixelStride: 0,
+      isRgba: true,
+    );
+  }
+
   /// 转换+缩放到推理输入尺寸
-  Uint8List toRgbResized(int outSize) => convertYuvToRgbResized(
+  Uint8List toRgbResized(int outSize) {
+    if (isRgba) {
+      return convertRgbaToRgbResized(
+        rgba: yPlane,
+        width: width,
+        height: height,
+        outSize: outSize,
+      );
+    }
+    return convertYuvToRgbResized(
         yPlane: yPlane,
         uPlane: uPlane,
         vPlane: vPlane,
@@ -398,4 +453,5 @@ class FrameSnapshot {
         uvPixelStride: uvPixelStride,
         outSize: outSize,
       );
+  }
 }

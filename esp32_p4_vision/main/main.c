@@ -30,23 +30,25 @@
 static const char *TAG = "P4H264";
 
 #define CAPTURE_BUFFERS 2
-#define TARGET_FPS      15
-// 飞控→手机这段 2.4G 下行实测只有 2.2Mbps（约 275KB/s，手机省电模式按 DTIM 分批发包），
-// 且编码器峰值约为均值的 1.4 倍。码率必须留足余量，否则分片丢失会让帧残缺、画面花屏。
-// 1300kbps 的峰值约 1.8Mbps，给链路留 0.4Mbps 余量
-#define TARGET_BITRATE  (1300 * 1000)
+#define TARGET_FPS      20
+// OV5647 1280x960 binning 模式经 V4L2/ISP 链路实测出帧约 24fps（标称 45fps 档被驱动限速）
+#define SENSOR_FPS      24
+// 飞控→手机下行实测上限 ~2.2Mbps（~195包/秒）。1.6Mbps 均值 + 1.4 倍 IDR
+// 峰值 ≈ 2.24Mbps，恰好贴住上限；IDR 突发由飞控 40 段发送队列 + beacon50ms 吸收
+#define TARGET_BITRATE  (1600 * 1000)
 #define SEND_CHUNK      4096
 
-/* 输出分辨率：OV5647 没有原生 720p 模式，采集 1080p 后用 PPA 硬件缩放到 1280x720 再编码。
- * 缩小后像素少了 33%，同样码率下每像素比特数提高，画面比直接编码 1280x960 更锐 */
-#define OUT_WIDTH       1280
-#define OUT_HEIGHT      720
-#define SRC_WIDTH       1920
-#define SRC_HEIGHT      1080
-// PPA 缩放精度是 1/16，2/3 无法精确表示；用 11/16=0.6875 缩放 1862x1048 的居中区域得到 1280x720
-#define PPA_SCALE       (11.0f / 16.0f)
-#define PPA_CROP_W      ((uint32_t)(OUT_WIDTH / PPA_SCALE) & ~1u)   /* 1862 */
-#define PPA_CROP_H      ((uint32_t)(OUT_HEIGHT / PPA_SCALE) & ~1u)  /* 1048 */
+/* 输出分辨率：OV5647 原生没有 720p，用 1280x960（2x2 binning，全视场）经 PPA 硬件缩放到 800x600 再编码。
+ * 为什么不硬上 720p：1.3Mbps 摊到 1280x720 只有 0.09 bit/像素，H.264 会压出明显块状失真；
+ * 800x600 在 1.5Mbps 下有 0.21 bit/像素，明显更干净。这是 2.2Mbps 下行下的最优解 */
+#define OUT_WIDTH       800
+#define OUT_HEIGHT      600
+#define SRC_WIDTH       1280
+#define SRC_HEIGHT      960
+// PPA 缩放精度 1/16；800/1280 = 10/16 = 0.625，正好整除，不裁切、不丢视场
+#define PPA_SCALE       (10.0f / 16.0f)
+#define PPA_CROP_W      ((uint32_t)(OUT_WIDTH / PPA_SCALE) & ~1u)   /* 1280 */
+#define PPA_CROP_H      ((uint32_t)(OUT_HEIGHT / PPA_SCALE) & ~1u)  /* 960 */
 #define PPA_OFF_X       (((SRC_WIDTH - PPA_CROP_W) / 2) & ~1u)
 #define PPA_OFF_Y       (((SRC_HEIGHT - PPA_CROP_H) / 2) & ~1u)
 
@@ -56,14 +58,44 @@ static const char *TAG = "P4H264";
 #define PIN_SPI_CS      22
 #define SPI_CHUNK       2048
 
-static void fourcc_str(uint32_t f, char out[5])
-{
+static void fourcc_str(uint32_t f, char out[5]) {
     out[0] = (char)(f & 0xff);
     out[1] = (char)((f >> 8) & 0xff);
     out[2] = (char)((f >> 16) & 0xff);
     out[3] = (char)((f >> 24) & 0xff);
     out[4] = '\0';
 }
+
+/* 诊断：把编码输入的一帧抽样成 100x75，用十六进制走日志通道输出，PC 端还原成图片，
+ * 用来确认 ISP/PPA 出来的画面本身有没有问题（默认关闭） */
+#define DUMP_FRAME_ENABLE 0
+#if DUMP_FRAME_ENABLE
+#define DUMP_STEP 8
+static void dump_frame(const uint8_t *buf, int w, int h)
+{
+    const int ow = w / DUMP_STEP;
+    const int oh = h / DUMP_STEP;
+    ESP_LOGW(TAG, "@@HEX %d %d@@", ow, oh);
+    for (int y = 0; y < oh; y++) {
+        const uint16_t *src = (const uint16_t *)buf + (size_t)(y * DUMP_STEP) * w;
+        char line[81];
+        int n = 0;
+        for (int x = 0; x < ow; x++) {
+            n += snprintf(line + n, sizeof(line) - n, "%04x", src[x * DUMP_STEP]);
+            if (n >= 64) {
+                line[n] = '\0';
+                ESP_LOGW(TAG, "%s", line);
+                n = 0;
+            }
+        }
+        if (n > 0) {
+            line[n] = '\0';
+            ESP_LOGW(TAG, "%s", line);
+        }
+    }
+    ESP_LOGW(TAG, "@@HEXEND@@");
+}
+#endif
 
 static spi_device_handle_t s_spi = NULL;
 static uint8_t s_spi_buf[SPI_CHUNK] __attribute__((aligned(4)));
@@ -83,8 +115,9 @@ static bool spi_bridge_init(void)
         return false;
     }
     spi_device_interface_config_t devcfg = {
-        // 20MHz 在长杜邦线上容易误码，10MHz 对 1.1Mbps 视频绰绰有余
-        .clock_speed_hz = 10 * 1000 * 1000,
+        // 20MHz 在长杜邦线上容易误码；装机后有电机/电调干扰，降到 8MHz 换取抗扰余量
+        // （视频峰值 2.24Mbps，8MHz SPI 容量 8Mbps，余量充足）
+        .clock_speed_hz = 8 * 1000 * 1000,
         .mode = 0,
         .spics_io_num = PIN_SPI_CS,
         .queue_size = 1,
@@ -172,11 +205,11 @@ void app_main(void)
         return;
     }
 
-    // 驱动默认出 1280x960，这里固定采集 1080p，再交给 PPA 缩放到 720p
+    // 驱动默认出 1280x960（binning，全视场、低照度好），PPA 再缩到 800x600
     fmt.fmt.pix.width = SRC_WIDTH;
     fmt.fmt.pix.height = SRC_HEIGHT;
     if (ioctl(fd, VIDIOC_S_FMT, &fmt) != 0) {
-        ESP_LOGW(TAG, "S_FMT 1920x1080 失败 errno=%d，沿用默认分辨率", errno);
+        ESP_LOGW(TAG, "S_FMT %dx%d 失败 errno=%d，沿用默认分辨率", SRC_WIDTH, SRC_HEIGHT, errno);
         memset(&fmt, 0, sizeof(fmt));
         fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         ioctl(fd, VIDIOC_G_FMT, &fmt);
@@ -188,7 +221,8 @@ void app_main(void)
     const uint32_t height = fmt.fmt.pix.height;
     const bool use_ppa = (width == SRC_WIDTH && height == SRC_HEIGHT);
     if (!use_ppa) {
-        ESP_LOGW(TAG, "采集分辨率 %ux%u 不是 1920x1080，跳过 PPA，直接按原尺寸编码", width, height);
+        ESP_LOGW(TAG, "采集分辨率 %ux%u 不是 %dx%d，跳过 PPA，直接按原尺寸编码",
+                 width, height, SRC_WIDTH, SRC_HEIGHT);
     }
     const uint32_t enc_w = use_ppa ? OUT_WIDTH : width;
     const uint32_t enc_h = use_ppa ? OUT_HEIGHT : height;
@@ -211,8 +245,8 @@ void app_main(void)
             ESP_LOGE(TAG, "PPA 输出缓冲分配失败");
             return;
         }
-        ESP_LOGI(TAG, "PPA 缩放就绪: 裁剪 %ux%u@(%u,%u) x 11/16 -> %ux%u",
-                 PPA_CROP_W, PPA_CROP_H, PPA_OFF_X, PPA_OFF_Y, enc_w, enc_h);
+        ESP_LOGI(TAG, "PPA 缩放就绪: %ux%u -> %ux%u (x%.4f)",
+                 PPA_CROP_W, PPA_CROP_H, enc_w, enc_h, (double)PPA_SCALE);
     }
 
     /* 硬件 H.264 编码器：直接吃 RGB565 */
@@ -297,10 +331,11 @@ void app_main(void)
     int frames = 0;
     uint32_t bytes = 0;
     int errors = 0;
-    // 硬件编码器本身按传感器帧率（实测 23fps）出帧，配置里的 fps 不生效，
-    // 码率就会顶到链路之上。这里按时间戳主动丢帧，把实际帧率压到 TARGET_FPS。
-    int64_t last_enc_us = 0;
-    const int64_t frame_interval_us = 1000000 / TARGET_FPS;
+    // 硬件编码器本身按传感器帧率出帧，配置里的 fps 不生效，需要主动丢帧。
+    // 注意不能用固定时间间隔：传感器 45fps（帧周期 22ms）配 50ms 间隔会量化退化成 15fps。
+    // 用累计器：每收一帧 acc += TARGET_FPS，累计满 SENSOR_FPS 就编码一帧，
+    // 平均帧率精确等于 TARGET_FPS，抖动不超过一个传感器帧周期
+    float acc = 0;
 
     while (1) {
         struct v4l2_buffer buf;
@@ -312,12 +347,12 @@ void app_main(void)
             continue;
         }
 
-        const int64_t t_now = esp_timer_get_time();
-        if (last_enc_us != 0 && t_now - last_enc_us < frame_interval_us) {
+        acc += TARGET_FPS;
+        if (acc < SENSOR_FPS) {
             ioctl(fd, VIDIOC_QBUF, &buf);
             continue;
         }
-        last_enc_us = t_now;
+        acc -= SENSOR_FPS;
 
         const void *enc_src = buffers[buf.index];
         if (use_ppa) {
@@ -344,6 +379,8 @@ void app_main(void)
                 .rotation_angle = PPA_SRM_ROTATION_ANGLE_0,
                 .scale_x = PPA_SCALE,
                 .scale_y = PPA_SCALE,
+                // 注意：这里不能开 rgb_swap！实测编码器的 RGB565_LE 期望的字节序
+                // 恰好与 ISP 输出一致；开 swap 反而会导致手机画面红蓝颠倒
                 .mode = PPA_TRANS_MODE_BLOCKING,
             };
             if (ppa_do_scale_rotate_mirror(ppa, &srm) != ESP_OK) {
@@ -353,6 +390,15 @@ void app_main(void)
             }
             enc_src = ppa_buf;
         }
+
+#if DUMP_FRAME_ENABLE
+        static int dump_n = 0;
+        dump_n++;
+        if (dump_n == 25 || dump_n == 600) {
+            ESP_LOGW(TAG, "@@DUMP %d@@", dump_n);
+            dump_frame((const uint8_t *)enc_src, enc_w, enc_h);
+        }
+#endif
 
         esp_h264_enc_in_frame_t in = {
             .raw_data = { .buffer = (void *)enc_src, .len = enc_w * enc_h * 2 },

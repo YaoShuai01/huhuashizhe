@@ -1371,6 +1371,15 @@ class VersionInfoPage extends ConsumerWidget {
   List<Widget> _buildUpdateHistory() {
     final histories = [
       {
+        'version': 'v3.12.0',
+        'date': '2026-11-26',
+        'content': [
+          '病虫害识别功能完整搬入快速遥控器：图传画面即拍即识，无需手机摄像头',
+          '遥控页右上角新增识别开关与模型选择（含热更新模型），左下角实时预警列表可查看采集图',
+          '识别到病虫害自动语音播报，命中问题类自动采集图传帧入库，退出遥控器自动同步到病虫害记录模块',
+        ],
+      },
+      {
         'version': 'v3.11.3',
         'date': '2026-11-25',
         'content': [

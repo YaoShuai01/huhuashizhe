@@ -188,16 +188,19 @@ int InputUdp::begin(void)
   WiFi.setSleep(false);
   const bool ap = WiFi.softAP(AP_SSID, nullptr, AP_CHANNEL, false, AP_MAX_CONN);
 
-  // DTIM=1：手机省电模式下每个 beacon（100ms）都能取走缓存的下行包。
+  // DTIM=1：手机省电模式下每个 beacon 都能取走缓存的下行包。
   // 默认 DTIM=3 时下行要等 300ms，TCP 吞吐会被压到 1Mbps 以下，图传必然丢段。
+  // beacon 50ms：手机按 beacon 醒来收包，间隔从 100ms 缩到 50ms 后
+  // 醒来频率翻倍，实测收包上限有望从 ~195pkt/s 提到 ~390pkt/s（约 4.4Mbps）
+  esp_wifi_set_ps(WIFI_PS_NONE);
   {
     wifi_config_t apcfg = {};
     if (esp_wifi_get_config(WIFI_IF_AP, &apcfg) == ESP_OK)
     {
       apcfg.ap.dtim_period = 1;
-      apcfg.ap.beacon_interval = 100;
+      apcfg.ap.beacon_interval = 50;
       esp_wifi_set_config(WIFI_IF_AP, &apcfg);
-      printf("[WIFI] ap dtim=%d beacon=%dms\n", (int)apcfg.ap.dtim_period, (int)apcfg.ap.beacon_interval);
+      printf("[WIFI] ap dtim=%d beacon=%dms ps=none\n", (int)apcfg.ap.dtim_period, (int)apcfg.ap.beacon_interval);
       fflush(stdout);
     }
   }
@@ -234,7 +237,10 @@ int InputUdp::begin(void)
     prefs.end();
   }
 
-  BaseType_t ret = xTaskCreatePinnedToCore(taskEntry, "udp_rc", 8192, this, 1, nullptr, 0);
+  // 优先级必须高于图传任务（video_bridge=2, video_tx=1）：
+  // 视频满载时两个图传任务会把同优先级/低优先级任务挤到排队，
+  // 控制包一旦被挤，遥控就会延时、不灵——控制永远比图传重要
+  BaseType_t ret = xTaskCreatePinnedToCore(taskEntry, "udp_rc", 8192, this, 3, nullptr, 0);
   return (ap && ret == pdPASS) ? 1 : 0;
 }
 

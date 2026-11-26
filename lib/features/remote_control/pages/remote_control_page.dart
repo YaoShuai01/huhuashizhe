@@ -1,8 +1,11 @@
 import 'dart:io';
 import 'dart:async';
+import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:fvp/fvp.dart' show FVPControllerExtensions;
 import 'package:go_router/go_router.dart';
 import 'package:path_provider/path_provider.dart';
@@ -10,23 +13,32 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../data/local_database.dart';
+import '../../../providers/weather_provider.dart';
+import '../../../services/ai_suggestion_worker.dart';
 import '../../../services/drone_udp_service.dart';
+import '../../../services/growth_record_store.dart';
 import '../../../services/h264_udp_relay.dart';
+import '../../../services/model_hotupdate_service.dart';
+import '../../../services/model_inference_service.dart';
 import '../../../services/satellite_service.dart';
 import '../../../services/vision_stream_service.dart';
 import '../../../services/voice_service.dart';
+import '../../../services/ys_image_store.dart';
+import '../../model_test/data/model_catalog.dart';
+import '../../model_test/widgets/warning_detail_card.dart';
 import '../widgets/drone_joystick.dart';
 import '../widgets/vertical_throttle.dart';
 import '../widgets/yaw_joystick.dart';
 
-class RemoteControlPage extends StatefulWidget {
+class RemoteControlPage extends ConsumerStatefulWidget {
   const RemoteControlPage({super.key});
 
   @override
-  State<RemoteControlPage> createState() => _RemoteControlPageState();
+  ConsumerState<RemoteControlPage> createState() => _RemoteControlPageState();
 }
 
-class _RemoteControlPageState extends State<RemoteControlPage> {
+class _RemoteControlPageState extends ConsumerState<RemoteControlPage> {
   final DroneUdpService _udp = DroneUdpService();
   final VisionStreamService _vision = VisionStreamService();
   static const _galleryChannel = MethodChannel('com.huhuashizhe/gallery');
@@ -52,6 +64,34 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
   int _beidouFound = 0;
   int _beidouUsed = 0;
 
+  // ===== 病虫害识别（原模型测试页功能，画面来源全部改为图传帧） =====
+  static const double _captureThreshold = 0.5;
+  static const int _inferenceIntervalMs = 600;
+  static const int _captureCooldownMs = 3000;
+
+  final ModelInferenceService _inference = ModelInferenceService();
+  final YsImageStore _ysStore = YsImageStore();
+
+  /// 当前选中模型（本地记忆上次选择，支持热更新模型）
+  List<AppModelEntry> _models = kAppModels;
+  AppModelEntry _model = modelEntryOf(LocalDatabase().get('selected_model_id'));
+  bool _modelReady = false;
+  bool _switchingModel = false;
+
+  bool _recogOn = false; // 识别开关
+  InferenceResult? _lastResult;
+  DateTime _lastInference = DateTime.fromMillisecondsSinceEpoch(0);
+  final Map<int, DateTime> _lastCaptureByClass = {};
+  bool _decodingFrame = false; // 上一帧JPEG还在解码时跳过新帧
+
+  /// 本次识别会话（退出遥控器时同步到病虫害记录模块）
+  late final String _sessionId =
+      'session_${DateTime.now().millisecondsSinceEpoch}';
+  /// 本次采集分类库：类别索引 → 问题组
+  final Map<int, ProblemGroup> _sessionGroups = {};
+  /// 缩略图缓存（.ys路径 → 解密JPEG字节）
+  final Map<String, Uint8List?> _thumbCache = {};
+
   @override
   void initState() {
     super.initState();
@@ -65,6 +105,9 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
     // 视觉板图传：进入遥控页自动开播，画面显示在中央预留区
     _vision.start();
     _vision.photoNotifier.addListener(_onPhoto);
+    // 病虫害识别：订阅图传帧（识别开关打开后消费帧做推理）
+    _vision.frameNotifier.addListener(_onVisionFrame);
+    _initRecognition();
     _initH264();
     // 未出画面时每秒刷新一次接收统计，便于现场判断卡在哪一环
     _h264UiTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -82,7 +125,9 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
     _gnssSub?.cancel();
     _udp.dispose();
     _vision.photoNotifier.removeListener(_onPhoto);
+    _vision.frameNotifier.removeListener(_onVisionFrame);
     _vision.dispose();
+    _inference.dispose();
     _h264?.dispose();
     _h264UiTimer?.cancel();
     _relay?.dispose();
@@ -224,6 +269,471 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
       onError: (Object error) {
         // 搜星失败时保持上一次状态，不打断遥控
       },
+    );
+  }
+
+  // ==================== 病虫害识别（画面来源：图传帧） ====================
+
+  /// 初始化：加载完整模型列表 → 加载推理引擎 → 静默检查热更新
+  Future<void> _initRecognition() async {
+    final all = await loadAllModels();
+    if (!mounted) return;
+    setState(() {
+      _models = all;
+      _model = modelEntryOf(LocalDatabase().get('selected_model_id'), all);
+    });
+    await _loadModel();
+    _checkHotupdate();
+  }
+
+  Future<void> _loadModel() async {
+    final ok = await _inference.load(
+      assetPath: _model.assetPath.isEmpty ? null : _model.assetPath,
+      filePath: _model.filePath,
+      inputSize: _model.inputSize,
+    );
+    if (!mounted) return;
+    setState(() => _modelReady = ok);
+    if (!ok) _toast('识别模型加载失败', error: true);
+  }
+
+  /// 静默检查模型热更新：有新模型后台下载，完成后自动进选择列表
+  Future<void> _checkHotupdate() async {
+    final svc = ModelHotupdateService.instance;
+    await svc.checkAndDownload();
+    if (svc.newlyAdded.isEmpty || !mounted) return;
+    final all = await loadAllModels();
+    if (!mounted) return;
+    setState(() => _models = all);
+    _toast('已自动更新模型：${svc.newlyAdded.join('、')}');
+  }
+
+  /// 切换模型：重载推理引擎并清空实时结果（图传不受影响）
+  Future<void> _switchModel(AppModelEntry entry) async {
+    if (entry.id == _model.id || _switchingModel) return;
+    setState(() {
+      _switchingModel = true;
+      _model = entry;
+    });
+    LocalDatabase().set('selected_model_id', entry.id);
+    final ok = await _inference.load(
+      assetPath: entry.assetPath.isEmpty ? null : entry.assetPath,
+      filePath: entry.filePath,
+      inputSize: entry.inputSize,
+    );
+    if (!mounted) return;
+    setState(() {
+      _lastResult = null;
+      _modelReady = ok;
+      _switchingModel = false;
+    });
+    _toast(ok ? '已切换：${entry.name}' : '模型加载失败', error: !ok);
+  }
+
+  /// 识别开关
+  Future<void> _toggleRecognition() async {
+    if (!_recogOn && !_modelReady) {
+      _toast('识别模型尚未就绪，请稍候', error: true);
+      return;
+    }
+    setState(() {
+      _recogOn = !_recogOn;
+      if (!_recogOn) _lastResult = null;
+    });
+    VoiceService.instance.speak(
+      _recogOn ? '已开启病虫害识别' : '已关闭病虫害识别',
+      priority: VoicePriority.status,
+    );
+    // 打开识别时若图传处于暂停态，自动恢复推流（识别依赖图传帧）
+    if (_recogOn && !_vision.streaming) {
+      _vision.start();
+    }
+  }
+
+  /// 图传JPEG帧到达：节流后解码 → 提交后台isolate推理
+  Future<void> _onVisionFrame() async {
+    if (!_recogOn || _decodingFrame) return;
+    final now = DateTime.now();
+    if (now.difference(_lastInference).inMilliseconds < _inferenceIntervalMs) {
+      return;
+    }
+    final jpg = _vision.frameNotifier.value;
+    if (jpg == null) return;
+    if (!_inference.isLoaded || _inference.isBusy) return;
+    _lastInference = now;
+    _decodingFrame = true;
+    try {
+      // 直接解码到模型输入尺寸，RGBA字节交给后台isolate转RGB+推理，
+      // 主线程只承担一次JPEG解码，不阻塞操控
+      final codec = await ui.instantiateImageCodec(
+        jpg,
+        targetWidth: _model.inputSize,
+        targetHeight: _model.inputSize,
+      );
+      final frame = await codec.getNextFrame();
+      final data =
+          await frame.image.toByteData(format: ui.ImageByteFormat.rawRgba);
+      frame.image.dispose();
+      codec.dispose();
+      if (data == null || !_recogOn || !mounted) return;
+      final snapshot = FrameSnapshot.fromRgba(
+        data.buffer.asUint8List(),
+        width: _model.inputSize,
+        height: _model.inputSize,
+      );
+      _inference.inferAsync(snapshot, (result) {
+        if (!mounted || !_recogOn) return;
+        setState(() => _lastResult = result);
+        _maybeSpeak(result);
+        _maybeCapture(result);
+      });
+    } catch (e) {
+      debugPrint('[RemoteControl] 图传帧解码失败: $e');
+    } finally {
+      _decodingFrame = false;
+    }
+  }
+
+  /// 识别到病虫害时语音播报（同一类别 10 秒内不重复，健康类别不播报）
+  void _maybeSpeak(InferenceResult result) {
+    final labels = _model.labels;
+    final idx = result.topIndex;
+    if (idx < 0 || idx >= labels.length) return;
+    final label = labels[idx];
+    if (label.healthy || result.topConfidence < _captureThreshold) return;
+    final percent = (result.topConfidence * 100).round();
+    VoiceService.instance.speak(
+      '检测到${label.zh}，置信度$percent%',
+      priority: VoicePriority.alert,
+      dedup: const Duration(seconds: 10),
+      dedupKey: 'pest_$idx',
+    );
+  }
+
+  /// 命中问题类→采集当前图传帧入库（按类别节流，同一类3秒最多1张）
+  /// 仅关联了记录模块的模型才采集；其他模型仅实时识别
+  Future<void> _maybeCapture(InferenceResult result) async {
+    if (_model.recordModuleKey == null) return;
+    final idx = result.topIndex;
+    final labels = _model.labels;
+    if (idx < 0 || idx >= labels.length || labels[idx].healthy) return;
+    if (result.topConfidence < _captureThreshold) return;
+
+    final now = DateTime.now();
+    final last = _lastCaptureByClass[idx];
+    if (last != null && now.difference(last).inMilliseconds < _captureCooldownMs) {
+      return;
+    }
+    _lastCaptureByClass[idx] = now;
+
+    final jpg = _vision.frameNotifier.value;
+    if (jpg == null) return;
+    try {
+      final ysPath = await _ysStore.saveCapturedImage(_sessionId, jpg);
+      if (!mounted) return;
+      setState(() {
+        final group = _sessionGroups[idx];
+        if (group != null) {
+          group.imagePaths.add(ysPath);
+          group.hitCount += 1;
+          if (result.topConfidence > group.maxConfidence) {
+            group.maxConfidence = result.topConfidence;
+          }
+        } else {
+          _sessionGroups[idx] = ProblemGroup(
+            labelIndex: idx.toString(),
+            zhName: labels[idx].zh,
+            desc: labels[idx].desc,
+            maxConfidence: result.topConfidence,
+            hitCount: 1,
+            imagePaths: [ysPath],
+          );
+        }
+      });
+    } catch (e) {
+      debugPrint('[RemoteControl] 采集失败: $e');
+    }
+  }
+
+  /// 退出遥控器：本次识别数据自动同步到 病虫害记录 模块
+  Future<void> _syncSessionOnExit() async {
+    if (_sessionGroups.isEmpty) return;
+    try {
+      final location =
+          ref.read(weatherProvider).valueOrNull?.locationName ?? '未知地区';
+      final now = DateTime.now();
+      final timeText =
+          '${now.year}-${_p2(now.month)}-${_p2(now.day)} ${_p2(now.hour)}:${_p2(now.minute)}';
+      final shortLocation = _shortLocation(location);
+      final record = GrowthRecord(
+        id: _sessionId,
+        name: '$shortLocation $timeText',
+        locationName: shortLocation,
+        timeText: timeText,
+        createdAt: now,
+        problems: _sessionGroups.values.map((g) => ProblemGroup(
+              labelIndex: g.labelIndex,
+              zhName: g.zhName,
+              desc: g.desc,
+              maxConfidence: g.maxConfidence,
+              hitCount: g.hitCount,
+              imagePaths: List<String>.from(g.imagePaths),
+            )).toList(),
+        aiPending: true,
+      );
+      GrowthRecordStore().add(record);
+      // 立即尝试生成AI建议（离线时AiWorker会暂存，联网后自动补全）
+      unawaited(AiSuggestionWorker().generateFor(record.id));
+    } catch (e) {
+      debugPrint('[RemoteControl] 退出同步失败: $e');
+    }
+  }
+
+  /// 地区信息只保留"某某市某某县/区"两级
+  String _shortLocation(String location) {
+    final parts = location.split(RegExp(r'[·•·]'));
+    if (parts.length >= 2) {
+      return '${parts[0].trim()}${parts[1].trim()}';
+    }
+    return location.trim();
+  }
+
+  String _p2(int n) => n.toString().padLeft(2, '0');
+
+  /// 解密.ys图片字节（带缓存）
+  Future<Uint8List?> _loadImageBytes(String path) async {
+    if (_thumbCache.containsKey(path)) return _thumbCache[path];
+    try {
+      final bytes = await _ysStore.readImageBytes(path);
+      _thumbCache[path] = bytes;
+      return bytes;
+    } catch (e) {
+      debugPrint('[RemoteControl] 图片解密失败: $e');
+      _thumbCache[path] = null;
+      return null;
+    }
+  }
+
+  /// 模型选择弹窗（显示当前模型名，列出全部可用模型含热更新）
+  void _showModelPicker() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.grey[900],
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.8,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Text(
+                    '选择识别模型',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600),
+                  ),
+                ),
+                const Divider(color: Colors.grey, height: 1),
+                Flexible(
+                  child: ListView(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    children: [
+                      for (final m in _models)
+                        ListTile(
+                          dense: true,
+                          leading: Icon(
+                            m.id == _model.id
+                                ? Icons.radio_button_checked
+                                : Icons.radio_button_unchecked,
+                            color: m.id == _model.id
+                                ? AppColors.primary
+                                : Colors.grey,
+                            size: 20,
+                          ),
+                          title: Text(
+                            m.name,
+                            style: TextStyle(
+                              color: m.id == _model.id
+                                  ? AppColors.primary
+                                  : Colors.white,
+                              fontSize: 13,
+                              fontWeight: m.id == _model.id
+                                  ? FontWeight.w700
+                                  : FontWeight.w400,
+                            ),
+                          ),
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            _switchModel(m);
+                          },
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 预警列表面板：本次识别会话命中的问题分类
+  void _showWarningSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.grey[900],
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        final groups = _sessionGroups.values.toList()
+          ..sort((a, b) => b.hitCount.compareTo(a.hitCount));
+        return SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.75,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    '实时预警（${groups.length}）',
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600),
+                  ),
+                ),
+                const Divider(color: Colors.grey, height: 1),
+                Flexible(
+                  child: groups.isEmpty
+                      ? Padding(
+                          padding: const EdgeInsets.all(24),
+                          child: Text(
+                            '暂无预警，打开识别开始检测',
+                            style: TextStyle(
+                                color: Colors.grey[500], fontSize: 13),
+                          ),
+                        )
+                      : ListView(
+                          shrinkWrap: true,
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          children: [
+                            for (final g in groups)
+                              ListTile(
+                                dense: true,
+                                leading: const Icon(Icons.pest_control,
+                                    color: AppColors.error, size: 22),
+                                title: Text(
+                                  g.zhName,
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600),
+                                ),
+                                subtitle: Text(
+                                  '识别 ${g.hitCount} 次 · 置信度 '
+                                  '${(g.maxConfidence * 100).toStringAsFixed(0)}%',
+                                  style: TextStyle(
+                                      color: Colors.grey[500], fontSize: 11),
+                                ),
+                                trailing: const Icon(Icons.chevron_right,
+                                    color: Colors.grey, size: 18),
+                                onTap: () {
+                                  Navigator.pop(ctx);
+                                  showWarningDetailCard(
+                                    context,
+                                    problem: g,
+                                    imageLoader: _loadImageBytes,
+                                  );
+                                },
+                              ),
+                          ],
+                        ),
+                ),
+                const SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 实时标注叠加条：问题类红色、健康类绿色
+  Widget _buildRecogOverlay() {
+    if (!_recogOn) return const SizedBox.shrink();
+    final result = _lastResult;
+    Widget content;
+    if (_switchingModel) {
+      content = _recogChip('正在切换模型...', AppColors.info, Icons.sync);
+    } else if (!_modelReady) {
+      content = _recogChip('模型加载中...', AppColors.info, Icons.sync);
+    } else if (result == null) {
+      content = _recogChip('等待图传画面...', Colors.white38, Icons.videocam);
+    } else {
+      final idx = result.topIndex;
+      final labels = _model.labels;
+      final isProblem =
+          idx >= 0 && idx < labels.length && !labels[idx].healthy;
+      final color = isProblem ? AppColors.error : AppColors.success;
+      final label = (idx >= 0 && idx < labels.length)
+          ? labels[idx].zh
+          : '未知';
+      final conf = (result.topConfidence * 100).toStringAsFixed(1);
+      content = _recogChip(
+        '$label  $conf%',
+        color,
+        isProblem ? Icons.warning_amber_rounded : Icons.check_circle,
+      );
+    }
+    return Positioned(
+      top: 38,
+      left: 0,
+      right: 0,
+      child: Center(child: content),
+    );
+  }
+
+  Widget _recogChip(String text, Color color, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.85),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white, size: 16),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              text,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -615,6 +1125,8 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
             onPressed: () {
               Navigator.pop(ctx);
               _udp.setArmed(false);
+              // 退出前把本次识别采集的数据同步到病虫害记录模块
+              _syncSessionOnExit();
               Navigator.of(context).pop();
             },
             style: TextButton.styleFrom(foregroundColor: AppColors.error),
@@ -945,6 +1457,8 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
               );
             },
           ),
+          // 病虫害识别实时标注叠加条
+          _buildRecogOverlay(),
           // 左上角：FPS/码率 + 水平/垂直翻转
           Positioned(
             top: 4,
@@ -1033,13 +1547,22 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
               ],
             ),
           ),
-          // 右上角：画质切换 + 暂停/恢复图传
+          // 右上角：识别开关 + 模型选择 + 画质切换 + 暂停/恢复图传
           Positioned(
             top: 4,
             right: 8,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                _buildIconButton(
+                  _recogOn ? Icons.psychology : Icons.psychology_alt,
+                  _recogOn ? '关闭病虫害识别' : '开启病虫害识别',
+                  _toggleRecognition,
+                  active: _recogOn,
+                ),
+                const SizedBox(width: 4),
+                _buildModelChip(),
+                const SizedBox(width: 4),
                 _buildIconButton(
                   Icons.switch_video,
                   _useH264 ? '切到 JPEG 图传' : '切到 H.264 图传',
@@ -1063,6 +1586,12 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
               ],
             ),
           ),
+          // 左下角：实时预警列表入口（角标显示本次识别命中分类数）
+          Positioned(
+            bottom: 6,
+            left: 8,
+            child: _buildWarningEntry(),
+          ),
           // 右下角：高清拍照（仅旧视觉板 JPEG 链路）
           if (!_useH264)
             Positioned(
@@ -1075,6 +1604,76 @@ class _RemoteControlPageState extends State<RemoteControlPage> {
               ),
             ),
         ],
+      ),
+    );
+  }
+
+  /// 识别模型选择入口（显示当前模型名，过长截断）
+  Widget _buildModelChip() {
+    var name = _model.name;
+    if (name.length > 8) name = '${name.substring(0, 8)}…';
+    return Material(
+      color: _recogOn
+          ? AppColors.primary.withValues(alpha: 0.3)
+          : Colors.black45,
+      borderRadius: BorderRadius.circular(6),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: _showModelPicker,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                name,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const Icon(Icons.arrow_drop_down, size: 16, color: Colors.white70),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 实时预警列表入口：带命中分类数角标
+  Widget _buildWarningEntry() {
+    final count = _sessionGroups.length;
+    return Material(
+      color: count > 0
+          ? AppColors.error.withValues(alpha: 0.55)
+          : Colors.black45,
+      borderRadius: BorderRadius.circular(6),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: _showWarningSheet,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.notifications_active,
+                size: 16,
+                color: count > 0 ? Colors.white : Colors.white70,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                '预警 $count',
+                style: TextStyle(
+                  color: count > 0 ? Colors.white : Colors.white70,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
